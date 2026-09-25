@@ -1,6 +1,6 @@
 name: pasar_desa_umkm
 description: Aplikasi PasarDesa UMKM Desa Sukorejo - Tugas #6 Mobile Developer Documentation.
-publish_to: "none"
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
@@ -19,10 +19,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
   assets:
     - assets/images/beras.png
     - assets/images/jeruk.png
     - assets/images/telur.png
     - assets/images/keripik.png
     - assets/images/beras_detail.png
-
