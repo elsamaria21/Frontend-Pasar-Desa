@@ -55,8 +55,10 @@ class BrandHeader extends StatelessWidget {
                 ],
               ),
             ),
-            const Text('UMKM DESA SUKOREJO',
-              style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.w800, color: AppColors.green)),
+            const Text(
+              'UMKM DESA SUKOREJO',
+              style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.w800, color: AppColors.green),
+            ),
           ],
         ),
       ],
@@ -66,12 +68,14 @@ class BrandHeader extends StatelessWidget {
 
 class RoundAvatar extends StatelessWidget {
   const RoundAvatar({super.key});
+  
   @override
   Widget build(BuildContext context) => Container(
-    width: 31, height: 31,
-    decoration: const BoxDecoration(color: AppColors.green, shape: BoxShape.circle),
-    child: const Icon(Icons.person_outline, size: 19, color: Colors.white),
-  );
+        width: 31,
+        height: 31,
+        decoration: const BoxDecoration(color: AppColors.green, shape: BoxShape.circle),
+        child: const Icon(Icons.person_outline, size: 19, color: Colors.white),
+      );
 }
 
 class TopBar extends StatelessWidget {
@@ -85,9 +89,12 @@ class TopBar extends StatelessWidget {
     return Row(
       children: [
         if (back)
-          IconButton(onPressed: onBack ?? () => Navigator.pop(context), icon: const Icon(Icons.arrow_back_ios_new, size: 18)),
+          IconButton(
+            onPressed: onBack ?? () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+          ),
         if (!back) const BrandHeader(),
-        if (back) Expanded(child: Text(title, style: titleStyle(size: 16))),
+        if (back) Expanded(child: Text(title, style: AppTheme.titleStyle(size: 16))),
         if (!back) const Spacer(),
         const Icon(Icons.notifications_none, size: 22),
         const SizedBox(width: 12),
@@ -104,8 +111,14 @@ class BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const labels = ['Beranda','Kategori','Keranjang','Pesanan','Profil'];
-    const icons = [Icons.storefront_outlined, Icons.grid_view_outlined, Icons.shopping_cart_outlined, Icons.receipt_long_outlined, Icons.person_outline];
+    const labels = ['Beranda', 'Kategori', 'Keranjang', 'Pesanan', 'Profil'];
+    const icons = [
+      Icons.storefront_outlined,
+      Icons.grid_view_outlined,
+      Icons.shopping_cart_outlined,
+      Icons.receipt_long_outlined,
+      Icons.person_outline
+    ];
     return Container(
       padding: const EdgeInsets.only(top: 7, bottom: 10),
       decoration: const BoxDecoration(
@@ -123,7 +136,14 @@ class BottomNav extends StatelessWidget {
               children: [
                 Icon(icons[i], size: 20, color: selected ? AppColors.green : Colors.black87),
                 const SizedBox(height: 2),
-                Text(labels[i], style: TextStyle(fontSize: 9, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? AppColors.green : Colors.black87)),
+                Text(
+                  labels[i],
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected ? AppColors.green : Colors.black87,
+                  ),
+                ),
               ],
             ),
           );
@@ -170,9 +190,9 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(title, style: titleStyle(size: 14)),
+        Text(title, style: AppTheme.titleStyle(size: 14)),
         const Spacer(),
-        if (trailing != null) Text(trailing!, style: greenStyle(size: 10)),
+        if (trailing != null) Text(trailing!, style: AppTheme.greenStyle(size: 10)),
       ],
     );
   }
@@ -185,7 +205,10 @@ class Money extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text('Rp ${_format(value)}', style: TextStyle(fontSize: size, fontWeight: FontWeight.w800, color: AppColors.green));
+    return Text(
+      'Rp ${_format(value)}',
+      style: TextStyle(fontSize: size, fontWeight: FontWeight.w800, color: AppColors.green),
+    );
   }
 
   String _format(int n) {

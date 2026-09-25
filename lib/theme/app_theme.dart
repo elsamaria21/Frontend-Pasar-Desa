@@ -13,72 +13,68 @@ class AppColors {
   static const bg = Color(0xFFF8FAF8);
 }
 
-final ThemeData appTheme = ThemeData(
-  useMaterial3: true,
-  scaffoldBackgroundColor: Colors.white,
-  colorScheme: ColorScheme.fromSeed(
-    seedColor: AppColors.green,
-  ),
-  fontFamily: 'Arial',
-  textTheme: const TextTheme(
-    bodyMedium: TextStyle(
-      fontSize: 13,
+class AppTheme {
+  static ThemeData get theme {
+    return ThemeData(
+      useMaterial3: true,
+      scaffoldBackgroundColor: AppColors.bg,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: AppColors.green,
+        primary: AppColors.green,
+      ),
+      fontFamily: 'Arial',
+      textTheme: const TextTheme(
+        bodyMedium: TextStyle(
+          fontSize: 13,
+          color: AppColors.text,
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 13,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(8)),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(8)),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(8)),
+          borderSide: const BorderSide(
+            color: AppColors.green,
+            width: 1.5,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper TextStyles untuk dipakai di halaman/screen lain
+  static TextStyle titleStyle({
+    double size = 18,
+    FontWeight weight = FontWeight.w700,
+  }) {
+    return TextStyle(
+      fontSize: size,
+      fontWeight: weight,
       color: AppColors.text,
-    ),
-  ),
-  inputDecorationTheme: const InputDecorationTheme(
-    filled: true,
-    fillColor: Colors.white,
-    contentPadding: EdgeInsets.symmetric(
-      horizontal: 14,
-      vertical: 13,
-    ),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.all(
-        Radius.circular(8),
-      ),
-      borderSide: BorderSide(
-        color: AppColors.border,
-      ),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.all(
-        Radius.circular(8),
-      ),
-      borderSide: BorderSide(
-        color: AppColors.border,
-      ),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.all(
-        Radius.circular(8),
-      ),
-      borderSide: BorderSide(
-        color: AppColors.green,
-        width: 1.5,
-      ),
-    ),
-  ),
-);
+    );
+  }
 
-TextStyle titleStyle({
-  double size = 18,
-  FontWeight weight = FontWeight.w700,
-}) {
-  return TextStyle(
-    fontSize: size,
-    fontWeight: weight,
-    color: AppColors.text,
-  );
-}
-
-TextStyle greenStyle({
-  double size = 13,
-  FontWeight weight = FontWeight.w700,
-}) {
-  return TextStyle(
-    fontSize: size,
-    fontWeight: weight,
-    color: AppColors.green,
-  );
+  static TextStyle greenStyle({
+    double size = 13,
+    FontWeight weight = FontWeight.w700,
+  }) {
+    return TextStyle(
+      fontSize: size,
+      fontWeight: weight,
+      color: AppColors.green,
+    );
+  }
 }
