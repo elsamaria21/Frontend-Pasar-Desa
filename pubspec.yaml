@@ -22,7 +22,7 @@ flutter:
 
   assets:
     - assets/images/beras.png
-    - assets/images/jeruk.png
+    - assets/images/jagung.png
     - assets/images/telur.png
     - assets/images/keripik.png
-    - assets/images/beras_detail.png
+    - assets/images/beras_detail.jpeg

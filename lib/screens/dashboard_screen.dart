@@ -8,48 +8,52 @@ import '../widgets/product_card.dart';
 import 'detail_screen.dart';
 import 'category_screen.dart';
 import 'cart_screen.dart';
+import 'profile_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() =>
-      _DashboardScreenState();
+  State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState
-    extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> {
   int current = 0;
 
-  late final List<Widget> screens = [
-    const _HomeBody(),
-    const CategoryScreen(),
-    const CartScreen(),
-    const _HistoryBody(),
-    const _ProfileBody(),
-  ];
+  void changeTab(int index) {
+    setState(() {
+      current = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAF8),
       body: SafeArea(
-        child: screens[current],
+        child: IndexedStack(
+          index: current,
+          children: [
+            const _HomeBody(),
+            const CategoryScreen(),
+            CartScreen(
+              embedded: true,
+              onStartShopping: () {
+                changeTab(0);
+              },
+            ),
+            const _HistoryBody(),
+            const ProfileScreen(),
+          ],
+        ),
       ),
       bottomNavigationBar: BottomNav(
         current: current,
-        onTap: (index) {
-          setState(() {
-            current = index;
-          });
-        },
+        onTap: changeTab,
       ),
     );
   }
 }
-
-// =====================================================
-// HOME
-// =====================================================
 
 class _HomeBody extends StatelessWidget {
   const _HomeBody();
@@ -57,280 +61,355 @@ class _HomeBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
       slivers: [
         SliverPadding(
-          padding:
-              const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            14,
+            16,
+            0,
+          ),
           sliver: SliverToBoxAdapter(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const TopBar(
-                  title: 'PasarDesa',
-                ),
-
-                const SizedBox(height: 12),
-
-                // SEARCH
-                TextField(
-                  decoration: InputDecoration(
-                    hintText:
-                        'Cari beras pulen, sayur segar...',
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      size: 18,
-                    ),
-                    suffixIcon: Container(
-                      margin: const EdgeInsets.all(5),
-                      decoration: BoxDecoration(
-                        color: AppColors.green,
-                        borderRadius:
-                            BorderRadius.circular(6),
-                      ),
-                      child: const Icon(
-                        Icons.tune,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 9),
-
-                // LOCATION
                 Row(
-                  children: const [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 17,
+                  children: [
+                    const BrandMark(
+                      size: 28,
                     ),
-                    SizedBox(width: 4),
-                    Text(
-                      'Asal Panen Komoditas',
-                      style: TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Spacer(),
-                    Text(
-                      'Blok Sawah & UMKM Sukorejo',
-                      style: TextStyle(
-                        fontSize: 8,
-                        color: AppColors.green,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
 
-                const SizedBox(height: 12),
+                    const SizedBox(width: 8),
 
-                // KOPERASI
-                Container(
-                  height: 53,
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: AppColors.greenLight,
-                    borderRadius:
-                        BorderRadius.circular(9),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons
-                            .account_balance_wallet_outlined,
-                        color: AppColors.green,
-                        size: 25,
-                      ),
-
-                      const SizedBox(width: 8),
-
-                      const Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'TABUNGAN KOPERASI DESA',
+                            'PasarDesa',
                             style: TextStyle(
-                              fontSize: 7,
-                              color: AppColors.muted,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.green,
                             ),
                           ),
                           Text(
-                            'Rp 340.500',
+                            'UMKM DESA SUKOREJO',
                             style: TextStyle(
-                              fontSize: 11,
-                              fontWeight:
-                                  FontWeight.w900,
+                              fontSize: 7,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.muted,
                             ),
                           ),
                         ],
                       ),
+                    ),
 
-                      const Spacer(),
+                    // NOTIFICATION
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(
+                        Icons.notifications_none_outlined,
+                        size: 21,
+                      ),
+                    ),
 
-                      TextButton(
-                        onPressed: () {},
-                        child: const Text(
-                          'Top Up / Bayar',
-                          style: TextStyle(
+                    // CART
+                    IconButton(
+                      onPressed: () {
+                        final dashboard = context
+                            .findAncestorStateOfType<_DashboardScreenState>();
+
+                        if (dashboard != null) {
+                          dashboard.changeTab(2);
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.shopping_cart_outlined,
+                        size: 21,
+                      ),
+                    ),
+
+                    const RoundAvatar(),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Halo, BudiSantoso 👋',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 13,
+                      color: AppColors.muted,
+                    ),
+                    SizedBox(width: 3),
+                    Text(
+                      'RT 02 / RW 01, Sukorejo',
+                      style: TextStyle(
+                        fontSize: 8,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 13),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: 'Cari beras pulen, sayur segar...',
+                          hintStyle: const TextStyle(
                             fontSize: 8,
+                            color: AppColors.muted,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            size: 18,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(9),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Container(
+                      width: 43,
+                      height: 43,
+                      decoration: BoxDecoration(
+                        color: AppColors.green,
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: const Icon(
+                        Icons.tune,
+                        color: Colors.white,
+                        size: 19,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 13),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.border,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppColors.greenLight,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.account_balance_wallet_outlined,
+                          color: AppColors.green,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'TABUNGAN KOPERASI DESA',
+                              style: TextStyle(
+                                fontSize: 7,
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Rp 340.500',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Text(
+                        'Top Up / Bayar',
+                        style: TextStyle(
+                          fontSize: 8,
+                          color: AppColors.green,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.green,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Spesial Petani Desa',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            SizedBox(height: 3),
+                            Text(
+                              'Panen Raya Sukorejo',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            SizedBox(height: 3),
+                            Text(
+                              'Diskon s/d 20%',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Langsung dari kebun tanpa tengkulak.\n'
+                              'Sukorejo. Bebas ongkir se-Desa.',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 7,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: const Text(
+                          'Belanja Segar →',
+                          style: TextStyle(
                             color: AppColors.green,
-                            fontWeight:
-                                FontWeight.w800,
+                            fontSize: 7,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-
-                const SizedBox(height: 9),
-
-                // BANNER
-                Container(
-                  width: double.infinity,
-                  height: 94,
-                  padding:
-                      const EdgeInsets.all(13),
-                  decoration: BoxDecoration(
-                    color: AppColors.green,
-                    borderRadius:
-                        BorderRadius.circular(11),
-                  ),
-                  child: const Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Spesial Petani Desa',
-                        style: TextStyle(
-                          fontSize: 7,
-                          color: Colors.white70,
-                          fontWeight:
-                              FontWeight.w700,
-                        ),
-                      ),
-
-                      SizedBox(height: 5),
-
-                      Text(
-                        'Panen Raya Sukorejo —\n'
-                        'Diskon s/d 20%',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white,
-                          fontWeight:
-                              FontWeight.w900,
-                        ),
-                      ),
-
-                      SizedBox(height: 3),
-
-                      Text(
-                        'Langsung dari kebun tanpa tengkulak.\n'
-                        'Sukorejo. Bebas ongkir se-Desa.',
-                        style: TextStyle(
-                          fontSize: 7,
-                          color: Colors.white70,
-                        ),
-                      ),
-
-                      SizedBox(height: 4),
-
-                      Text(
-                        'Belanja Segar  →',
-                        style: TextStyle(
-                          fontSize: 8,
-                          color: Colors.white,
-                          fontWeight:
-                              FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _category(
+                      Icons.eco_outlined,
+                      'Hasil Tani',
+                    ),
+                    _category(
+                      Icons.storefront_outlined,
+                      'UMKM Desa',
+                    ),
+                    _category(
+                      Icons.egg_alt_outlined,
+                      'Ternak Ikan',
+                    ),
+                    _category(
+                      Icons.widgets_outlined,
+                      'Sembako',
+                    ),
+                  ],
                 ),
-
-                const SizedBox(height: 12),
-
-                const SectionTitle(
-                  title: 'Kategori Hasil Desa',
-                  trailing: 'Semua →',
-                ),
-
-                const SizedBox(height: 8),
-
-                SizedBox(
-                  height: 56,
-                  child: Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment.spaceBetween,
-                    children: [
-                      _category(
-                        Icons.eco_outlined,
-                        'Hasil Tani',
-                      ),
-                      _category(
-                        Icons.storefront_outlined,
-                        'UMKM Desa',
-                      ),
-                      _category(
-                        Icons.egg_alt_outlined,
-                        'Ternak Ikan',
-                      ),
-                      _category(
-                        Icons.widgets_outlined,
-                        'Sembako',
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
+                const SizedBox(height: 17),
                 Row(
                   children: [
                     _chip(
                       'Paling Laris',
                       true,
                     ),
+                    const SizedBox(width: 7),
                     _chip(
                       'Beras & Gabah',
                       false,
                     ),
+                    const SizedBox(width: 7),
                     _chip(
                       'Sayur Petik Pagi',
                       false,
                     ),
                   ],
                 ),
-
-                const SizedBox(height: 10),
-
-                const SectionTitle(
-                  title: 'Produk Unggulan Warga',
-                  trailing: 'Panen Mingguan',
+                const SizedBox(height: 17),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Produk Unggulan Warga',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'Panen Mingguan',
+                      style: greenStyle(
+                        size: 8,
+                      ),
+                    ),
+                  ],
                 ),
-
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
               ],
             ),
           ),
         ),
-
-        // PRODUCT GRID
         SliverPadding(
-          padding:
-              const EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             horizontal: 16,
           ),
           sliver: SliverGrid(
-            delegate:
-                SliverChildBuilderDelegate(
+            delegate: SliverChildBuilderDelegate(
               (context, index) {
-                final product =
-                    products[index];
+                final product = products[index];
 
                 return ProductCard(
                   product: product,
@@ -338,8 +417,7 @@ class _HomeBody extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            DetailScreen(
+                        builder: (_) => DetailScreen(
                           product: product,
                         ),
                       ),
@@ -347,23 +425,48 @@ class _HomeBody extends StatelessWidget {
                   },
                 );
               },
-              childCount:
-                  products.length > 4
-                      ? 4
-                      : products.length,
+              childCount: products.length > 4 ? 4 : products.length,
             ),
-            gridDelegate:
-                const SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 9,
-              childAspectRatio: .72,
+              crossAxisSpacing: 7,
+              mainAxisSpacing: 8,
+              childAspectRatio: 0.66,
             ),
           ),
         ),
-
-        const SliverToBoxAdapter(
-          child: SizedBox(height: 20),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            18,
+            16,
+            25,
+          ),
+          sliver: SliverToBoxAdapter(
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.verified_user_outlined,
+                  color: AppColors.green,
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    'Aman & Terpercaya untuk Warga Desa. '
+                    'Setiap transaksi langsung disalurkan ke keluarga '
+                    'petani dan pengrajin warga Desa Sukorejo dengan '
+                    'jaminan mutu BUMDes.',
+                    style: TextStyle(
+                      fontSize: 7,
+                      color: AppColors.muted,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -376,24 +479,23 @@ class _HomeBody extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 35,
-          height: 35,
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(
             color: AppColors.greenLight,
-            borderRadius:
-                BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(9),
           ),
           child: Icon(
             icon,
             color: AppColors.green,
-            size: 19,
+            size: 18,
           ),
         ),
-        const SizedBox(height: 3),
+        const SizedBox(height: 4),
         Text(
           title,
           style: const TextStyle(
-            fontSize: 7.5,
+            fontSize: 7,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -406,509 +508,41 @@ class _HomeBody extends StatelessWidget {
     bool selected,
   ) {
     return Container(
-      margin:
-          const EdgeInsets.only(right: 5),
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 4,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 6,
       ),
       decoration: BoxDecoration(
-        color: selected
-            ? AppColors.green
-            : Colors.white,
+        color: selected ? AppColors.green : Colors.white,
+        borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: selected
-              ? AppColors.green
-              : AppColors.border,
+          color: selected ? AppColors.green : AppColors.border,
         ),
-        borderRadius:
-            BorderRadius.circular(16),
       ),
       child: Text(
         text,
         style: TextStyle(
           fontSize: 7,
-          fontWeight: FontWeight.w700,
-          color: selected
-              ? Colors.white
-              : AppColors.text,
+          fontWeight: FontWeight.w800,
+          color: selected ? Colors.white : AppColors.text,
         ),
       ),
     );
   }
 }
-
-// =====================================================
-// HISTORY
-// =====================================================
 
 class _HistoryBody extends StatelessWidget {
   const _HistoryBody();
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding:
-              const EdgeInsets.fromLTRB(
-            16,
-            12,
-            16,
-            20,
-          ),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              children: [
-                const TopBar(
-                  title: 'Riwayat Pemesanan',
-                ),
-
-                const SizedBox(height: 5),
-
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Pantau transaksi hasil bumi & UMKM Sukorejo',
-                    style: TextStyle(
-                      fontSize: 7,
-                      color: AppColors.muted,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                _historyItem(
-                  'Beras Pandan Wangi',
-                  'Rp 68.000',
-                  'Sedang Dikirim',
-                ),
-
-                _historyItem(
-                  'Cabai Rawit Merah',
-                  'Rp 36.000',
-                  'Selesai',
-                ),
-
-                _historyItem(
-                  'Telur Ayam Kampung',
-                  'Rp 25.000',
-                  'Selesai',
-                ),
-              ],
-            ),
-          ),
+    return const Center(
+      child: Text(
+        'Riwayat Pemesanan',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w900,
         ),
-      ],
-    );
-  }
-
-  Widget _historyItem(
-    String name,
-    String price,
-    String status,
-  ) {
-    return Container(
-      width: double.infinity,
-      margin:
-          const EdgeInsets.only(bottom: 9),
-      padding: const EdgeInsets.all(9),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.border,
-        ),
-        borderRadius:
-            BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppColors.greenLight,
-              borderRadius:
-                  BorderRadius.circular(7),
-            ),
-            child: const Icon(
-              Icons.shopping_bag_outlined,
-              color: AppColors.green,
-              size: 20,
-            ),
-          ),
-
-          const SizedBox(width: 8),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 8.5,
-                    fontWeight:
-                        FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  price,
-                  style: const TextStyle(
-                    fontSize: 8,
-                    color: AppColors.green,
-                    fontWeight:
-                        FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Container(
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 6,
-              vertical: 4,
-            ),
-            decoration: BoxDecoration(
-              color:
-                  AppColors.greenLight,
-              borderRadius:
-                  BorderRadius.circular(12),
-            ),
-            child: Text(
-              status,
-              style: const TextStyle(
-                fontSize: 6.5,
-                color: AppColors.green,
-                fontWeight:
-                    FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// =====================================================
-// PROFILE
-// =====================================================
-
-class _ProfileBody extends StatelessWidget {
-  const _ProfileBody();
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding:
-              const EdgeInsets.fromLTRB(
-            16,
-            12,
-            16,
-            20,
-          ),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              children: [
-                const TopBar(
-                  title: 'Profil Warga',
-                ),
-
-                const SizedBox(height: 12),
-
-                Row(
-                  children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration:
-                          const BoxDecoration(
-                        color: AppColors.green,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.person_outline,
-                        color: Colors.white,
-                        size: 30,
-                      ),
-                    ),
-
-                    const SizedBox(width: 9),
-
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
-                        children: [
-                          Text(
-                            'Pak RT Joko Susanto',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight:
-                                  FontWeight.w900,
-                            ),
-                          ),
-                          SizedBox(height: 3),
-                          Text(
-                            'NIK: 3507********0001',
-                            style: TextStyle(
-                              fontSize: 7,
-                              color:
-                                  AppColors.muted,
-                            ),
-                          ),
-                          Text(
-                            'Warga Tetap RT 02 / RW 01',
-                            style: TextStyle(
-                              fontSize: 7,
-                              color:
-                                  AppColors.green,
-                              fontWeight:
-                                  FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 14),
-
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.greenLight,
-                    borderRadius:
-                        BorderRadius.circular(9),
-                  ),
-                  child: const Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Text(
-                              '4',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color:
-                                    AppColors.green,
-                                fontWeight:
-                                    FontWeight.w900,
-                              ),
-                            ),
-                            Text(
-                              'Transaksi',
-                              style: TextStyle(
-                                fontSize: 7,
-                                color:
-                                    AppColors.muted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Text(
-                              '1.450',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color:
-                                    AppColors.green,
-                                fontWeight:
-                                    FontWeight.w900,
-                              ),
-                            ),
-                            Text(
-                              'Poin Belanja',
-                              style: TextStyle(
-                                fontSize: 7,
-                                color:
-                                    AppColors.muted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Text(
-                              'Aktif',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color:
-                                    AppColors.green,
-                                fontWeight:
-                                    FontWeight.w900,
-                              ),
-                            ),
-                            Text(
-                              'Koperasi',
-                              style: TextStyle(
-                                fontSize: 7,
-                                color:
-                                    AppColors.muted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-
-                const Align(
-                  alignment:
-                      Alignment.centerLeft,
-                  child: Text(
-                    'TITIK PENGIRIMAN DESA',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight:
-                          FontWeight.w900,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 6),
-
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: AppColors.border,
-                    ),
-                    borderRadius:
-                        BorderRadius.circular(8),
-                  ),
-                  child: const Row(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.location_on_outlined,
-                        color:
-                            AppColors.green,
-                        size: 18,
-                      ),
-                      SizedBox(width: 7),
-                      Expanded(
-                        child: Text(
-                          'Pos Drop-point BUMDes Desa Sukorejo • '
-                          'RT 02 / RW 01\n'
-                          'Depan Balai Desa Sukorejo, '
-                          'Dusun Krajan',
-                          style: TextStyle(
-                            fontSize: 8,
-                            color:
-                                AppColors.muted,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-
-                _profileMenu(
-                  Icons.person_outline,
-                  'Data Profil',
-                ),
-
-                _profileMenu(
-                  Icons.location_on_outlined,
-                  'Alamat Pengiriman',
-                ),
-
-                _profileMenu(
-                  Icons.account_balance_wallet_outlined,
-                  'Koperasi Desa',
-                ),
-
-                _profileMenu(
-                  Icons.help_outline,
-                  'Bantuan',
-                ),
-
-                _profileMenu(
-                  Icons.logout,
-                  'Keluar',
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _profileMenu(
-    IconData icon,
-    String title,
-  ) {
-    return Container(
-      width: double.infinity,
-      margin:
-          const EdgeInsets.only(bottom: 7),
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 11,
-      ),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.border,
-        ),
-        borderRadius:
-            BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: AppColors.green,
-            size: 19,
-          ),
-
-          const SizedBox(width: 9),
-
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 8.5,
-                fontWeight:
-                    FontWeight.w700,
-              ),
-            ),
-          ),
-
-          const Icon(
-            Icons.chevron_right,
-            size: 18,
-            color: AppColors.muted,
-          ),
-        ],
       ),
     );
   }

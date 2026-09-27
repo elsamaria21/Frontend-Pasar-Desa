@@ -25,68 +25,52 @@ class Product {
 }
 
 final List<Product> products = [
-  Product(
+  const Product(
     id: 'beras',
-    name: 'Beras Pandan Wangi Premium Sukorejo 5kg',
+    name: 'Beras Pandan Wangi Premium Sukorejo',
     shortName: 'Beras Pandan Wangi',
-    seller: 'Poktan Krajan Makmur',
+    seller: 'Kelompok Tani Krajan',
     category: 'Hasil Tani',
     price: 68000,
     unit: '5 kg',
     image: 'assets/images/beras.png',
     rating: 4.9,
-    stock: 1,
+    stock: 20,
   ),
-
-  Product(
+  const Product(
     id: 'jagung',
     name: 'Jagung Manis Organik Blok Timur',
     shortName: 'Jagung Manis Organik',
-    seller: 'Poktan Krajan Makmur',
+    seller: 'Pak Slamet Tani',
     category: 'Hasil Tani',
     price: 12000,
     unit: '1 kg',
-    image: 'assets/images/jeruk.png',
+    image: 'assets/images/jagung.png',
     rating: 4.8,
-    stock: 10,
+    stock: 0,
   ),
-
-  Product(
+  const Product(
     id: 'telur',
     name: 'Telur Ayam Kampung (10 butir)',
     shortName: 'Telur Ayam Kampung',
-    seller: 'Segar Bebas Kimia',
+    seller: 'Kandang Pak RT',
     category: 'Hasil Tani',
-    price: 25000,
+    price: 26000,
     unit: '10 butir',
     image: 'assets/images/telur.png',
     rating: 4.8,
     stock: 20,
   ),
-
-  Product(
+  const Product(
     id: 'keripik',
     name: 'Keripik Singkong Balado 200g',
     shortName: 'Keripik Singkong',
-    seller: 'UMKM Binaan Desa',
+    seller: 'Ibu PKK Sukorejo',
     category: 'UMKM Desa',
     price: 12500,
     unit: '200 g',
     image: 'assets/images/keripik.png',
     rating: 4.9,
     stock: 30,
-  ),
-
-  Product(
-    id: 'cabai',
-    name: 'Cabai Rawit Merah',
-    shortName: 'Cabai Rawit Merah',
-    seller: 'Petani Pagak',
-    category: 'Hasil Tani',
-    price: 36000,
-    unit: '500 g',
-    image: 'assets/images/keripik.png',
-    rating: 4.7,
-    stock: 12,
   ),
 ];

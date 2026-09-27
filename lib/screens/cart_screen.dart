@@ -4,54 +4,98 @@ import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+
 import 'checkout_screen.dart';
 
 class CartScreen extends StatelessWidget {
-  final bool failed;
+  final bool embedded;
+  final VoidCallback? onStartShopping;
+  final VoidCallback? onGoHome;
 
   const CartScreen({
     super.key,
-    this.failed = false,
+    this.embedded = false,
+    this.onStartShopping,
+    this.onGoHome,
   });
 
   @override
   Widget build(BuildContext context) {
     return Consumer<CartProvider>(
-      builder: (context, cart, _) {
+      builder: (context, cart, child) {
         if (cart.items.isEmpty) {
-          return const EmptyCartScreen();
+          final content = _buildEmptyCart();
+
+          if (embedded) {
+            return content;
+          }
+
+          return Scaffold(
+            backgroundColor: const Color(0xFFF8FAF8),
+            body: SafeArea(
+              child: content,
+            ),
+          );
+        }
+
+        final content = _buildCartContent(
+          context,
+          cart,
+        );
+
+        if (embedded) {
+          return content;
         }
 
         return Scaffold(
+          backgroundColor: const Color(0xFFF8FAF8),
           body: SafeArea(
-            child: CustomScrollView(
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(
-                    16,
-                    12,
-                    16,
-                    0,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: Column(
-                      children: [
-                        const TopBar(
-                          title: 'Keranjang Belanja',
-                        ),
+            child: content,
+          ),
+        );
+      },
+    );
+  }
 
-                        const SizedBox(height: 10),
-
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.location_on_outlined,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 5),
-                            const Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+  Widget _buildCartContent(
+    BuildContext context,
+    CartProvider cart,
+  ) {
+    return Column(
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            12,
+            16,
+            8,
+          ),
+          child: TopBar(
+            title: 'Keranjang Belanja',
+          ),
+        ),
+        Expanded(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      // ADDRESS
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 5),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   'Titik Pengantaran Desa',
@@ -60,6 +104,7 @@ class CartScreen extends StatelessWidget {
                                     color: AppColors.muted,
                                   ),
                                 ),
+                                SizedBox(height: 2),
                                 Text(
                                   'Dusun Krajan RT 02 / RW 01 '
                                   '(Pos Drop-point BUMDes Sukorejo)',
@@ -70,41 +115,61 @@ class CartScreen extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            const Spacer(),
-                            Text(
-                              'Ubah',
-                              style: greenStyle(size: 9),
+                          ),
+                          Text(
+                            'Ubah',
+                            style: greenStyle(
+                              size: 9,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
 
-                        const SizedBox(height: 12),
+                      const SizedBox(height: 14),
 
-                        Row(
-                          children: [
-                            Container(
+                      // SELECT ALL
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              cart.toggleSelectAll();
+                            },
+                            child: Container(
                               width: 19,
                               height: 19,
-                              decoration: const BoxDecoration(
-                                color: AppColors.green,
+                              decoration: BoxDecoration(
+                                color: cart.isAllSelected
+                                    ? AppColors.green
+                                    : Colors.white,
                                 shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.green,
+                                ),
                               ),
-                              child: const Icon(
-                                Icons.check,
-                                color: Colors.white,
-                                size: 13,
-                              ),
+                              child: cart.isAllSelected
+                                  ? const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 13,
+                                    )
+                                  : null,
                             ),
-                            const SizedBox(width: 7),
-                            Text(
-                              'Pilih Semua (${cart.items.length} item)',
-                              style: const TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                              ),
+                          ),
+                          const SizedBox(width: 7),
+                          Text(
+                            'Pilih Semua '
+                            '(${cart.items.length} item)',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
                             ),
-                            const Spacer(),
-                            const Text(
+                          ),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () {
+                              cart.removeSelected();
+                            },
+                            child: const Text(
                               'Hapus Terpilih',
                               style: TextStyle(
                                 fontSize: 8,
@@ -112,269 +177,200 @@ class CartScreen extends StatelessWidget {
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
 
-                        const SizedBox(height: 12),
-                      ],
-                    ),
+                      const SizedBox(height: 12),
+                    ],
                   ),
                 ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final line = cart.items[index];
 
-                SliverPadding(
+                      return _CartItem(
+                        line: line,
+                      );
+                    },
+                    childCount: cart.items.length,
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  16,
+                  10,
+                  16,
+                  25,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Ringkasan Belanja',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      _summaryRow(
+                        'Subtotal Produk '
+                        '(${cart.selectedCount} dipilih)',
+                        cart.subtotal,
+                      ),
+
+                      _summaryRow(
+                        'Ongkos Kirim Kurir Desa',
+                        cart.shipping,
+                      ),
+
+                      _summaryRow(
+                        'Subsidi Kupon Desa',
+                        -cart.discount,
+                        green: true,
+                      ),
+
+                      _summaryRow(
+                        'Biaya Jasa BUMDes',
+                        0,
+                        free: true,
+                      ),
+
+                      const Divider(
+                        height: 20,
+                      ),
+
+                      // TOTAL
+                      Row(
+                        children: [
+                          const Text(
+                            'Total Pembayaran',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const Spacer(),
+                          Money(
+                            value: cart.total,
+                            size: 17,
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 15),
+
+                      // CHECKOUT
+                      GreenButton(
+                        text: 'Checkout  →',
+                        onTap: cart.selectedCount == 0
+                            ? null
+                            : () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const CheckoutScreen(),
+                                  ),
+                                );
+                              },
+                      ),
+
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyCart() {
+    return Column(
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            12,
+            16,
+            8,
+          ),
+          child: TopBar(
+            title: 'Keranjang Belanja',
+          ),
+        ),
+        Expanded(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const BrandMark(
+                  size: 54,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Keranjang Masih Kosong',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'Belum ada barang di keranjang. Yuk, mulai\n'
+                  'belanja produk lokal!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 8,
+                    color: AppColors.muted,
+                  ),
+                ),
+                const SizedBox(height: 15),
+                Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
+                    horizontal: 70,
                   ),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final line = cart.items[index];
-
-                        return _CartItem(
-                          line: line,
-                        );
-                      },
-                      childCount: cart.items.length,
-                    ),
-                  ),
-                ),
-
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(
-                    16,
-                    10,
-                    16,
-                    20,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF6F8),
-                            borderRadius:
-                                BorderRadius.circular(8),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                Icons.confirmation_number_outlined,
-                                color: AppColors.red,
-                                size: 20,
-                              ),
-                              SizedBox(width: 7),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Voucher BUMDes & Subsidi Ongkir',
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight:
-                                            FontWeight.w900,
-                                      ),
-                                    ),
-                                    Text(
-                                      'PANENRAYA5K',
-                                      style: TextStyle(
-                                        fontSize: 8,
-                                        color: AppColors.muted,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                'Terapkan',
-                                style: TextStyle(
-                                  fontSize: 8,
-                                  color: AppColors.green,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        const SectionTitle(
-                          title: 'Ringkasan Belanja',
-                        ),
-
-                        const SizedBox(height: 7),
-
-                        _sum(
-                          'Subtotal Produk (${cart.items.length} dipilih)',
-                          cart.subtotal,
-                        ),
-
-                        _sum(
-                          'Ongkos Kirim Kurir Desa',
-                          cart.shipping,
-                        ),
-
-                        _sum(
-                          'Subsidi Kupon Desa',
-                          -cart.discount,
-                          green: true,
-                        ),
-
-                        _sum(
-                          'Biaya Jasa BUMDes',
-                          0,
-                          free: true,
-                        ),
-
-                        const Divider(height: 18),
-
-                        Row(
-                          children: [
-                            const Text(
-                              'Total Pembayaran',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            const Spacer(),
-                            Money(
-                              value: cart.total,
-                              size: 18,
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 14),
-
-                        Container(
-                          padding: const EdgeInsets.all(9),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEAF8EF),
-                            borderRadius:
-                                BorderRadius.circular(8),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                Icons.verified_user,
-                                color: AppColors.green,
-                                size: 22,
-                              ),
-                              SizedBox(width: 7),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Jaminan Mutu & Timbangan Digital BUMDes',
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        color: AppColors.green,
-                                        fontWeight:
-                                            FontWeight.w900,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Semua hasil tani dan produk UMKM '
-                                      'dijamin asli, segar dari petani lokal.',
-                                      style: TextStyle(
-                                        fontSize: 7,
-                                        color: AppColors.muted,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: GreenButton(
+                    text: 'Mulai Belanja  →',
+                    onTap: onStartShopping ?? onGoHome,
                   ),
                 ),
               ],
             ),
           ),
-
-          bottomNavigationBar: SafeArea(
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(
-                16,
-                8,
-                16,
-                9,
-              ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  top: BorderSide(
-                    color: Color(0xFFE5E9E6),
-                  ),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Total Tagihan',
-                        style: TextStyle(
-                          fontSize: 8,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Money(
-                        value: cart.total,
-                        size: 14,
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(width: 12),
-
-                  Expanded(
-                    child: GreenButton(
-                      text: 'Checkout  →',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const CheckoutScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 
-  Widget _sum(
-    String name,
+  Widget _summaryRow(
+    String title,
     int value, {
     bool green = false,
     bool free = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
+      padding: const EdgeInsets.only(
+        bottom: 6,
+      ),
       child: Row(
         children: [
           Expanded(
             child: Text(
-              name,
+              title,
               style: const TextStyle(
                 fontSize: 8,
                 color: AppColors.muted,
@@ -382,15 +378,11 @@ class CartScreen extends StatelessWidget {
             ),
           ),
           Text(
-            free
-                ? 'Gratis Warga'
-                : 'Rp ${formatRupiah(value.abs())}',
+            free ? 'Gratis Warga' : 'Rp ${formatRupiah(value.abs())}',
             style: TextStyle(
               fontSize: 8,
               fontWeight: FontWeight.w700,
-              color: green || free
-                  ? AppColors.green
-                  : AppColors.text,
+              color: green || free ? AppColors.green : AppColors.text,
             ),
           ),
         ],
@@ -411,23 +403,49 @@ class _CartItem extends StatelessWidget {
     final cart = context.read<CartProvider>();
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 9),
+      margin: const EdgeInsets.only(
+        bottom: 9,
+      ),
       padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: const Color(0xFFE3E7E4),
         ),
-        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          Checkbox(
-            value: true,
-            onChanged: (_) {},
-            activeColor: AppColors.green,
-            visualDensity: VisualDensity.compact,
+          // SELECT
+          GestureDetector(
+            onTap: () {
+              cart.toggleSelected(
+                line.product.id,
+              );
+            },
+            child: Container(
+              width: 19,
+              height: 19,
+              decoration: BoxDecoration(
+                color: line.selected ? AppColors.green : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.green,
+                ),
+              ),
+              child: line.selected
+                  ? const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 13,
+                    )
+                  : null,
+            ),
           ),
 
+          const SizedBox(width: 7),
+
+          // IMAGE
           ClipRRect(
             borderRadius: BorderRadius.circular(7),
             child: Image.asset(
@@ -455,10 +473,10 @@ class _CartItem extends StatelessWidget {
 
           const SizedBox(width: 8),
 
+          // PRODUCT
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   line.product.shortName,
@@ -469,7 +487,6 @@ class _CartItem extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-
                 Text(
                   '${line.product.seller} • '
                   '${line.product.unit}',
@@ -480,9 +497,9 @@ class _CartItem extends StatelessWidget {
                     color: AppColors.muted,
                   ),
                 ),
-
-                const SizedBox(height: 3),
-
+                const SizedBox(
+                  height: 3,
+                ),
                 Money(
                   value: line.product.price,
                   size: 10,
@@ -491,7 +508,9 @@ class _CartItem extends StatelessWidget {
             ),
           ),
 
+          // QUANTITY
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
                 onPressed: () {
@@ -499,17 +518,16 @@ class _CartItem extends StatelessWidget {
                     line.product.id,
                   );
                 },
-                icon: const Icon(
-                  Icons.remove_circle_outline,
-                  size: 17,
-                ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(
                   minWidth: 25,
                   minHeight: 25,
                 ),
+                icon: const Icon(
+                  Icons.remove_circle_outline,
+                  size: 17,
+                ),
               ),
-
               Text(
                 '${line.quantity}',
                 style: const TextStyle(
@@ -517,21 +535,22 @@ class _CartItem extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-
               IconButton(
-                onPressed: () {
-                  cart.increase(
-                    line.product.id,
-                  );
-                },
-                icon: const Icon(
-                  Icons.add_circle_outline,
-                  size: 17,
-                ),
+                onPressed: line.canIncrease
+                    ? () {
+                        cart.increase(
+                          line.product.id,
+                        );
+                      }
+                    : null,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(
                   minWidth: 25,
                   minHeight: 25,
+                ),
+                icon: const Icon(
+                  Icons.add_circle_outline,
+                  size: 17,
                 ),
               ),
             ],
@@ -542,94 +561,11 @@ class _CartItem extends StatelessWidget {
   }
 }
 
-class EmptyCartScreen extends StatelessWidget {
-  const EmptyCartScreen({
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                12,
-                16,
-                0,
-              ),
-              child: TopBar(
-                title: 'Keranjang Belanja',
-              ),
-            ),
-
-            const Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    BrandMark(
-                      size: 54,
-                    ),
-
-                    SizedBox(height: 12),
-
-                    Text(
-                      'Keranjang Masih Kosong',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-
-                    SizedBox(height: 5),
-
-                    Text(
-                      'Belum ada barang di keranjang. Yuk, mulai\n'
-                      'belanja produk lokal!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 8,
-                        color: AppColors.muted,
-                      ),
-                    ),
-
-                    SizedBox(height: 14),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            70,
-            0,
-            70,
-            18,
-          ),
-          child: GreenButton(
-            text: 'Mulai Belanja  →',
-            onTap: () {
-              Navigator.pop(context);
-            },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 String formatRupiah(int value) {
-  return value
-      .toString()
-      .replaceAllMapped(
-        RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+  return value.toString().replaceAllMapped(
+        RegExp(
+          r'(\d)(?=(\d{3})+(?!\d))',
+        ),
         (match) => '${match[1]}.',
       );
 }

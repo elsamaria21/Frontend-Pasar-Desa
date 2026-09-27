@@ -21,10 +21,6 @@ class OrderSuccessScreen extends StatelessWidget {
           child: Column(
             children: [
               const SizedBox(height: 15),
-
-              // =========================
-              // ICON BERHASIL
-              // =========================
               Container(
                 width: 58,
                 height: 58,
@@ -38,12 +34,7 @@ class OrderSuccessScreen extends StatelessWidget {
                   size: 32,
                 ),
               ),
-
               const SizedBox(height: 12),
-
-              // =========================
-              // STATUS
-              // =========================
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 9,
@@ -62,9 +53,7 @@ class OrderSuccessScreen extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 9),
-
               const Text(
                 'Pesanan Berhasil Dibuat!',
                 textAlign: TextAlign.center,
@@ -74,9 +63,7 @@ class OrderSuccessScreen extends StatelessWidget {
                   color: AppColors.text,
                 ),
               ),
-
               const SizedBox(height: 6),
-
               const Text(
                 'Pesanan Anda telah diterima sistem BUMDes\n'
                 'Sukorejo dan langsung diteruskan ke mitra petani\n'
@@ -88,22 +75,12 @@ class OrderSuccessScreen extends StatelessWidget {
                   height: 1.4,
                 ),
               ),
-
               const SizedBox(height: 18),
-
-              // =========================
-              // NOMOR TRANSAKSI
-              // =========================
               _infoBox(
                 'NOMOR RESI / TRANSAKSI',
                 '#PSD-20231024-0089',
               ),
-
               const SizedBox(height: 14),
-
-              // =========================
-              // PENGIRIMAN
-              // =========================
               const Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -114,9 +91,7 @@ class OrderSuccessScreen extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 6),
-
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
@@ -128,21 +103,17 @@ class OrderSuccessScreen extends StatelessWidget {
                   ),
                 ),
                 child: const Row(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       Icons.location_on_outlined,
                       color: AppColors.green,
                       size: 19,
                     ),
-
                     SizedBox(width: 7),
-
                     Expanded(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Pak RT Joko',
@@ -151,9 +122,7 @@ class OrderSuccessScreen extends StatelessWidget {
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-
                           SizedBox(height: 3),
-
                           Text(
                             'Dusun Krajan RT 02 / RW 01\n'
                             'Pos Drop-Point BUMDes '
@@ -170,12 +139,7 @@ class OrderSuccessScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 14),
-
-              // =========================
-              // STATUS PESANAN
-              // =========================
               const Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -186,35 +150,26 @@ class OrderSuccessScreen extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 7),
-
               _statusItem(
                 Icons.check_circle,
                 'Pesanan dibuat',
                 'Pesanan berhasil diterima sistem',
                 true,
               ),
-
               _statusItem(
                 Icons.agriculture_outlined,
                 'Diproses oleh petani',
                 'Mitra petani sedang menyiapkan produk',
                 true,
               ),
-
               _statusItem(
                 Icons.two_wheeler_outlined,
                 'Menunggu pengiriman',
                 'Kurir Desa akan mengantarkan pesanan',
                 false,
               ),
-
               const SizedBox(height: 14),
-
-              // =========================
-              // PESAN
-              // =========================
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
@@ -223,21 +178,17 @@ class OrderSuccessScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Row(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       Icons.verified_user_outlined,
                       color: AppColors.green,
                       size: 21,
                     ),
-
                     SizedBox(width: 7),
-
                     Expanded(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Amanah Kas BUMDes',
@@ -247,9 +198,7 @@ class OrderSuccessScreen extends StatelessWidget {
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-
                           SizedBox(height: 3),
-
                           Text(
                             'Dana diteruskan ke kelompok tani '
                             'mitra setelah paket sampai dengan '
@@ -266,12 +215,7 @@ class OrderSuccessScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 20),
-
-              // =========================
-              // KEMBALI KE HOME
-              // =========================
               GreenButton(
                 text: 'Kembali ke Beranda  →',
                 onTap: () {
@@ -281,9 +225,7 @@ class OrderSuccessScreen extends StatelessWidget {
                   );
                 },
               ),
-
               const SizedBox(height: 8),
-
               TextButton(
                 onPressed: () {
                   Navigator.pop(context);
@@ -328,9 +270,7 @@ class OrderSuccessScreen extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-
           const SizedBox(height: 4),
-
           Text(
             value,
             style: const TextStyle(
@@ -355,37 +295,27 @@ class OrderSuccessScreen extends StatelessWidget {
         bottom: 9,
       ),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             icon,
             size: 20,
-            color: active
-                ? AppColors.green
-                : AppColors.border,
+            color: active ? AppColors.green : AppColors.border,
           ),
-
           const SizedBox(width: 8),
-
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
                   style: TextStyle(
                     fontSize: 8.5,
                     fontWeight: FontWeight.w900,
-                    color: active
-                        ? AppColors.text
-                        : AppColors.muted,
+                    color: active ? AppColors.text : AppColors.muted,
                   ),
                 ),
-
                 const SizedBox(height: 2),
-
                 Text(
                   subtitle,
                   style: const TextStyle(

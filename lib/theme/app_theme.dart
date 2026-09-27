@@ -29,24 +29,34 @@ class AppTheme {
           color: AppColors.text,
         ),
       ),
-      inputDecorationTheme: InputDecorationTheme(
+      inputDecorationTheme: const InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(
+        contentPadding: EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 13,
         ),
         border: OutlineInputBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(8)),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.all(
+            Radius.circular(8),
+          ),
+          borderSide: BorderSide(
+            color: AppColors.border,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(8)),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.all(
+            Radius.circular(8),
+          ),
+          borderSide: BorderSide(
+            color: AppColors.border,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(8)),
-          borderSide: const BorderSide(
+          borderRadius: BorderRadius.all(
+            Radius.circular(8),
+          ),
+          borderSide: BorderSide(
             color: AppColors.green,
             width: 1.5,
           ),
@@ -55,7 +65,6 @@ class AppTheme {
     );
   }
 
-  // Helper TextStyles untuk dipakai di halaman/screen lain
   static TextStyle titleStyle({
     double size = 18,
     FontWeight weight = FontWeight.w700,
@@ -77,4 +86,26 @@ class AppTheme {
       color: AppColors.green,
     );
   }
+}
+
+final appTheme = AppTheme.theme;
+
+TextStyle titleStyle({
+  double size = 18,
+  FontWeight weight = FontWeight.w700,
+}) {
+  return AppTheme.titleStyle(
+    size: size,
+    weight: weight,
+  );
+}
+
+TextStyle greenStyle({
+  double size = 13,
+  FontWeight weight = FontWeight.w700,
+}) {
+  return AppTheme.greenStyle(
+    size: size,
+    weight: weight,
+  );
 }
