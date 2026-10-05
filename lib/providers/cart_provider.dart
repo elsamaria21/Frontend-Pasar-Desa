@@ -1,12 +1,10 @@
 import 'package:flutter/foundation.dart';
-
 import '../models/product.dart';
 
 class CartLine {
   final Product product;
 
   int quantity;
-
   bool selected;
 
   CartLine({
@@ -16,10 +14,9 @@ class CartLine {
   });
 
   int get subtotal => product.price * quantity;
-
   bool get isOutOfStock => product.stock <= 0;
-
   bool get canIncrease => quantity < product.stock;
+  bool get hasStockIssue => quantity > product.stock;
 }
 
 class CartProvider extends ChangeNotifier {
@@ -100,8 +97,23 @@ class CartProvider extends ChangeNotifier {
     return subtotal + shipping - discount + serviceFee;
   }
 
+  List<CartLine> get stockIssues {
+    return _items.where((item) => item.selected && item.hasStockIssue).toList();
+  }
+
+  void adjustToStock() {
+    for (final item in _items) {
+      if (item.isOutOfStock) {
+        item.selected = false;
+      } else if (item.quantity > item.product.stock) {
+        item.quantity = item.product.stock;
+      }
+    }
+
+    notifyListeners();
+  }
+
   void add(Product product) {
-    // Produk habis tidak boleh ditambahkan.
     if (product.stock <= 0) {
       return;
     }
@@ -110,18 +122,13 @@ class CartProvider extends ChangeNotifier {
       (item) => item.product.id == product.id,
     );
 
-    // Produk sudah ada
     if (index >= 0) {
       final line = _items[index];
 
-      // Jangan melebihi stok.
       if (line.quantity < product.stock) {
         line.quantity++;
       }
-    }
-
-    // Produk belum ada
-    else {
+    } else {
       _items.add(
         CartLine(
           product: product,
@@ -142,22 +149,26 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void increase(String id) {
+  bool increase(String id) {
     final index = _items.indexWhere(
       (item) => item.product.id == id,
     );
 
     if (index == -1) {
-      return;
+      return false;
     }
 
     final line = _items[index];
 
-    if (line.quantity < line.product.stock) {
-      line.quantity++;
-
-      notifyListeners();
+    if (line.isOutOfStock) {
+      return false;
     }
+
+    line.quantity++;
+
+    notifyListeners();
+
+    return line.quantity > line.product.stock;
   }
 
   void decrease(String id) {
@@ -186,6 +197,10 @@ class CartProvider extends ChangeNotifier {
     );
 
     if (index == -1) {
+      return;
+    }
+
+    if (_items[index].isOutOfStock) {
       return;
     }
 
@@ -274,31 +289,27 @@ class CartProvider extends ChangeNotifier {
     if (products.isNotEmpty) {
       final product = products[0];
 
-      if (product.stock > 0) {
-        _items.add(
-          CartLine(
-            product: product,
-            quantity: 1,
-            selected: true,
-          ),
-        );
-      }
+      _items.add(
+        CartLine(
+          product: product,
+          quantity: 1,
+          selected: product.stock > 0,
+        ),
+      );
     }
 
     if (products.length > 1) {
       final product = products[1];
 
-      if (product.stock > 0) {
-        final quantity = product.stock >= 2 ? 2 : 1;
+      final quantity = product.stock >= 2 ? 2 : 1;
 
-        _items.add(
-          CartLine(
-            product: product,
-            quantity: quantity,
-            selected: true,
-          ),
-        );
-      }
+      _items.add(
+        CartLine(
+          product: product,
+          quantity: quantity,
+          selected: product.stock > 0,
+        ),
+      );
     }
 
     if (products.length > 2) {

@@ -11,7 +11,7 @@ class AppColors {
   static const muted = Color(0xFF747C76);
   static const border = Color(0xFFD7DDD9);
   static const bg = Color(0xFFF8FAF8);
-}
+} 
 
 class AppTheme {
   static ThemeData get theme {
