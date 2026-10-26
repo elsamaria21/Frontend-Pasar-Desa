@@ -2,8 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/product.dart';
 
 class CartLine {
-  final Product product;
-
+  Product product;
   int quantity;
   bool selected;
 
@@ -15,16 +14,16 @@ class CartLine {
 
   int get subtotal => product.price * quantity;
   bool get isOutOfStock => product.stock <= 0;
-  bool get canIncrease => quantity < product.stock;
-  bool get hasStockIssue => quantity > product.stock;
+  bool get canIncrease => !isOutOfStock && quantity < product.stock;
+  bool get hasStockIssue => isOutOfStock || quantity > product.stock;
 }
 
 class CartProvider extends ChangeNotifier {
   final List<CartLine> _items = [];
 
-  List<CartLine> get items {
-    return List.unmodifiable(_items);
-  }
+  bool _voucherApplied = false;
+
+  List<CartLine> get items => List<CartLine>.unmodifiable(_items);
 
   int get count {
     return _items.fold(
@@ -34,11 +33,17 @@ class CartProvider extends ChangeNotifier {
   }
 
   int get selectedCount {
-    return _items.where((item) => item.selected).fold(
+    return _items
+        .where(
+          (item) => item.selected && !item.isOutOfStock,
+        )
+        .fold(
           0,
           (sum, item) => sum + item.quantity,
         );
   }
+
+  bool get isEmpty => _items.isEmpty;
 
   int get subtotal {
     return _items
@@ -52,53 +57,57 @@ class CartProvider extends ChangeNotifier {
   }
 
   int get shipping {
-    if (subtotal <= 0) {
-      return 0;
-    }
-
+    if (subtotal <= 0) return 0;
     return 5000;
   }
 
+  bool get voucherApplied => _voucherApplied;
   int get shippingSubsidy {
-    if (subtotal <= 0) {
-      return 0;
-    }
-
+    if (subtotal <= 0 || !_voucherApplied) return 0;
     return 5000;
   }
 
-  int get discount {
-    return shippingSubsidy;
-  }
-
-  bool _voucherApplied = false;
-
-  bool get voucherApplied {
-    return _voucherApplied;
-  }
-
-  int get voucherDiscount {
-    if (!_voucherApplied) {
-      return 0;
-    }
-
-    return 5000;
-  }
-
-  int get serviceFee {
-    return 0;
-  }
-
+  int get discount => shippingSubsidy;
+  int get voucherDiscount => shippingSubsidy;
+  int get serviceFee => 0;
   int get total {
-    if (subtotal <= 0) {
-      return 0;
-    }
+    if (subtotal <= 0) return 0;
 
     return subtotal + shipping - discount + serviceFee;
   }
 
   List<CartLine> get stockIssues {
-    return _items.where((item) => item.selected && item.hasStockIssue).toList();
+    return _items
+        .where(
+          (item) => item.selected && item.hasStockIssue,
+        )
+        .toList();
+  }
+
+  List<CartLine> get outOfStockItems {
+    return _items.where((item) => item.isOutOfStock).toList();
+  }
+
+  bool get hasOutOfStockItems => outOfStockItems.isNotEmpty;
+
+  void updateProductStock(Product updatedProduct) {
+    final index = _items.indexWhere(
+      (item) => item.product.id == updatedProduct.id,
+    );
+
+    if (index == -1) return;
+
+    final line = _items[index];
+
+    line.product = updatedProduct;
+
+    if (line.isOutOfStock) {
+      line.selected = false;
+    } else if (line.quantity > updatedProduct.stock) {
+      line.quantity = updatedProduct.stock;
+    }
+
+    notifyListeners();
   }
 
   void adjustToStock() {
@@ -114,10 +123,6 @@ class CartProvider extends ChangeNotifier {
   }
 
   void add(Product product) {
-    if (product.stock <= 0) {
-      return;
-    }
-
     final index = _items.indexWhere(
       (item) => item.product.id == product.id,
     );
@@ -125,18 +130,27 @@ class CartProvider extends ChangeNotifier {
     if (index >= 0) {
       final line = _items[index];
 
-      if (line.quantity < product.stock) {
-        line.quantity++;
+      line.product = product;
+
+      if (line.isOutOfStock) {
+        line.selected = false;
+      } else if (line.quantity > product.stock) {
+        line.quantity = product.stock;
       }
-    } else {
-      _items.add(
-        CartLine(
-          product: product,
-          quantity: 1,
-          selected: true,
-        ),
-      );
+
+      notifyListeners();
+      return;
     }
+
+    if (product.stock <= 0) return;
+
+    _items.add(
+      CartLine(
+        product: product,
+        quantity: 1,
+        selected: true,
+      ),
+    );
 
     notifyListeners();
   }
@@ -146,7 +160,32 @@ class CartProvider extends ChangeNotifier {
       (item) => item.product.id == id,
     );
 
+    _resetVoucherIfCartEmpty();
+
     notifyListeners();
+  }
+
+  void removeSelected() {
+    _items.removeWhere(
+      (item) => item.selected && !item.isOutOfStock,
+    );
+
+    _resetVoucherIfCartEmpty();
+
+    notifyListeners();
+  }
+
+  void clear() {
+    _items.clear();
+    _voucherApplied = false;
+
+    notifyListeners();
+  }
+
+  void _resetVoucherIfCartEmpty() {
+    if (_items.isEmpty || subtotal <= 0) {
+      _voucherApplied = false;
+    }
   }
 
   bool increase(String id) {
@@ -154,21 +193,17 @@ class CartProvider extends ChangeNotifier {
       (item) => item.product.id == id,
     );
 
-    if (index == -1) {
-      return false;
-    }
+    if (index == -1) return false;
 
     final line = _items[index];
 
-    if (line.isOutOfStock) {
-      return false;
-    }
+    if (!line.canIncrease) return false;
 
     line.quantity++;
 
     notifyListeners();
 
-    return line.quantity > line.product.stock;
+    return true;
   }
 
   void decrease(String id) {
@@ -176,9 +211,7 @@ class CartProvider extends ChangeNotifier {
       (item) => item.product.id == id,
     );
 
-    if (index == -1) {
-      return;
-    }
+    if (index == -1) return;
 
     final line = _items[index];
 
@@ -188,6 +221,8 @@ class CartProvider extends ChangeNotifier {
       _items.removeAt(index);
     }
 
+    _resetVoucherIfCartEmpty();
+
     notifyListeners();
   }
 
@@ -196,15 +231,15 @@ class CartProvider extends ChangeNotifier {
       (item) => item.product.id == id,
     );
 
-    if (index == -1) {
-      return;
-    }
+    if (index == -1) return;
 
-    if (_items[index].isOutOfStock) {
-      return;
-    }
+    final line = _items[index];
 
-    _items[index].selected = !_items[index].selected;
+    if (line.isOutOfStock) return;
+
+    line.selected = !line.selected;
+
+    _resetVoucherIfCartEmpty();
 
     notifyListeners();
   }
@@ -214,9 +249,7 @@ class CartProvider extends ChangeNotifier {
       (item) => !item.isOutOfStock,
     );
 
-    if (selectableItems.isEmpty) {
-      return;
-    }
+    if (selectableItems.isEmpty) return;
 
     final allSelected = selectableItems.every(
       (item) => item.selected,
@@ -228,6 +261,8 @@ class CartProvider extends ChangeNotifier {
       }
     }
 
+    _resetVoucherIfCartEmpty();
+
     notifyListeners();
   }
 
@@ -236,9 +271,7 @@ class CartProvider extends ChangeNotifier {
       (item) => !item.isOutOfStock,
     );
 
-    if (selectableItems.isEmpty) {
-      return false;
-    }
+    if (selectableItems.isEmpty) return false;
 
     return selectableItems.every(
       (item) => item.selected,
@@ -248,15 +281,19 @@ class CartProvider extends ChangeNotifier {
   bool applyVoucher(String code) {
     final normalizedCode = code.trim().toUpperCase();
 
-    if (normalizedCode == 'PANENRAYA5K') {
-      _voucherApplied = true;
-
-      notifyListeners();
-
-      return true;
+    if (normalizedCode != 'PANENRAYA5K') {
+      return false;
     }
 
-    return false;
+    if (subtotal <= 0) {
+      return false;
+    }
+
+    _voucherApplied = true;
+
+    notifyListeners();
+
+    return true;
   }
 
   void removeVoucher() {
@@ -265,65 +302,6 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void removeSelected() {
-    _items.removeWhere(
-      (item) => item.selected,
-    );
-
-    notifyListeners();
-  }
-
-  void clear() {
-    _items.clear();
-
-    _voucherApplied = false;
-
-    notifyListeners();
-  }
-
-  void seedDemoCart() {
-    _items.clear();
-
-    _voucherApplied = false;
-
-    if (products.isNotEmpty) {
-      final product = products[0];
-
-      _items.add(
-        CartLine(
-          product: product,
-          quantity: 1,
-          selected: product.stock > 0,
-        ),
-      );
-    }
-
-    if (products.length > 1) {
-      final product = products[1];
-
-      final quantity = product.stock >= 2 ? 2 : 1;
-
-      _items.add(
-        CartLine(
-          product: product,
-          quantity: quantity,
-          selected: product.stock > 0,
-        ),
-      );
-    }
-
-    if (products.length > 2) {
-      final product = products[2];
-
-      _items.add(
-        CartLine(
-          product: product,
-          quantity: 1,
-          selected: product.stock > 0,
-        ),
-      );
-    }
-
-    notifyListeners();
-  }
+  @Deprecated('Tidak diperlukan. Tambahkan produk melalui add().')
+  void seedDemoCart() {}
 }

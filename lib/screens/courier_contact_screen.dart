@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../widgets/checkout_widgets.dart';
+import '../widgets/common.dart';
+import 'dashboard_screen.dart' show DashboardNav;
+import 'order_flow_screens.dart' show orderMeta;
 import 'order_models.dart' show OrderEntry, OrderStatus;
-import 'order_flow_screens.dart' show OrderOverrides;
-import 'order_ui.dart';
 
 class CourierInfo {
   static const String name = 'Pak Wardi';
@@ -51,6 +53,13 @@ class CourierChat {
   static String greetTime(String orderId) =>
       _greetTime.putIfAbsent(orderId, _nowClock);
 }
+
+const Color _ink = Color(0xFF10231B);
+const Color _line = Color(0xFFE3E7E4);
+const Color _soft = Color(0xFFF1FBF4);
+const Color _softBorder = Color(0xFFCDEBD6);
+const Color _amber = Color(0xFFD97706);
+const Color _amberBg = Color(0xFFFFF4E0);
 
 class ContactCourierScreen extends StatefulWidget {
   final OrderEntry order;
@@ -135,10 +144,15 @@ class _ContactCourierScreenState extends State<ContactCourierScreen> {
       );
   }
 
+  bool get _isCod {
+    final p = order.paymentLabel.toLowerCase();
+    return p.contains('cod') || p.contains('tunai') || p.contains('di tempat');
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: OrderOverrides.status,
+      animation: orderMeta,
       builder: (context, _) {
         final receiverName = order.receiverName.trim().isNotEmpty
             ? order.receiverName.trim()
@@ -147,7 +161,7 @@ class _ContactCourierScreenState extends State<ContactCourierScreen> {
             ? order.deliveryAddress.trim()
             : 'Alamat pengiriman pesanan';
         final call = buyerCallName(receiverName);
-        final status = OrderOverrides.of(order);
+        final status = orderMeta.statusOf(order);
 
         final String statusTitle;
         final String statusTime;
@@ -174,388 +188,375 @@ class _ContactCourierScreenState extends State<ContactCourierScreen> {
         final items = order.lines.map((l) => l.name).join(' + ');
         final messages = CourierChat.of(order.id);
 
-        return OrderPageScaffold(
-          title: 'Hubungi Kurir',
-          subtitle: 'Pesanan ${order.id}',
-          children: [
-            Row(
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8FAF8),
+          body: SafeArea(
+            child: Column(
               children: [
-                const Pill('Kurir BUMDes Aktif',
-                    icon: Icons.two_wheeler_outlined),
-                const Spacer(),
-                Flexible(
-                  child: Text(
-                    'Pesanan ${order.id}',
-                    overflow: TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(fontSize: 9.5, color: AppColors.muted),
+                const PasarDesaHeader(),
+                Expanded(
+                  child: ListView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                    children: [
+                      _topRow(),
+                      const SizedBox(height: 12),
+                      _courierCard(statusTitle, statusTime, statusInfo),
+                      const SizedBox(height: 12),
+                      _callButton(),
+                      const SizedBox(height: 18),
+                      _quickHeader(),
+                      const SizedBox(height: 10),
+                      _quickChips(),
+                      const SizedBox(height: 12),
+                      _chatBox(call, items, messages),
+                      const SizedBox(height: 16),
+                      _packageCard(),
+                      const SizedBox(height: 14),
+                      _guaranteeCard(call),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            OCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            width: 58,
-                            height: 58,
-                            decoration: BoxDecoration(
-                              color: AppColors.greenLight,
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Text(
-                              CourierInfo.initials,
-                              style: TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.green,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            right: -4,
-                            bottom: -4,
-                            child: Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: AppColors.green,
-                                shape: BoxShape.circle,
-                                border:
-                                    Border.all(color: Colors.white, width: 2),
-                              ),
-                              child: const Icon(Icons.add,
-                                  size: 12, color: Colors.white),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Text(
-                                  CourierInfo.name,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w900,
-                                    color: kInk,
-                                  ),
-                                ),
-                                SizedBox(width: 4),
-                                Icon(Icons.verified_rounded,
-                                    size: 16, color: AppColors.green),
-                              ],
-                            ),
-                            const Text(
-                              CourierInfo.title,
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.green,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Row(
-                              children: [
-                                Pill('★ ${CourierInfo.rating}',
-                                    fg: Color(0xFFD97706),
-                                    bg: Color(0xFFFFF4E0)),
-                                SizedBox(width: 6),
-                                Text(
-                                  '${CourierInfo.trips} Antaran Sukorejo',
-                                  style: TextStyle(
-                                    fontSize: 9.5,
-                                    color: AppColors.muted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      Pill('Amanah & Tepat Waktu',
-                          icon: Icons.verified_outlined),
-                      Pill('Warga Dusun Krajan',
-                          icon: Icons.home_work_outlined),
-                      Pill(CourierInfo.vehicle,
-                          icon: Icons.two_wheeler_outlined),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(11),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF2FBF5),
-                      borderRadius: BorderRadius.circular(11),
-                      border: Border.all(color: AppColors.green.withAlpha(64)),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(top: 4),
-                          child: CircleAvatar(
-                              radius: 4, backgroundColor: AppColors.orange),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      statusTitle,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w900,
-                                        color: kInk,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    statusTime,
-                                    style: const TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w900,
-                                      color: AppColors.orange,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                statusInfo,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: AppColors.muted,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              margin: const EdgeInsets.only(bottom: 14),
-              child: Material(
-                color: AppColors.green,
-                borderRadius: BorderRadius.circular(14),
-                child: InkWell(
-                  onTap: _call,
-                  borderRadius: BorderRadius.circular(14),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withAlpha(46),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.phone_in_talk_outlined,
-                              color: Colors.white, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Telepon Langsung Kurir',
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                '${CourierInfo.phone} (Bebas Pulsa BUMDes)',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.call, color: Colors.white, size: 19),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SectionHeading(
-              'Pesan Cepat ke Lapak & Kurir',
-              icon: Icons.chat_bubble_outline_rounded,
-              trailing: Text(
-                'Respon < 2 menit',
-                style: TextStyle(fontSize: 9.5, color: AppColors.muted),
-              ),
-            ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final q in _quick)
-                  InkWell(
-                    onTap: () => _send(q),
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: kLine),
-                      ),
-                      child: Text(
-                        q,
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: kInk,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF2FBF5),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.green.withAlpha(51)),
-              ),
-              child: Column(
-                children: [
-                  _bubble(
-                    ChatMsg(
-                      'Nggih $call, ini $items sudah saya bawa di keranjang '
-                      'motor. Sekitar 10 menit lagi sampai di teras.',
-                      true,
-                      CourierChat.greetTime(order.id),
-                    ),
-                  ),
-                  for (final m in messages) _bubble(m),
-                  const SizedBox(height: 4),
-                  _inputRow(),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            OCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SectionHeading(
-                    'Paket yang Dibawa',
-                    icon: Icons.inventory_2_outlined,
-                    trailing: const Pill('Siap Antar'),
-                  ),
-                  for (final l in order.lines)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(9),
-                            child: Image.asset(
-                              l.image,
-                              width: 50,
-                              height: 50,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                width: 50,
-                                height: 50,
-                                color: AppColors.greenLight,
-                                child: const Icon(Icons.image_outlined,
-                                    color: AppColors.green),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${l.name} (${l.qty}x)',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w900,
-                                    color: kInk,
-                                  ),
-                                ),
-                                Text(
-                                  'Nota: ${order.id.replaceAll('#', '')}',
-                                  style: const TextStyle(
-                                      fontSize: 9.5, color: AppColors.muted),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      Pill('Lunas (${order.paymentLabel})',
-                          icon: Icons.check_circle_outline),
-                      const Pill('Tanpa Tagihan Tunai',
-                          fg: Color(0xFFD97706), bg: Color(0xFFFFF4E0)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            GuaranteeCard(
-              title: 'Guyub & Amanah Desa',
-              body: 'Layanan kurir BUMDes menjunjung ketertiban dan '
-                  'kesantunan lingkungan rukun warga. ${CourierInfo.name} '
-                  'dengan senang hati meletakkan belanjaan di tempat teduh '
-                  'teras rumah $call bila sedang bepergian.',
-            ),
-          ],
+          ),
+          bottomNavigationBar: BottomNav(
+            current: 3,
+            onTap: (i) => DashboardNav.goTo(context, i),
+          ),
         );
       },
+    );
+  }
+
+  Widget _topRow() {
+    return Row(
+      children: [
+        _pill('Kurir BUMDes Aktif',
+            fg: AppColors.green,
+            bg: const Color(0xFFE1F5E9),
+            icon: Icons.two_wheeler_outlined),
+        const Spacer(),
+        Flexible(
+          child: Text(
+            'Pesanan ${order.id}',
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 10, color: AppColors.muted),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _courierCard(
+      String statusTitle, String statusTime, String statusInfo) {
+    return _box(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 62,
+                    height: 62,
+                    decoration: BoxDecoration(
+                      color: AppColors.greenLight,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      CourierInfo.initials,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.green,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: -4,
+                    bottom: -4,
+                    child: Container(
+                      width: 21,
+                      height: 21,
+                      decoration: BoxDecoration(
+                        color: AppColors.green,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child:
+                          const Icon(Icons.add, size: 13, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Text(
+                          CourierInfo.name,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: _ink,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(Icons.verified_rounded,
+                            size: 17, color: AppColors.green),
+                      ],
+                    ),
+                    const Text(
+                      CourierInfo.title,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.green,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        _pill('★ ${CourierInfo.rating}',
+                            fg: _amber, bg: _amberBg),
+                        const SizedBox(width: 7),
+                        const Flexible(
+                          child: Text(
+                            '${CourierInfo.trips} Antaran Sukorejo',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _pill('Amanah & Tepat Waktu',
+                  fg: AppColors.green,
+                  bg: const Color(0xFFE8F5EC),
+                  icon: Icons.verified_outlined),
+              _pill('Warga Dusun Krajan',
+                  fg: AppColors.green,
+                  bg: const Color(0xFFE8F5EC),
+                  icon: Icons.home_work_outlined),
+              _pill(CourierInfo.vehicle,
+                  fg: AppColors.green,
+                  bg: const Color(0xFFE8F5EC),
+                  icon: Icons.two_wheeler_outlined),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _soft,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _softBorder),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: CircleAvatar(
+                    radius: 4,
+                    backgroundColor: AppColors.orange,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              statusTitle,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w900,
+                                color: _ink,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            statusTime,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.orange,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        statusInfo,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: AppColors.muted,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _callButton() {
+    return Material(
+      color: AppColors.green,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: _call,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(46),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.phone_in_talk_outlined,
+                    color: Colors.white, size: 21),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Telepon Langsung Kurir',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      '${CourierInfo.phone} (Bebas Pulsa BUMDes)',
+                      style: TextStyle(fontSize: 10.5, color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.call, color: Colors.white, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _quickHeader() {
+    return const Row(
+      children: [
+        Icon(Icons.chat_bubble_outline_rounded,
+            size: 18, color: AppColors.green),
+        SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            'Pesan Cepat ke Lapak & Kurir',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: _ink,
+            ),
+          ),
+        ),
+        Text(
+          'Respon < 2 menit',
+          style: TextStyle(fontSize: 10, color: AppColors.muted),
+        ),
+      ],
+    );
+  }
+
+  Widget _quickChips() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final q in _quick)
+          InkWell(
+            onTap: () => _send(q),
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+              decoration: BoxDecoration(
+                color: _soft,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _softBorder),
+              ),
+              child: Text(
+                q,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: _ink,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _chatBox(String call, String items, List<ChatMsg> messages) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _soft,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _softBorder),
+      ),
+      child: Column(
+        children: [
+          _bubble(
+            ChatMsg(
+              'Nggih $call, ini $items sudah saya bawa di keranjang motor. '
+              'Sekitar 10 menit lagi sampai di teras.',
+              true,
+              CourierChat.greetTime(order.id),
+            ),
+          ),
+          for (final m in messages) _bubble(m),
+          const SizedBox(height: 4),
+          _inputRow(),
+        ],
+      ),
     );
   }
 
@@ -565,18 +566,18 @@ class _ContactCourierScreenState extends State<ContactCourierScreen> {
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 270),
+        constraints: const BoxConstraints(maxWidth: 280),
         margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.fromLTRB(11, 8, 11, 8),
+        padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
         decoration: BoxDecoration(
           color: mine ? AppColors.green : Colors.white,
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(12),
-            topRight: const Radius.circular(12),
-            bottomLeft: Radius.circular(mine ? 12 : 3),
-            bottomRight: Radius.circular(mine ? 3 : 12),
+            topLeft: const Radius.circular(14),
+            topRight: const Radius.circular(14),
+            bottomLeft: Radius.circular(mine ? 14 : 3),
+            bottomRight: Radius.circular(mine ? 3 : 14),
           ),
-          border: mine ? null : Border.all(color: kLine),
+          border: mine ? null : Border.all(color: _line),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -587,7 +588,7 @@ class _ContactCourierScreenState extends State<ContactCourierScreen> {
                 Text(
                   mine ? 'Anda' : '${CourierInfo.name} (Kurir)',
                   style: TextStyle(
-                    fontSize: 9.5,
+                    fontSize: 10,
                     fontWeight: FontWeight.w900,
                     color: mine ? Colors.white : AppColors.green,
                   ),
@@ -596,19 +597,19 @@ class _ContactCourierScreenState extends State<ContactCourierScreen> {
                 Text(
                   m.time,
                   style: TextStyle(
-                    fontSize: 8.5,
+                    fontSize: 9,
                     color: mine ? Colors.white70 : AppColors.muted,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 4),
             Text(
               m.text,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 11.5,
                 height: 1.4,
-                color: mine ? Colors.white : kInk,
+                color: mine ? Colors.white : _ink,
               ),
             ),
           ],
@@ -631,12 +632,12 @@ class _ContactCourierScreenState extends State<ContactCourierScreen> {
         children: [
           Expanded(
             child: Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              height: 46,
+              padding: const EdgeInsets.symmetric(horizontal: 13),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: kLine),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _softBorder),
               ),
               alignment: Alignment.center,
               child: TextField(
@@ -644,7 +645,7 @@ class _ContactCourierScreenState extends State<ContactCourierScreen> {
                 focusNode: _focus,
                 textInputAction: TextInputAction.send,
                 onSubmitted: _send,
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: 12, color: _ink),
                 decoration: const InputDecoration.collapsed(
                   hintText: 'Tulis pesan singkat ke ${CourierInfo.name}...',
                   hintStyle: TextStyle(fontSize: 11.5, color: AppColors.muted),
@@ -655,16 +656,225 @@ class _ContactCourierScreenState extends State<ContactCourierScreen> {
           const SizedBox(width: 8),
           InkWell(
             onTap: () => _send(_input.text),
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
                 color: AppColors.green,
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(14),
               ),
               child:
-                  const Icon(Icons.send_rounded, size: 19, color: Colors.white),
+                  const Icon(Icons.send_rounded, size: 20, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _packageCard() {
+    final lines = order.lines;
+    final first = lines.isNotEmpty ? lines.first : null;
+    final rest = lines.length > 1 ? lines.sublist(1) : const [];
+    final digits = order.id.replaceAll('#', '');
+
+    return _box(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.inventory_2_outlined,
+                  size: 18, color: AppColors.green),
+              const SizedBox(width: 7),
+              const Expanded(
+                child: Text(
+                  'Paket yang Dibawa',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: _ink,
+                  ),
+                ),
+              ),
+              _pill('Siap Antar',
+                  fg: AppColors.green, bg: const Color(0xFFE1F5E9)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (first != null)
+            Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.asset(
+                    first.image,
+                    width: 54,
+                    height: 54,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 54,
+                      height: 54,
+                      color: AppColors.greenLight,
+                      child: const Icon(Icons.image_outlined,
+                          color: AppColors.green),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        first.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w900,
+                          color: _ink,
+                        ),
+                      ),
+                      Text(
+                        rest.isEmpty
+                            ? '${first.qty} item'
+                            : '+ ${rest.map((l) => '${l.qty} ${l.name}').join(', ')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Nota: $digits',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              if (_isCod)
+                _pill('Bayar Tunai ke Kurir', fg: _amber, bg: _amberBg)
+              else ...[
+                _pill('Lunas (${order.paymentLabel})',
+                    fg: AppColors.green,
+                    bg: const Color(0xFFE1F5E9),
+                    icon: Icons.check_circle_outline),
+                _pill('Tanpa Tagihan Tunai', fg: _amber, bg: _amberBg),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _guaranteeCard(String call) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _soft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _softBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const CircleAvatar(
+            radius: 16,
+            backgroundColor: AppColors.green,
+            child: Icon(Icons.verified_user_rounded,
+                size: 17, color: Colors.white),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Guyub & Amanah Desa',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.green,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Layanan kurir BUMDes menjunjung ketertiban dan kesantunan '
+                  'lingkungan rukun warga. ${CourierInfo.name} dengan senang '
+                  'hati meletakkan belanjaan di tempat teduh teras rumah '
+                  '$call bila sedang bepergian.',
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    height: 1.4,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _box({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _line),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _pill(
+    String text, {
+    required Color fg,
+    required Color bg,
+    IconData? icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: fg),
+            const SizedBox(width: 4),
+          ],
+          Flexible(
+            child: Text(
+              text,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: fg,
+              ),
             ),
           ),
         ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
+import '../providers/product_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'detail_screen.dart';
@@ -528,7 +529,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _HomeBody(
               onGoCategory: () => changeTab(1),
               onGoCart: () => changeTab(2),
-              onGoProfile: () => changeTab(4),
             ),
             CategoryScreen(
               onBack: () => changeTab(0),
@@ -557,12 +557,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 class _HomeBody extends StatefulWidget {
   final VoidCallback onGoCategory;
   final VoidCallback onGoCart;
-  final VoidCallback onGoProfile;
 
   const _HomeBody({
     required this.onGoCategory,
     required this.onGoCart,
-    required this.onGoProfile,
   });
 
   @override
@@ -573,6 +571,7 @@ class _HomeBodyState extends State<_HomeBody> {
   final TextEditingController searchController = TextEditingController();
   String searchText = '';
   bool showAllCategories = false;
+  ListSort sort = ListSort.terbaru;
 
   @override
   void dispose() {
@@ -580,74 +579,110 @@ class _HomeBodyState extends State<_HomeBody> {
     super.dispose();
   }
 
-  List<Product> get filteredProducts {
+  List<Product> _getProducts(BuildContext context) {
+    final provider = context.watch<ProductProvider>();
     final query = searchText.trim().toLowerCase();
 
-    if (query.isEmpty) {
-      return products.take(4).toList();
+    if (query.isEmpty && sort == ListSort.terbaru) {
+      return featuredProducts;
     }
 
-    return products
-        .where((product) {
-          final name = product.shortName.toLowerCase();
-          final seller = product.seller.toLowerCase();
-          return name.contains(query) || seller.contains(query);
-        })
-        .take(4)
-        .toList();
+    final source = provider.products.isNotEmpty ? provider.products : products;
+    final base = <Product>[
+      ...source,
+      ...featuredProducts.where((f) => !source.any((p) => p.id == f.id)),
+    ];
+
+    final list = base.where((product) {
+      if (query.isEmpty) return true;
+      final name = product.shortName.toLowerCase();
+      final seller = product.seller.toLowerCase();
+      return name.contains(query) || seller.contains(query);
+    }).toList();
+
+    switch (sort) {
+      case ListSort.terbaru:
+        break;
+      case ListSort.termurah:
+        list.sort((a, b) => a.price.compareTo(b.price));
+        break;
+      case ListSort.termahal:
+        list.sort((a, b) => b.price.compareTo(a.price));
+        break;
+      case ListSort.rating:
+        list.sort((a, b) => b.rating.compareTo(a.rating));
+        break;
+    }
+
+    return list.take(4).toList();
   }
 
-  Widget _sheetHandle() {
-    return Center(
-      child: Container(
-        width: 42,
-        height: 4,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(20),
-        ),
+  Widget _driftCacheStatusBadge(ProductProvider provider) {
+    final lastTime = provider.lastSyncTime;
+    String timeStr = 'Baru saja';
+    if (lastTime != null) {
+      final hour = lastTime.hour.toString().padLeft(2, '0');
+      final min = lastTime.minute.toString().padLeft(2, '0');
+      timeStr = '$hour:$min WIB';
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F7F3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.green.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: AppColors.green,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Drift DB Reaktif (.watch) • Cache: $timeStr',
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.greenDark,
+              ),
+            ),
+          ),
+          if (provider.isSyncing)
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.green,
+              ),
+            )
+          else
+            InkWell(
+              onTap: () => provider.syncProducts(forceRefresh: true),
+              child: const Icon(
+                Icons.sync,
+                size: 16,
+                color: AppColors.green,
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  void showAddressPicker() => showAddressSheet(context);
-
   void showFilter() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 25),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _sheetHandle(),
-                const SizedBox(height: 20),
-                const Text(
-                  'Filter Produk',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 14),
-                for (final c in mainCategories)
-                  _FilterItem(
-                    icon: c.icon,
-                    title: c.title,
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      openCategoryPage(context, c);
-                    },
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
+    openSortSheet(
+      context,
+      sort,
+      (s) => setState(() => sort = s),
     );
   }
 
@@ -691,428 +726,474 @@ class _HomeBodyState extends State<_HomeBody> {
 
   @override
   Widget build(BuildContext context) {
-    final productList = filteredProducts;
+    final productProvider = context.watch<ProductProvider>();
+    final productList = _getProducts(context);
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const BrandMark(size: 29),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    RichText(
-                      text: const TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'Pasar',
-                            style: TextStyle(
-                              color: AppColors.green,
-                              fontSize: 21,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          TextSpan(
-                            text: 'Desa',
-                            style: TextStyle(
-                              color: Colors.black87,
-                              fontSize: 21,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    const Text(
-                      'UMKM DESA SUKOREJO',
-                      style: TextStyle(
-                        color: AppColors.green,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: widget.onGoProfile,
-                behavior: HitTestBehavior.opaque,
-                child: const RoundAvatar(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Expanded(
-                child: Text(
-                  'Halo, Elsa Maria 👋',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF10231B),
-                  ),
-                ),
-              ),
-              ValueListenableBuilder<List<AppNotification>>(
-                valueListenable: NotificationCenter.items,
-                builder: (context, _, __) {
-                  return _HeaderIconButton(
-                    icon: Icons.notifications_none_rounded,
-                    badge: NotificationCenter.unread,
-                    onTap: openNotifications,
-                  );
-                },
-              ),
-              const SizedBox(width: 7),
-              Consumer<CartProvider>(
-                builder: (context, cart, _) {
-                  return _HeaderIconButton(
-                    icon: Icons.shopping_cart_outlined,
-                    badge: cart.count,
-                    onTap: widget.onGoCart,
-                  );
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(
-                Icons.location_on_outlined,
-                size: 18,
-                color: AppColors.green,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: InkWell(
-                  onTap: showAddressPicker,
-                  child: const Row(
+    return RefreshIndicator(
+      color: AppColors.green,
+      onRefresh: () =>
+          context.read<ProductProvider>().syncProducts(forceRefresh: true),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const BrandMark(size: 29),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'RT 02 / RW 01, Sukorejo',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                      RichText(
+                        text: const TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Pasar',
+                              style: TextStyle(
+                                color: AppColors.green,
+                                fontSize: 21,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            TextSpan(
+                              text: 'Desa',
+                              style: TextStyle(
+                                color: Colors.black87,
+                                fontSize: 21,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      SizedBox(width: 4),
-                      Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                      const SizedBox(height: 1),
+                      const Text(
+                        'UMKM DESA SUKOREJO',
+                        style: TextStyle(
+                          color: AppColors.green,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.35,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 15),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: SearchField(
-                    controller: searchController,
-                    hint: 'Cari beras pulen, sayur segar...',
-                    onChanged: (value) {
-                      setState(() {
-                        searchText = value;
-                      });
-                    },
-                  ),
+                ValueListenableBuilder<List<AppNotification>>(
+                  valueListenable: NotificationCenter.items,
+                  builder: (context, _, __) {
+                    return _HeaderIconButton(
+                      icon: Icons.notifications_none_rounded,
+                      badge: NotificationCenter.unread,
+                      onTap: openNotifications,
+                    );
+                  },
                 ),
-              ),
-              const SizedBox(width: 8),
-              InkWell(
-                onTap: showFilter,
-                borderRadius: BorderRadius.circular(13),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: AppColors.green,
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: const Icon(
-                    Icons.tune_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
+                const SizedBox(width: 7),
+                Consumer<CartProvider>(
+                  builder: (context, cart, _) {
+                    return _HeaderIconButton(
+                      icon: Icons.shopping_cart_outlined,
+                      badge: cart.count,
+                      onTap: widget.onGoCart,
+                    );
+                  },
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _WalletRow(onTap: openTopUp),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-            decoration: BoxDecoration(
-              color: AppColors.green,
-              borderRadius: BorderRadius.circular(16),
+              ],
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+            const SizedBox(height: 18),
+            const Text(
+              'Halo, Elsa Maria 👋',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 21,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF10231B),
+              ),
+            ),
+            const SizedBox(height: 15),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: SearchField(
+                      controller: searchController,
+                      hint: 'Cari beras pulen, sayur segar...',
+                      onChanged: (value) {
+                        setState(() {
+                          searchText = value;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: showFilter,
+                  borderRadius: BorderRadius.circular(13),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.green,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: const Icon(
+                      Icons.tune_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _WalletRow(onTap: openTopUp),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: AppColors.green,
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Stack(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Spesial Petani Desa',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
+                  Positioned(
+                    right: -44,
+                    bottom: -56,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: 180,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      const Text(
-                        'Panen Raya Sukorejo',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Positioned(
+                    right: -14,
+                    top: -34,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: 90,
+                        height: 90,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        'Diskon s/d 20%',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                        ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 20,
+                    bottom: 18,
+                    child: IgnorePointer(
+                      child: Icon(
+                        Icons.grass_rounded,
+                        color: Colors.white.withValues(alpha: 0.28),
+                        size: 72,
                       ),
-                      const SizedBox(height: 5),
-                      const Text(
-                        'Langsung dari kebun tanpa tengkulak.\n'
-                        'Sukorejo. Bebas ongkir se-Desa.',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          height: 1.35,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.local_offer_rounded,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                              SizedBox(width: 5),
+                              Text(
+                                'Spesial Petani Desa',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  height: 1.2,
+                                  letterSpacing: 0.3,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 11),
-                      Material(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        child: InkWell(
-                          onTap: widget.onGoCategory,
+                        const SizedBox(height: 9),
+                        const Text(
+                          'Panen Raya Sukorejo',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            height: 1.2,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Diskon s/d 20%',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            height: 1.2,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        const Text(
+                          'Langsung dari kebun tanpa tengkulak.\n'
+                          'Sukorejo. Bebas ongkir se-Desa.',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 11),
+                        Material(
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 9,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Belanja Segar',
-                                  style: TextStyle(
-                                    color: AppColors.green,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 11,
+                          child: InkWell(
+                            onTap: widget.onGoCategory,
+                            borderRadius: BorderRadius.circular(10),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 9,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Belanja Segar',
+                                    style: TextStyle(
+                                      color: AppColors.green,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 11,
+                                    ),
                                   ),
-                                ),
-                                SizedBox(width: 8),
-                                Icon(
-                                  Icons.arrow_forward_rounded,
-                                  color: AppColors.green,
-                                  size: 17,
-                                ),
-                              ],
+                                  SizedBox(width: 8),
+                                  Icon(
+                                    Icons.arrow_forward_rounded,
+                                    color: AppColors.green,
+                                    size: 17,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  Positioned(
-                    right: -25,
-                    bottom: -40,
-                    child: IgnorePointer(
-                      child: Container(
-                        width: 150,
-                        height: 150,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.10),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.eco_outlined,
-                          color: Colors.white24,
-                          size: 80,
-                        ),
-                      ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 21),
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Kategori Hasil Desa',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-              ),
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    showAllCategories = !showAllCategories;
-                  });
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text(
-                    showAllCategories ? 'Tutup' : 'Semua',
-                    style: const TextStyle(
-                      color: AppColors.green,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 13),
-          _buildCategories(),
-          const SizedBox(height: 22),
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Produk Unggulan Warga',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE1F5E9),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'Panen Mingguan',
-                  style: TextStyle(
-                    color: AppColors.green,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (productList.isEmpty)
-            const _EmptyProducts()
-          else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: productList.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                mainAxisExtent: 275,
-              ),
-              itemBuilder: (context, index) {
-                return _FigmaProductCard(
-                  product: productList[index],
-                  productIndex: index,
-                );
-              },
-            ),
-          const SizedBox(height: 15),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF7EF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Row(
+            const SizedBox(height: 21),
+            Row(
               children: [
-                Icon(
-                  Icons.verified_user_outlined,
-                  color: AppColors.green,
-                  size: 34,
+                const Expanded(
+                  child: Text(
+                    'Kategori Hasil Desa',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  ),
                 ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Aman & Terpercaya untuk Warga Desa.',
-                        style: TextStyle(
-                          color: AppColors.green,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                        ),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      showAllCategories = !showAllCategories;
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      showAllCategories ? 'Tutup' : 'Semua',
+                      style: const TextStyle(
+                        color: AppColors.green,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
                       ),
-                      SizedBox(height: 3),
-                      Text(
-                        'Setiap transaksi langsung disalurkan ke keluarga '
-                        'petani dan pengrajin warga Desa Sukorejo dengan '
-                        'jaminan mutu BUMDes.',
-                        style: TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 9,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 13),
+            _buildCategories(),
+            const SizedBox(height: 22),
+            const Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Produk Unggulan Warga',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  ),
+                ),
+                Text(
+                  'Panen Minggu Ini',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF13231C),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _driftCacheStatusBadge(productProvider),
+            const SizedBox(height: 12),
+            if (productList.isEmpty)
+              const _EmptyProducts()
+            else
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: productList.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  mainAxisExtent: 340,
+                ),
+                itemBuilder: (context, index) {
+                  return _FigmaProductCard(
+                    product: productList[index],
+                    productIndex: index,
+                  );
+                },
+              ),
+            const SizedBox(height: 15),
+            const TrustBanner(),
+          ],
+        ),
       ),
     );
   }
 }
 
-enum _ListSort { terbaru, termurah, termahal, rating }
+enum ListSort { terbaru, termurah, termahal, rating }
 
-String _listSortLabel(_ListSort sort) {
+String listSortLabel(ListSort sort) {
   switch (sort) {
-    case _ListSort.terbaru:
+    case ListSort.terbaru:
       return 'Terbaru';
-    case _ListSort.termurah:
+    case ListSort.termurah:
       return 'Harga Termurah';
-    case _ListSort.termahal:
+    case ListSort.termahal:
       return 'Harga Termahal';
-    case _ListSort.rating:
+    case ListSort.rating:
       return 'Rating Tertinggi';
   }
+}
+
+void openSortSheet(
+  BuildContext context,
+  ListSort current,
+  ValueChanged<ListSort> onSelected,
+) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (sheetContext) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 25),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sheetHandleBar(),
+              const SizedBox(height: 20),
+              const Text(
+                'Urutkan Produk',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 14),
+              for (final s in ListSort.values)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 9),
+                  child: InkWell(
+                    onTap: () {
+                      onSelected(s);
+                      Navigator.pop(sheetContext);
+                    },
+                    borderRadius: BorderRadius.circular(11),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: current == s
+                            ? const Color(0xFFEAF7EF)
+                            : const Color(0xFFF7FAF8),
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(
+                          color: current == s
+                              ? AppColors.green
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              listSortLabel(s),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          if (current == s)
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              color: AppColors.green,
+                              size: 20,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class CategoryProductsScreen extends StatefulWidget {
@@ -1127,7 +1208,7 @@ class CategoryProductsScreen extends StatefulWidget {
 class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchText = '';
-  _ListSort _sort = _ListSort.terbaru;
+  ListSort _sort = ListSort.terbaru;
 
   VillageCategory get category => widget.category;
 
@@ -1137,15 +1218,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     super.dispose();
   }
 
-  List<Product> get _categoryProducts {
-    final title = category.title.toLowerCase();
-
-    return products.where((p) {
-      final text = '${p.name} ${p.shortName} ${p.seller}'.toLowerCase();
-      return p.category.toLowerCase().contains(title) ||
-          category.keywords.any((k) => text.contains(k));
-    }).toList();
-  }
+  List<Product> get _categoryProducts => productsOfCategory(category.title);
 
   List<Product> get _visibleProducts {
     final query = _searchText.trim().toLowerCase();
@@ -1158,15 +1231,15 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     }).toList();
 
     switch (_sort) {
-      case _ListSort.terbaru:
+      case ListSort.terbaru:
         break;
-      case _ListSort.termurah:
+      case ListSort.termurah:
         list.sort((a, b) => a.price.compareTo(b.price));
         break;
-      case _ListSort.termahal:
+      case ListSort.termahal:
         list.sort((a, b) => b.price.compareTo(a.price));
         break;
-      case _ListSort.rating:
+      case ListSort.rating:
         list.sort((a, b) => b.rating.compareTo(a.rating));
         break;
     }
@@ -1175,80 +1248,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   }
 
   void _showSortSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 25),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _sheetHandleBar(),
-                const SizedBox(height: 20),
-                const Text(
-                  'Urutkan Produk',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 14),
-                for (final s in _ListSort.values)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 9),
-                    child: InkWell(
-                      onTap: () {
-                        setState(() => _sort = s);
-                        Navigator.pop(sheetContext);
-                      },
-                      borderRadius: BorderRadius.circular(11),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 13,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _sort == s
-                              ? const Color(0xFFEAF7EF)
-                              : const Color(0xFFF7FAF8),
-                          borderRadius: BorderRadius.circular(11),
-                          border: Border.all(
-                            color: _sort == s
-                                ? AppColors.green
-                                : Colors.transparent,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _listSortLabel(s),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                            if (_sort == s)
-                              const Icon(
-                                Icons.check_circle_rounded,
-                                color: AppColors.green,
-                                size: 20,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
+    openSortSheet(
+      context,
+      _sort,
+      (s) => setState(() => _sort = s),
     );
   }
 
@@ -1310,29 +1313,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                       ],
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () => DashboardNav.goTo(context, 4),
-                    behavior: HitTestBehavior.opaque,
-                    child: const RoundAvatar(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Halo, Elsa Maria 👋',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF10231B),
-                      ),
-                    ),
-                  ),
                   ValueListenableBuilder<List<AppNotification>>(
                     valueListenable: NotificationCenter.items,
                     builder: (context, _, __) {
@@ -1355,34 +1335,16 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.location_on_outlined,
-                    size: 18,
-                    color: AppColors.green,
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => showAddressSheet(context),
-                      child: const Row(
-                        children: [
-                          Text(
-                            'RT 02 / RW 01, Sukorejo',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          SizedBox(width: 4),
-                          Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 18),
+              const Text(
+                'Halo, Elsa Maria 👋',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF10231B),
+                ),
               ),
               const SizedBox(height: 15),
               Row(
@@ -1540,7 +1502,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                     crossAxisCount: 2,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
-                    mainAxisExtent: 268,
+                    mainAxisExtent: 304,
                   ),
                   itemBuilder: (context, index) {
                     return CategoryProductCard(
@@ -1563,6 +1525,14 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   }
 }
 
+class _ProductTag {
+  final String text;
+  final Color color;
+  final Color textColor;
+
+  const _ProductTag(this.text, this.color, [this.textColor = Colors.white]);
+}
+
 class CategoryProductCard extends StatelessWidget {
   final Product product;
   final int index;
@@ -1575,8 +1545,75 @@ class CategoryProductCard extends StatelessWidget {
 
   bool get _soldOut => product.stock <= 0;
 
+  static const Color _orange = Color(0xFFE8742A);
+  static const Color _brown = Color(0xFF8A4B2A);
+  static const Color _cream = Color(0xFFFBEFD9);
+  static const Color _creamText = Color(0xFF5A3A1A);
+
+  static const Map<String, _ProductTag> _tags = {
+    'umkm_tempe': _ProductTag('KULINER ASLI', _orange),
+    'umkm_keripik': _ProductTag('FAVORIT WARGA', _orange),
+    'umkm_besek': _ProductTag('KERAJINAN TANGAN', _cream, _creamText),
+    'umkm_sutil': _ProductTag('PRODUK LOKAL', AppColors.green),
+    'ikan_gurame': _ProductTag('SEGAR KOLAM', AppColors.green),
+    'ikan_udang': _ProductTag('FAVORIT WARGA', _orange),
+    'ikan_nila': _ProductTag('PANEN HARIAN', AppColors.green),
+    'ikan_lele': _ProductTag('SUPER GURIH', _orange),
+    'sembako_telur': _ProductTag('SEGAR HARIAN', AppColors.green),
+    'sembako_minyak': _ProductTag('FAVORIT WARGA', _orange),
+    'sembako_gula': _ProductTag('HARGA HEMAT', AppColors.green),
+    'sembako_tepung': _ProductTag('SUPER HALUS', _orange),
+    'beras_premium': _ProductTag('PULEN WANGI', AppColors.green),
+    'beras_merah': _ProductTag('ORGANIK SEHAT', _orange),
+    'beras_pandan': _ProductTag('AROMA WANGI', AppColors.green),
+    'beras_hitam': _ProductTag('BEBAS GULA & SEHAT', _orange),
+    'sayur_bayam': _ProductTag('PULEN WANGI', AppColors.green),
+    'sayur_kangkung': _ProductTag('SEGAR BEREMBUN', AppColors.green),
+    'sayur_cabai': _ProductTag('PEDAS SEGAR', _brown),
+    'sayur_timun': _ProductTag('PANEN HARIAN', AppColors.green),
+    'buah_mangga': _ProductTag('MATANG POHON', _orange),
+    'buah_pepaya': _ProductTag('MANIS SEGAR', _orange),
+    'buah_pisang': _ProductTag('PANEN PAGI', AppColors.green),
+    'buah_naga': _ProductTag('ORGANIK LOKAL', _orange),
+    'ayam_telur': _ProductTag('SEGAR HARIAN', _orange),
+    'ayam_kampung': _ProductTag('AYAM KAMPUNG ASLI', _orange),
+    'ayam_dada': _ProductTag('DAGING POTONG', AppColors.green),
+    'ayam_puyuh': _ProductTag('PANEN HARIAN', _orange),
+    'olahan_keripik': _ProductTag('RENYAH GURIH', _orange),
+    'olahan_bawang': _ProductTag('RENYAH WANGI', AppColors.green),
+    'olahan_sambal': _ProductTag('PEDAS NIKMAT', _brown),
+    'olahan_gula': _ProductTag('100% NIRA AREN', _brown),
+    'kerajinan_besek': _ProductTag('ANYAMAN BAMBU', _brown),
+    'kerajinan_cobek': _ProductTag('TANAH LIAT ASLI', _brown),
+    'kerajinan_spatula': _ProductTag('KAYU JATI LOKAL', _brown),
+    'kerajinan_kuali': _ProductTag('100% ALAMI', _orange),
+    'minuman_jamu': _ProductTag('HERBAL ASLI', _orange),
+    'minuman_kelapa': _ProductTag('PETIK SEGAR', AppColors.green),
+    'minuman_wedang': _ProductTag('HANGAT BERKHASIAT', _orange),
+    'minuman_madu': _ProductTag('100% MURNI', _orange),
+    'herbal_empon': _ProductTag('SEGAR ALAMI', AppColors.green),
+    'herbal_jahe': _ProductTag('100% MURNI', _orange),
+    'herbal_telang': _ProductTag('SIAP SEDUH', AppColors.green),
+    'herbal_bibit': _ProductTag('BIBIT UNGGUL', AppColors.green),
+    'dapur_sendok': _ProductTag('KAYU JATI ASLI', _orange),
+    'dapur_ulekan': _ProductTag('BATU KALI ASLI', _orange),
+    'dapur_bakul': _ProductTag('ANYAMAN HALUS', _orange),
+    'dapur_sapu': _ProductTag('SERAT KUAT', _orange),
+    'karya_tas': _ProductTag('ANYAMAN ROTAN', _orange),
+    'karya_batik': _ProductTag('BATIK ALAM', _orange),
+    'karya_joglo': _ProductTag('KAYU JATI', _orange),
+    'karya_hiasan': _ProductTag('RAJUTAN BOHO', _orange),
+  };
+
+  _ProductTag? get _figmaTag => _soldOut ? null : _tags[product.id];
+
   String get _tagText {
     if (_soldOut) return 'STOK HABIS';
+
+    final figmaTag = _figmaTag;
+    if (figmaTag != null) return figmaTag.text;
+
+    if (product.id == 'tani_bayam') return 'FAVORIT WARGA';
 
     final name = product.shortName.toLowerCase();
     if (name.contains('madu')) return 'MURNI 100%';
@@ -1597,29 +1634,23 @@ class CategoryProductCard extends StatelessWidget {
 
   Color get _tagColor {
     if (_soldOut) return Colors.redAccent;
+
+    final figmaTag = _figmaTag;
+    if (figmaTag != null) return figmaTag.color;
+
     final t = _tagText;
-    if (t == 'MURNI 100%' || t == 'FAVORIT WARGA') {
-      return const Color(0xFFE8742A);
-    }
+    if (t == 'MURNI 100%' || t == 'FAVORIT WARGA') return _orange;
     return AppColors.green;
   }
 
+  Color get _tagTextColor => _figmaTag?.textColor ?? Colors.white;
+
   String get _buyers {
-    final name = product.shortName.toLowerCase();
-    if (name.contains('telur')) return '64';
-    if (name.contains('keripik') || name.contains('chips')) return '210+';
     const buyers = ['120+', '85', '64', '210+'];
     return buyers[index % buyers.length];
   }
 
-  double get _rating {
-    final name = product.shortName.toLowerCase();
-    if (name.contains('telur')) return 4.9;
-    if (name.contains('keripik') || name.contains('chips')) return 4.9;
-    return product.rating;
-  }
-
-  String _formatRupiah(int value) {
+  String _formatNumber(int value) {
     final text = value.toString();
     final buffer = StringBuffer();
 
@@ -1629,11 +1660,31 @@ class CategoryProductCard extends StatelessWidget {
       if (fromEnd > 1 && fromEnd % 3 == 1) buffer.write('.');
     }
 
-    return 'Rp ${buffer.toString()}';
+    return buffer.toString();
+  }
+
+  void _addToCart(BuildContext context) {
+    context.read<CartProvider>().add(product);
+
+    NotificationCenter.add(
+      'Keranjang diperbarui',
+      '${product.shortName} ditambahkan ke keranjang',
+    );
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('${product.shortName} ditambahkan ke keranjang'),
+          duration: const Duration(milliseconds: 900),
+        ),
+      );
   }
 
   @override
   Widget build(BuildContext context) {
+    final cartColor = _soldOut ? const Color(0xFF9AA39E) : AppColors.green;
+
     return InkWell(
       onTap: () {
         Navigator.push(
@@ -1645,11 +1696,11 @@ class CategoryProductCard extends StatelessWidget {
       },
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(9, 9, 9, 0),
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: const Color(0xFFEEF2EF)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1658,7 +1709,7 @@ class CategoryProductCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(11),
               child: SizedBox(
-                height: 108,
+                height: 146,
                 width: double.infinity,
                 child: Stack(
                   fit: StackFit.expand,
@@ -1677,8 +1728,8 @@ class CategoryProductCard extends StatelessWidget {
                       },
                     ),
                     Positioned(
-                      left: 6,
-                      top: 6,
+                      left: 8,
+                      top: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 7,
@@ -1690,9 +1741,9 @@ class CategoryProductCard extends StatelessWidget {
                         ),
                         child: Text(
                           _tagText,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8.5,
+                          style: TextStyle(
+                            color: _tagTextColor,
+                            fontSize: 9,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.2,
                           ),
@@ -1704,123 +1755,104 @@ class CategoryProductCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 7),
-
             Text(
               product.seller,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: AppColors.muted,
-                fontSize: 9.5,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 2),
-
-            Text(
-              product.shortName,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF13231C),
-                fontSize: 13,
-                height: 1.15,
-                fontWeight: FontWeight.w900,
+            SizedBox(
+              height: 36,
+              width: double.infinity,
+              child: Text(
+                product.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF13231C),
+                  fontSize: 14,
+                  height: 1.2,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
             const Spacer(),
-
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _formatRupiah(product.price),
-                      maxLines: 1,
-                      style: const TextStyle(
-                        color: AppColors.green,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const Icon(
-                  Icons.star_rounded,
-                  color: Color(0xFFFFB800),
-                  size: 14,
-                ),
-                const SizedBox(width: 2),
                 Text(
-                  _rating.toStringAsFixed(1),
+                  'Rp\n${_formatNumber(product.price)}',
                   style: const TextStyle(
-                    color: Color(0xFF17231D),
-                    fontSize: 10,
+                    color: AppColors.green,
+                    fontSize: 16,
+                    height: 1.15,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(width: 2),
-                Text(
-                  '($_buyers)',
-                  style: const TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w600,
+                const Spacer(),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          color: Color(0xFFFFB800),
+                          size: 17,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          product.rating.toStringAsFixed(1),
+                          style: const TextStyle(
+                            color: Color(0xFF17231D),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '($_buyers)',
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-
-            const Divider(height: 1, thickness: 1, color: Color(0xFFEEF2EF)),
+            const SizedBox(height: 2),
             InkWell(
-              onTap: _soldOut
-                  ? null
-                  : () {
-                      context.read<CartProvider>().add(product);
-
-                      NotificationCenter.add(
-                        'Keranjang diperbarui',
-                        '${product.shortName} ditambahkan ke keranjang',
-                      );
-
-                      ScaffoldMessenger.of(context)
-                        ..hideCurrentSnackBar()
-                        ..showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '${product.shortName} ditambahkan ke keranjang',
-                            ),
-                            duration: const Duration(milliseconds: 900),
-                          ),
-                        );
-                    },
-              borderRadius:
-                  const BorderRadius.vertical(bottom: Radius.circular(14)),
+              onTap: _soldOut ? null : () => _addToCart(context),
+              borderRadius: BorderRadius.circular(10),
               child: SizedBox(
-                height: 36,
                 width: double.infinity,
+                height: 30,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       Icons.shopping_cart_outlined,
+                      color: cartColor,
                       size: 16,
-                      color:
-                          _soldOut ? const Color(0xFF9AA39E) : AppColors.green,
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 14),
                     Text(
                       _soldOut ? 'Stok Habis' : '+ Keranjang',
                       style: TextStyle(
-                        fontSize: 11.5,
+                        color: cartColor,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w900,
-                        color: _soldOut
-                            ? const Color(0xFF9AA39E)
-                            : AppColors.green,
                       ),
                     ),
                   ],
@@ -1918,21 +1950,16 @@ class TrustBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEAF7EF),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Row(
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 6),
+      child: Row(
         children: [
           Icon(
-            Icons.verified_user_outlined,
+            Icons.verified_user_rounded,
             color: AppColors.green,
-            size: 34,
+            size: 36,
           ),
-          SizedBox(width: 10),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2004,26 +2031,82 @@ class _FigmaProductCard extends StatelessWidget {
     required this.productIndex,
   });
 
-  String get totalBuyer {
-    final name = product.shortName.toLowerCase();
+  String get _lower => product.shortName.toLowerCase();
 
-    if (name.contains('telur')) return '64';
-    if (name.contains('keripik') || name.contains('chips')) return '210+';
+  bool _has(String key) => _lower.contains(key);
 
-    const buyers = ['120+', '90+', '80+', '60+'];
-    if (productIndex < buyers.length) return buyers[productIndex];
-    return '50+';
+  bool get _soldOut => product.stock <= 0;
+  bool get _lowStock => product.stock <= 10;
+
+  String get _title {
+    if (_has('beras')) return 'Beras Pandan Wangi Sukorejo';
+    if (_has('madu')) return 'Madu Murni Randu Hutan 250ml';
+    if (_has('telur')) return 'Telur Ayam Kampung (10 butir)';
+    if (_has('keripik') || _has('chips')) return 'Keripik Singkong Balado 200g';
+    return product.shortName;
   }
 
-  double get rating {
-    final name = product.shortName.toLowerCase();
+  String get _tagText {
+    if (_soldOut) return 'STOK HABIS';
+    if (_has('madu')) return 'MURNI 100%';
+    if (_has('beras') || _has('gabah')) return 'PANEN BARU';
+    if (_has('jagung') || _has('sayur') || _has('bayam') || _has('telur')) {
+      return 'SEGAR HARIAN';
+    }
+    if (_has('keripik') || _has('chips')) return 'FAVORIT WARGA';
 
-    if (name.contains('telur')) return 4.9;
-    if (name.contains('keripik') || name.contains('chips')) return 4.9;
+    const cycle = ['PANEN BARU', 'FAVORIT WARGA', 'SEGAR HARIAN', 'MURNI 100%'];
+    return cycle[productIndex % cycle.length];
+  }
+
+  Color get _tagColor {
+    if (_soldOut) return Colors.redAccent;
+    final t = _tagText;
+    if (t == 'MURNI 100%' || t == 'FAVORIT WARGA') {
+      return const Color(0xFFE8742A);
+    }
+    return AppColors.green;
+  }
+
+  String get _unit {
+    if (_has('beras') || _has('gabah')) return 'karung';
+    if (_has('madu')) return 'botol';
+    if (_has('telur')) return 'butir';
+    if (_has('keripik') || _has('chips')) return 'bks';
+    return 'pcs';
+  }
+
+  // Dua baris, sesuai desain Figma
+  String get _stockLabel {
+    if (_soldOut) return 'Stok\nhabis';
+    if (_lowStock) return 'Sisa ${product.stock}\n$_unit';
+    return 'Stok: ${product.stock}\n$_unit';
+  }
+
+  String get _noteLabel {
+    if (_has('madu')) return 'Banyak\ndicari';
+    if (_has('telur')) return 'Panen\npagi';
+    if (_has('keripik') || _has('chips')) return 'Gurih &\nRenyah';
+    return 'Siap\nkirim';
+  }
+
+  double get _rating {
+    if (_has('beras')) return 4.9;
+    if (_has('madu')) return 5.0;
+    if (_has('telur')) return 4.8;
+    if (_has('keripik') || _has('chips')) return 4.9;
     return product.rating;
   }
 
-  String _formatRupiah(int value) {
+  String get _buyers {
+    if (_has('beras')) return '120+';
+    if (_has('madu')) return '85';
+    if (_has('telur')) return '64';
+    if (_has('keripik') || _has('chips')) return '210+';
+    return '50+';
+  }
+
+  String _formatNumber(int value) {
     final text = value.toString();
     final buffer = StringBuffer();
 
@@ -2035,11 +2118,68 @@ class _FigmaProductCard extends StatelessWidget {
       }
     }
 
-    return 'Rp ${buffer.toString()}';
+    return buffer.toString();
+  }
+
+  Widget _chip(String text, {required bool red, bool dot = false}) {
+    final bg = red ? const Color(0xFFFDECEA) : const Color(0xFFE8F5ED);
+    final fg = red ? const Color(0xFFD94B3F) : AppColors.greenDark;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (dot) ...[
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: fg, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            text,
+            style: TextStyle(
+              color: fg,
+              fontSize: 11,
+              height: 1.2,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addToCart(BuildContext context) {
+    context.read<CartProvider>().add(product);
+
+    NotificationCenter.add(
+      'Keranjang diperbarui',
+      '${product.shortName} ditambahkan ke keranjang',
+    );
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('${product.shortName} ditambahkan ke keranjang'),
+          duration: const Duration(milliseconds: 900),
+        ),
+      );
   }
 
   @override
   Widget build(BuildContext context) {
+    final red = _lowStock;
+    final cartColor = _soldOut ? const Color(0xFF9AA39E) : AppColors.green;
+
     return InkWell(
       onTap: () {
         Navigator.push(
@@ -2051,140 +2191,176 @@ class _FigmaProductCard extends StatelessWidget {
       },
       borderRadius: BorderRadius.circular(14),
       child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: const Color(0xFFEEF2EF)),
         ),
-        padding: const EdgeInsets.all(9),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // FOTO + LABEL
             ClipRRect(
               borderRadius: BorderRadius.circular(11),
               child: SizedBox(
-                height: 100,
+                height: 146,
                 width: double.infinity,
-                child: Image.asset(
-                  product.image,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: const Color(0xFFF0F3F1),
-                      child: const Icon(
-                        Icons.image_not_supported_outlined,
-                        color: AppColors.muted,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      product.image,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: const Color(0xFFF0F3F1),
+                          child: const Icon(
+                            Icons.image_not_supported_outlined,
+                            color: AppColors.muted,
+                          ),
+                        );
+                      },
+                    ),
+                    Positioned(
+                      left: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _tagColor,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _tagText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 7),
+            const SizedBox(height: 6),
             Text(
               product.seller,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: AppColors.muted,
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              product.shortName,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF13231C),
-                fontSize: 13,
-                height: 1.15,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              _formatRupiah(product.price),
-              style: const TextStyle(
-                color: AppColors.green,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(
-                  Icons.star_rounded,
-                  color: Color(0xFFFFB800),
-                  size: 16,
+            SizedBox(
+              height: 34,
+              width: double.infinity,
+              child: Text(
+                _title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF13231C),
+                  fontSize: 14,
+                  height: 1.2,
+                  fontWeight: FontWeight.w900,
                 ),
-                const SizedBox(width: 3),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Stack(
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _chip(_stockLabel, red: red, dot: true),
+                ),
+                if (!_soldOut)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _chip(_noteLabel, red: red),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
                 Text(
-                  rating.toStringAsFixed(1),
+                  'Rp\n${_formatNumber(product.price)}',
                   style: const TextStyle(
-                    color: Color(0xFF17231D),
-                    fontSize: 10,
+                    color: AppColors.green,
+                    fontSize: 16,
+                    height: 1.15,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  '($totalBuyer)',
-                  style: const TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                const Spacer(),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          color: Color(0xFFFFB800),
+                          size: 17,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          _rating.toStringAsFixed(1),
+                          style: const TextStyle(
+                            color: Color(0xFF17231D),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '($_buyers)',
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
-            const Spacer(),
+            const SizedBox(height: 2),
             InkWell(
-              onTap: () {
-                // context.read -> tidak ikut rebuild, cukup memanggil add()
-                context.read<CartProvider>().add(product);
-
-                // Notifikasi muncul di lonceng (hapus jika tidak diinginkan)
-                NotificationCenter.add(
-                  'Keranjang diperbarui',
-                  '${product.shortName} ditambahkan ke keranjang',
-                );
-
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(
-                    SnackBar(
-                      content:
-                          Text('${product.shortName} ditambahkan ke keranjang'),
-                      duration: const Duration(milliseconds: 900),
-                    ),
-                  );
-              },
+              onTap: _soldOut ? null : () => _addToCart(context),
               borderRadius: BorderRadius.circular(10),
-              child: Container(
+              child: SizedBox(
                 width: double.infinity,
-                height: 35,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.green, width: 1.2),
-                ),
-                child: const Row(
+                height: 28,
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       Icons.shopping_cart_outlined,
-                      color: AppColors.green,
-                      size: 17,
+                      color: cartColor,
+                      size: 15,
                     ),
-                    SizedBox(width: 6),
+                    const SizedBox(width: 20),
                     Text(
-                      'Keranjang',
+                      _soldOut ? 'Stok Habis' : '+ Keranjang',
                       style: TextStyle(
-                        color: AppColors.green,
-                        fontSize: 11,
+                        color: cartColor,
+                        fontSize: 12,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -2218,7 +2394,6 @@ class _HeaderIconButton extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Hanya ikon, tanpa card / kotak / garis
           SizedBox(
             width: 36,
             height: 36,
@@ -2354,50 +2529,6 @@ class _AddressOption extends StatelessWidget {
             if (selected)
               const Icon(Icons.check_circle_rounded, color: AppColors.green),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FilterItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-
-  const _FilterItem({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(11),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF7FAF8),
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: AppColors.green),
-              const SizedBox(width: 11),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

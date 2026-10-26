@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-
 import '../theme/app_theme.dart';
 import '../screens/dashboard_screen.dart';
 import 'common.dart';
 
-/// Header atas: sama persis dengan header Beranda (BrandMark + lonceng + profil).
 class PasarDesaHeader extends StatelessWidget {
   final VoidCallback? onBell;
   final VoidCallback? onProfile;
@@ -103,7 +101,6 @@ class PasarDesaHeader extends StatelessWidget {
   }
 }
 
-/// Kartu "Amanah Kas BUMDes" (dipakai di checkout & halaman sukses).
 class AmanahKasCard extends StatelessWidget {
   const AmanahKasCard({super.key});
 
@@ -164,7 +161,6 @@ class AmanahKasCard extends StatelessWidget {
 
 enum PaymentFailedAction { retry, changeMethod }
 
-/// Dialog "Pembayaran Belum Berhasil".
 Future<PaymentFailedAction?> showPaymentFailedDialog(BuildContext context) {
   return showDialog<PaymentFailedAction>(
     context: context,

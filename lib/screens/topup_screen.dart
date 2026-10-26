@@ -1116,7 +1116,6 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
 
     if (!mounted) return;
 
-    // Tutup halaman pembayaran + halaman form top up
     int popped = 0;
     Navigator.of(context).popUntil((_) => popped++ >= 2);
   }

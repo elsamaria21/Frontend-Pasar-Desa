@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/checkout_widgets.dart' show PasarDesaHeader;
 import '../widgets/common.dart';
 import 'dashboard_screen.dart' show DashboardNav, NotificationCenter;
 import 'order_models.dart';
@@ -173,17 +174,73 @@ class _FlowHeader extends StatelessWidget {
   }
 }
 
+class _FlowTitleBar extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+
+  const _FlowTitleBar({required this.title, this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(4, 2, 16, 6),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE5E9E6))),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.maybePop(context),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                size: 18, color: AppColors.text),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.text,
+                  ),
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(fontSize: 10, color: AppColors.muted),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FlowPage extends StatelessWidget {
   final String title;
   final String? subtitle;
   final List<Widget> children;
   final Widget? bottom;
+  final bool brandHeader;
 
   const _FlowPage({
     required this.title,
     required this.children,
     this.subtitle,
     this.bottom,
+    this.brandHeader = false,
   });
 
   @override
@@ -193,7 +250,11 @@ class _FlowPage extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            _FlowHeader(title: title, subtitle: subtitle),
+            if (brandHeader) ...[
+              const PasarDesaHeader(),
+              _FlowTitleBar(title: title, subtitle: subtitle),
+            ] else
+              _FlowHeader(title: title, subtitle: subtitle),
             Expanded(
               child: ListView(
                 physics: const BouncingScrollPhysics(),
@@ -381,18 +442,13 @@ Widget _lineTile(OrderLine l) {
 }
 
 Widget _guaranteeBox() {
-  return _box(
-    color: const Color(0xFFF1FBF4),
-    border: AppColors.green,
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
     child: const Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CircleAvatar(
-          radius: 16,
-          backgroundColor: AppColors.green,
-          child:
-              Icon(Icons.verified_user_rounded, size: 17, color: Colors.white),
-        ),
+        Icon(Icons.verified_user, size: 24, color: AppColors.green),
         SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -403,7 +459,7 @@ Widget _guaranteeBox() {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w900,
-                  color: AppColors.green,
+                  color: AppColors.text,
                 ),
               ),
               SizedBox(height: 3),
@@ -459,12 +515,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   void dispose() {
     orderMeta.removeListener(_refresh);
     super.dispose();
-  }
-
-  void _snack(String text) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
   }
 
   void _openChat() {
@@ -1370,7 +1420,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
     2: 'Cukup',
     3: 'Baik',
     4: 'Segar & Bagus',
-    5: 'Sangat Segar & Berkualitas',
+    5: 'Sangat Segar & Bagus',
   };
 
   final TextEditingController _note = TextEditingController();
@@ -1437,6 +1487,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return _FlowPage(
+      brandHeader: true,
       title: _readOnly ? 'Ulasan Anda' : 'Beri Ulasan',
       subtitle: o.id,
       bottom: _readOnly
@@ -1570,7 +1621,12 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
                 children: [
                   _arrivedRow('Nomor Pesanan', o.id),
                   const SizedBox(height: 6),
-                  _arrivedRow('Penerima', 'Budi Santoso • RT 02 / RW 01'),
+                  _arrivedRow(
+                    'Penerima',
+                    o.receiverName.trim().isNotEmpty
+                        ? o.receiverName.trim()
+                        : 'Budi Santoso • RT 02 / RW 01',
+                  ),
                 ],
               ),
             ),
@@ -1622,8 +1678,132 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
               const Color(0xFFE1F5E9),
             ),
           ),
-          for (final l in o.lines) _lineTile(l),
+          for (int i = 0; i < o.lines.length; i++) ...[
+            if (i > 0) const Divider(height: 16, color: Color(0xFFEEF2EF)),
+            _receivedLine(o.lines[i]),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _receivedLine(OrderLine l) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.asset(
+            l.image,
+            width: 58,
+            height: 58,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              width: 58,
+              height: 58,
+              color: AppColors.greenLight,
+              child: const Icon(Icons.image_outlined, color: AppColors.green),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              if (l.variant.isNotEmpty)
+                Text(
+                  l.variant,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 10, color: AppColors.muted),
+                ),
+              const SizedBox(height: 6),
+              _pill(
+                'Kondisi Segar & Bersih',
+                AppColors.green,
+                const Color(0xFFE1F5E9),
+                icon: Icons.verified_outlined,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              formatRupiahId(l.price),
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w900,
+                color: AppColors.green,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'x ${l.qty}',
+              style: const TextStyle(fontSize: 10.5, color: AppColors.muted),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _photoThumb() {
+    final img = o.lines.isNotEmpty ? o.lines.first.image : '';
+
+    return InkWell(
+      onTap: () => _snack('Foto serah terima dari kurir desa'),
+      borderRadius: BorderRadius.circular(12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 110,
+          height: 80,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                img,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: AppColors.greenLight,
+                  child: const Icon(Icons.image_outlined,
+                      color: AppColors.green, size: 28),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  color: const Color.fromRGBO(0, 0, 0, 0.55),
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: const Text(
+                    'Foto Serah Terima',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1673,35 +1853,42 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
             trailing:
                 _pill('Opsional', AppColors.muted, const Color(0xFFEDEFEE)),
           ),
-          InkWell(
-            onTap: () =>
-                _snack('Unggah foto akan aktif setelah terhubung ke server'),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: 110,
-              height: 80,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7FAF8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _photoThumb(),
+              const SizedBox(width: 10),
+              InkWell(
+                onTap: () => _snack(
+                    'Unggah foto akan aktif setelah terhubung ke server'),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFD5DBD7)),
-              ),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_a_photo_outlined,
-                      color: AppColors.green, size: 24),
-                  SizedBox(height: 4),
-                  Text(
-                    'Tambah Foto',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.green,
-                    ),
+                child: Container(
+                  width: 110,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7FAF8),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFD5DBD7)),
                   ),
-                ],
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_a_photo_outlined,
+                          color: AppColors.green, size: 24),
+                      SizedBox(height: 4),
+                      Text(
+                        'Tambah Foto',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
           const SizedBox(height: 8),
           const Text(
@@ -1718,11 +1905,32 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Center(
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: AppColors.greenLight,
+              child: Icon(Icons.eco_outlined, size: 20, color: AppColors.green),
+            ),
+          ),
+          const SizedBox(height: 8),
           Center(
             child: Text(
               'Kualitas Panen ${o.seller}',
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Center(
+            child: Text(
+              'Bagaimana kondisi dan kesegaran hasil bumi yang Anda terima? '
+              'Penilaian Anda membantu petani menjaga mutu hasil panen desa.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10.5,
+                height: 1.4,
+                color: AppColors.muted,
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -1818,7 +2026,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Catatan Untuk Lapak Panen',
+            'Catatan Masukan Lapak Petani',
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 8),
@@ -1924,7 +2132,12 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.verified_user_outlined, color: AppColors.green, size: 26),
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: AppColors.green,
+            child: Icon(Icons.verified_user_rounded,
+                size: 17, color: Colors.white),
+          ),
           SizedBox(width: 10),
           Expanded(
             child: Column(

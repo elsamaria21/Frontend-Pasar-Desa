@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'dashboard_screen.dart';
@@ -16,6 +18,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool obscurePassword = true;
   String? errorMessage;
+  bool rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final auth = context.read<AuthProvider>();
+      if (auth.savedEmail.isNotEmpty) {
+        emailController.text = auth.savedEmail;
+        setState(() {
+          rememberMe = auth.rememberEmail;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -24,27 +42,42 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void login() {
+  Future<void> login() async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        errorMessage = 'Email dan kata sandi wajib diisi';
+      });
+      return;
+    }
 
     setState(() {
       errorMessage = null;
     });
 
-    if (email == 'elsafe@gmail.com' && password == '123456') {
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.login(
+      email: email,
+      password: password,
+      rememberEmail: rememberMe,
+    );
+
+    if (!mounted) return;
+
+    if (success) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => const DashboardScreen(),
         ),
       );
-      return;
+    } else {
+      setState(() {
+        errorMessage = authProvider.errorMessage ?? 'Email atau password salah';
+      });
     }
-
-    setState(() {
-      errorMessage = 'Email atau password salah';
-    });
   }
 
   InputDecoration _loginDecoration({
@@ -59,35 +92,35 @@ class _LoginScreenState extends State<LoginScreen> {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(
-        fontSize: 11,
+        fontSize: 14,
         color: Color(0xFF8A928D),
         fontWeight: FontWeight.w400,
       ),
       prefixIcon: Icon(
         icon,
-        size: 17,
+        size: 21,
         color: const Color(0xFF69716C),
       ),
       suffixIcon: suffixIcon,
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 12,
+        horizontal: 14,
+        vertical: 15,
       ),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(color: borderColor),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(color: borderColor),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(
           color: error ? const Color(0xFFFF5A67) : AppColors.green,
-          width: 1.2,
+          width: 1.4,
         ),
       ),
     );
@@ -97,12 +130,12 @@ class _LoginScreenState extends State<LoginScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 8,
+        horizontal: 12,
+        vertical: 10,
       ),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF1F2),
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: const Color(0xFFFFB8BE),
         ),
@@ -111,15 +144,15 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           const Icon(
             Icons.error_outline,
-            size: 14,
+            size: 18,
             color: Color(0xFFE53935),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
               style: const TextStyle(
-                fontSize: 9,
+                fontSize: 13,
                 color: Color(0xFFE53935),
                 fontWeight: FontWeight.w600,
               ),
@@ -130,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _pasarDesaLogo({double fontSize = 20}) {
+  Widget _pasarDesaLogo({double fontSize = 28}) {
     return RichText(
       textAlign: TextAlign.center,
       text: TextSpan(
@@ -161,8 +194,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _umkmBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 4,
+        horizontal: 12,
+        vertical: 5,
       ),
       decoration: BoxDecoration(
         color: const Color(0xFFDDF2E3),
@@ -171,10 +204,10 @@ class _LoginScreenState extends State<LoginScreen> {
       child: const Text(
         'UMKM DESA SUKOREJO',
         style: TextStyle(
-          fontSize: 7,
+          fontSize: 11,
           fontWeight: FontWeight.w800,
           color: AppColors.green,
-          letterSpacing: 0.3,
+          letterSpacing: 0.4,
         ),
       ),
     );
@@ -197,53 +230,53 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Center(
-                child: BrandMark(size: 58),
+                child: BrandMark(size: 64),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Center(
                 child: _pasarDesaLogo(
-                  fontSize: 20,
+                  fontSize: 28,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 26),
               const Text(
                 'Selamat Datang di PasarDesa',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 22,
                   fontWeight: FontWeight.w900,
                   color: AppColors.text,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               const Text(
                 'Silakan masuk untuk melanjutkan transaksi',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 14,
                   color: Color(0xFF8A928D),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Center(
                 child: _umkmBadge(),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 30),
               const Text(
                 'Email atau Nomor HP',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppColors.text,
                 ),
               ),
-              const SizedBox(height: 7),
+              const SizedBox(height: 8),
               TextField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 15,
                   color: AppColors.text,
                 ),
                 decoration: _loginDecoration(
@@ -252,23 +285,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   error: errorMessage != null,
                 ),
               ),
-              const SizedBox(height: 17),
+              const SizedBox(height: 18),
               const Text(
                 'Kata Sandi',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppColors.text,
                 ),
               ),
-              const SizedBox(height: 7),
+              const SizedBox(height: 8),
               TextField(
                 controller: passwordController,
                 obscureText: obscurePassword,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => login(),
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 15,
                   color: AppColors.text,
                 ),
                 decoration: _loginDecoration(
@@ -281,84 +314,137 @@ class _LoginScreenState extends State<LoginScreen> {
                         obscurePassword = !obscurePassword;
                       });
                     },
-                    splashRadius: 18,
+                    splashRadius: 20,
                     icon: Icon(
                       obscurePassword
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
-                      size: 17,
+                      size: 21,
                       color: const Color(0xFF69716C),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 5),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ForgotPasswordScreen(),
-                      ),
-                    );
-                  },
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text(
-                    'Lupa Kata Sandi?',
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: AppColors.text,
-                      fontWeight: FontWeight.w600,
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        rememberMe = !rememberMe;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: Checkbox(
+                            value: rememberMe,
+                            activeColor: AppColors.green,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            onChanged: (v) {
+                              setState(() {
+                                rememberMe = v ?? false;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'Ingat Saya',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.text,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ForgotPasswordScreen(),
+                        ),
+                      );
+                    },
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'Lupa Kata Sandi?',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.text,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               if (errorMessage != null) ...[
-                const SizedBox(height: 3),
+                const SizedBox(height: 8),
                 _errorBox(errorMessage!),
               ],
-              const SizedBox(height: 13),
-              SizedBox(
-                height: 42,
-                child: ElevatedButton(
-                  onPressed: login,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.green,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(7),
+              const SizedBox(height: 14),
+              Consumer<AuthProvider>(
+                builder: (context, auth, _) {
+                  return SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: auth.isLoading ? null : login,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.green,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: auth.isLoading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Masuk Sekarang   →',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                     ),
-                  ),
-                  child: const Text(
-                    'Masuk Sekarang   →',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+                  );
+                },
               ),
-              const SizedBox(height: 17),
+              const SizedBox(height: 18),
               const Center(
                 child: Text(
                   'ATAU',
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: 12,
                     color: Color(0xFF7F8782),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              const SizedBox(height: 11),
+              const SizedBox(height: 12),
               SizedBox(
-                height: 42,
+                height: 52,
                 child: OutlinedButton.icon(
                   onPressed: () {
                     Navigator.push(
@@ -370,13 +456,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                   icon: const Icon(
                     Icons.person_add_alt_1,
-                    size: 16,
+                    size: 20,
                     color: AppColors.text,
                   ),
                   label: const Text(
                     'Daftar Akun Baru',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 15,
                       color: AppColors.text,
                       fontWeight: FontWeight.w700,
                     ),
@@ -387,19 +473,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: Color(0xFFBFC6C1),
                     ),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(7),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 25),
+              const SizedBox(height: 26),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
                     'Belum punya akun? ',
                     style: TextStyle(
-                      fontSize: 9,
+                      fontSize: 13,
                       color: Color(0xFF737B76),
                     ),
                   ),
@@ -415,7 +501,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: const Text(
                       'Daftar sekarang',
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 13,
                         color: AppColors.green,
                         fontWeight: FontWeight.w800,
                       ),
@@ -423,20 +509,20 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     Icons.verified_user_outlined,
-                    size: 12,
+                    size: 16,
                     color: AppColors.green,
                   ),
-                  SizedBox(width: 4),
+                  SizedBox(width: 5),
                   Text(
                     'Aman & Terpercaya untuk Warga Desa',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 12,
                       color: AppColors.green,
                       fontWeight: FontWeight.w700,
                     ),
@@ -486,7 +572,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         title: const Text(
           'Lupa Password',
           style: TextStyle(
-            fontSize: 15,
+            fontSize: 18,
             fontWeight: FontWeight.w900,
           ),
         ),
@@ -499,7 +585,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             children: [
               const SizedBox(height: 18),
               const Center(
-                child: BrandMark(size: 60),
+                child: BrandMark(size: 64),
               ),
               const SizedBox(height: 18),
               RichText(
@@ -509,7 +595,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     TextSpan(
                       text: 'Pasar',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 28,
                         fontWeight: FontWeight.w900,
                         color: AppColors.green,
                       ),
@@ -517,7 +603,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     TextSpan(
                       text: 'Desa',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 28,
                         fontWeight: FontWeight.w900,
                         color: Colors.black,
                       ),
@@ -525,49 +611,50 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
               const Text(
                 'Lupa Password?',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 19,
+                  fontSize: 24,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 7),
+              const SizedBox(height: 8),
               const Text(
                 'Masukkan email yang terdaftar.\n'
                 'Kami akan membantu proses pemulihan akun.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 14,
                   color: AppColors.muted,
                   height: 1.5,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 26),
               TextField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
+                style: const TextStyle(fontSize: 15),
                 decoration: _simpleDecoration(
                   hint: 'Masukkan email',
                   icon: Icons.email_outlined,
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               if (submitted)
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppColors.greenLight,
-                    borderRadius: BorderRadius.circular(7),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
                     'Instruksi pemulihan password akan dikirim '
                     'ke email yang terdaftar.',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 13,
                       color: AppColors.green,
                       fontWeight: FontWeight.w700,
                     ),
@@ -668,38 +755,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(
-        fontSize: 10,
+        fontSize: 14,
         color: Color(0xFF8B938E),
       ),
       prefixIcon: Icon(
         icon,
-        size: 16,
+        size: 20,
         color: const Color(0xFF66706A),
       ),
       suffixIcon: suffix,
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(
-        horizontal: 11,
-        vertical: 11,
+        horizontal: 13,
+        vertical: 14,
       ),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(9),
         borderSide: BorderSide(
           color: borderColor,
         ),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(9),
         borderSide: BorderSide(
           color: borderColor,
         ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(9),
         borderSide: BorderSide(
           color: error ? const Color(0xFFFF5A67) : AppColors.green,
-          width: 1.2,
+          width: 1.4,
         ),
       ),
     );
@@ -713,7 +800,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return RichText(
       text: TextSpan(
         style: TextStyle(
-          fontSize: 9,
+          fontSize: 13,
           fontWeight: FontWeight.w700,
           color: error ? const Color(0xFFE53935) : AppColors.text,
         ),
@@ -734,22 +821,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget _fieldError(String message) {
     return Padding(
       padding: const EdgeInsets.only(
-        top: 4,
+        top: 5,
         left: 2,
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.error_outline,
-            size: 10,
-            color: Color(0xFFE53935),
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.error_outline,
+              size: 14,
+              color: Color(0xFFE53935),
+            ),
           ),
-          const SizedBox(width: 3),
+          const SizedBox(width: 4),
           Expanded(
             child: Text(
               message,
               style: const TextStyle(
-                fontSize: 7,
+                fontSize: 12,
                 color: Color(0xFFE53935),
                 fontWeight: FontWeight.w600,
               ),
@@ -761,7 +852,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _pasarDesaLogo({
-    double fontSize = 18,
+    double fontSize = 26,
   }) {
     return RichText(
       textAlign: TextAlign.center,
@@ -791,8 +882,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget _umkmBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 3,
+        horizontal: 11,
+        vertical: 4,
       ),
       decoration: BoxDecoration(
         color: const Color(0xFFDDF2E3),
@@ -801,10 +892,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: const Text(
         'UMKM DESA SUKOREJO',
         style: TextStyle(
-          fontSize: 6,
+          fontSize: 10.5,
           fontWeight: FontWeight.w800,
           color: AppColors.green,
-          letterSpacing: .25,
+          letterSpacing: .3,
         ),
       ),
     );
@@ -816,14 +907,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }) {
     return IconButton(
       onPressed: onTap,
-      splashRadius: 18,
+      splashRadius: 20,
       icon: Icon(
         obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-        size: 16,
+        size: 20,
         color: const Color(0xFF68716B),
       ),
     );
   }
+
+  TextStyle get _inputStyle => const TextStyle(
+        fontSize: 15,
+        color: AppColors.text,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -846,14 +942,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           onPressed: () => Navigator.pop(context),
           icon: const Icon(
             Icons.arrow_back_ios_new,
-            size: 17,
+            size: 20,
             color: AppColors.text,
           ),
         ),
         title: const Text(
           'DAFTAR AKUN',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: FontWeight.w900,
             color: Colors.black,
           ),
@@ -864,15 +960,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
             padding: const EdgeInsets.only(right: 14),
             child: Center(
               child: Container(
-                width: 24,
-                height: 24,
+                width: 30,
+                height: 30,
                 decoration: const BoxDecoration(
                   color: AppColors.green,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.person,
-                  size: 14,
+                  size: 18,
                   color: Colors.white,
                 ),
               ),
@@ -887,54 +983,54 @@ class _RegisterScreenState extends State<RegisterScreen> {
             22,
             8,
             22,
-            20,
+            24,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Center(
-                child: BrandMark(size: 48),
+                child: BrandMark(size: 56),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Center(
                 child: _pasarDesaLogo(
-                  fontSize: 18,
+                  fontSize: 26,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               const Text(
                 'Selamat Datang di PasarDesa',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: 21,
                   fontWeight: FontWeight.w900,
                   color: AppColors.text,
                 ),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 6),
               const Text(
                 'Silakan lengkapi data untuk membuat akun',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 8,
+                  fontSize: 13,
                   color: Color(0xFF8A928D),
                 ),
               ),
-              const SizedBox(height: 7),
+              const SizedBox(height: 8),
               Center(
                 child: _umkmBadge(),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               if (registerFailed) ...[
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
+                    horizontal: 12,
+                    vertical: 10,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF3F4),
-                    borderRadius: BorderRadius.circular(7),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: const Color(0xFFFFB8BE),
                     ),
@@ -943,18 +1039,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       Icon(
                         Icons.warning_amber_rounded,
-                        size: 14,
+                        size: 20,
                         color: Color(0xFFE53935),
                       ),
-                      SizedBox(width: 6),
+                      SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Pendaftaran Gagal\n'
                           'Mohon periksa kembali data yang ditandai merah.',
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: 12.5,
                             color: Color(0xFFE53935),
-                            height: 1.35,
+                            height: 1.4,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -962,18 +1058,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
               ],
               _label(
                 'NAMA LENGKAP',
                 error: nameError,
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 6),
               TextField(
                 controller: nameController,
                 onChanged: (_) {
                   setState(() {});
                 },
+                style: _inputStyle,
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.next,
                 decoration: _registerDecoration(
@@ -986,17 +1083,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 _fieldError(
                   'Nama lengkap wajib diisi.',
                 ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               _label(
                 'EMAIL',
                 error: emailError,
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 6),
               TextField(
                 controller: emailController,
                 onChanged: (_) {
                   setState(() {});
                 },
+                style: _inputStyle,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 decoration: _registerDecoration(
@@ -1010,14 +1108,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   'Email sudah terdaftar. '
                   'Silakan gunakan email lain atau masuk.',
                 ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               _label(
                 'NOMOR TELEPON',
                 error: phoneError,
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 6),
               TextField(
                 controller: phoneController,
+                style: _inputStyle,
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.next,
                 decoration: _registerDecoration(
@@ -1030,18 +1129,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 _fieldError(
                   'Nomor telepon wajib diisi.',
                 ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               _label(
                 'PASSWORD',
                 error: passwordError,
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 6),
               TextField(
                 controller: passwordController,
                 obscureText: obscurePassword,
                 onChanged: (_) {
                   setState(() {});
                 },
+                style: _inputStyle,
                 textInputAction: TextInputAction.next,
                 decoration: _registerDecoration(
                   hint: 'Masukkan password',
@@ -1061,18 +1161,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 _fieldError(
                   'Password wajib diisi.',
                 ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               _label(
                 'KONFIRMASI PASSWORD',
                 error: confirmError,
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 6),
               TextField(
                 controller: confirmPasswordController,
                 obscureText: obscureConfirmPassword,
                 onChanged: (_) {
                   setState(() {});
                 },
+                style: _inputStyle,
                 textInputAction: TextInputAction.done,
                 decoration: _registerDecoration(
                   hint: 'Masukkan kembali password',
@@ -1092,7 +1193,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 _fieldError(
                   'Konfirmasi password tidak cocok.',
                 ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               InkWell(
                 onTap: () {
                   setState(() {
@@ -1103,12 +1204,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      width: 15,
-                      height: 15,
+                      width: 20,
+                      height: 20,
                       margin: const EdgeInsets.only(top: 1),
                       decoration: BoxDecoration(
                         color: agreeTerms ? AppColors.green : Colors.white,
-                        borderRadius: BorderRadius.circular(3),
+                        borderRadius: BorderRadius.circular(4),
                         border: Border.all(
                           color: agreeTerms
                               ? AppColors.green
@@ -1118,19 +1219,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: agreeTerms
                           ? const Icon(
                               Icons.check,
-                              size: 11,
+                              size: 15,
                               color: Colors.white,
                             )
                           : null,
                     ),
-                    const SizedBox(width: 7),
+                    const SizedBox(width: 9),
                     const Expanded(
                       child: Text.rich(
                         TextSpan(
                           style: TextStyle(
-                            fontSize: 7,
+                            fontSize: 12.5,
                             color: Color(0xFF606862),
-                            height: 1.4,
+                            height: 1.45,
                           ),
                           children: [
                             TextSpan(
@@ -1170,9 +1271,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   'Anda harus menyetujui '
                   'Syarat & Ketentuan.',
                 ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               SizedBox(
-                height: 40,
+                height: 52,
                 child: ElevatedButton(
                   onPressed: register,
                   style: ElevatedButton.styleFrom(
@@ -1180,26 +1281,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(7),
+                      borderRadius: BorderRadius.circular(9),
                     ),
                   ),
                   child: const Text(
                     'DAFTAR AKUN SEKARANG   →',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 13),
+              const SizedBox(height: 14),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
                     'Sudah punya akun? ',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 13,
                       color: Color(0xFF737B76),
                     ),
                   ),
@@ -1208,7 +1309,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: const Text(
                       'MASUK',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 13,
                         color: AppColors.green,
                         fontWeight: FontWeight.w900,
                       ),
@@ -1216,20 +1317,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 11),
+              const SizedBox(height: 12),
               const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     Icons.verified_user_outlined,
-                    size: 11,
+                    size: 15,
                     color: AppColors.green,
                   ),
-                  SizedBox(width: 4),
+                  SizedBox(width: 5),
                   Text(
                     'Aman & Terpercaya untuk Warga Desa',
                     style: TextStyle(
-                      fontSize: 7,
+                      fontSize: 12,
                       color: AppColors.green,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1251,36 +1352,37 @@ InputDecoration _simpleDecoration({
   return InputDecoration(
     hintText: hint,
     hintStyle: const TextStyle(
-      fontSize: 10,
+      fontSize: 14,
       color: AppColors.muted,
     ),
     prefixIcon: Icon(
       icon,
-      size: 17,
+      size: 20,
       color: const Color(0xFF68716B),
     ),
     filled: true,
     fillColor: Colors.white,
     contentPadding: const EdgeInsets.symmetric(
-      horizontal: 11,
-      vertical: 12,
+      horizontal: 13,
+      vertical: 15,
     ),
     border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       borderSide: const BorderSide(
         color: Color(0xFFD6DCD8),
       ),
     ),
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       borderSide: const BorderSide(
         color: Color(0xFFD6DCD8),
       ),
     ),
     focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       borderSide: const BorderSide(
         color: AppColors.green,
+        width: 1.4,
       ),
     ),
   );

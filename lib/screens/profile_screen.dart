@@ -1,7 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/product_provider.dart';
+import '../providers/settings_provider.dart';
 import 'auth_screens.dart';
+import '../providers/order_provider.dart';
+import 'profile_features.dart';
+import 'order_history_screen.dart';
 
 const Color _green = Color(0xFF0A9B4A);
 const Color _greenDark = Color(0xFF087B3B);
@@ -66,8 +73,8 @@ class PasarDesaLogo extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text.rich(
-              TextSpan(
-                children: const [
+              const TextSpan(
+                children: [
                   TextSpan(text: 'Pasar', style: TextStyle(color: _green)),
                   TextSpan(text: 'Desa', style: TextStyle(color: _textDark)),
                 ],
@@ -381,26 +388,6 @@ Widget _primaryButton(String text, IconData icon, VoidCallback onTap) {
   );
 }
 
-PreferredSizeWidget _appBar(BuildContext context, String title) {
-  return AppBar(
-    backgroundColor: Colors.white,
-    elevation: 0,
-    scrolledUnderElevation: 0,
-    leading: IconButton(
-      onPressed: () => Navigator.pop(context),
-      icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: _textDark),
-    ),
-    title: Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w900,
-        color: _textDark,
-      ),
-    ),
-  );
-}
-
 Widget _appHeader({VoidCallback? onBack}) {
   return Row(
     children: [
@@ -453,6 +440,9 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   ProfileData _data = ProfileData.initial();
 
+  void _push(Widget page) =>
+      Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+
   Future<void> _openEditProfile() async {
     final result = await Navigator.push<ProfileData>(
       context,
@@ -481,21 +471,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ..showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  void _openFeature(
-      String title, IconData icon, String desc, List<String> items) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => FeatureDetailScreen(
-          title: title,
-          icon: icon,
-          description: desc,
-          items: items,
-        ),
-      ),
-    );
-  }
-
   Future<void> _logout() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -516,6 +491,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
     if (ok != true || !mounted) return;
+
+    await context.read<AuthProvider>().logout();
+
+    if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -541,6 +520,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _deliverySection(),
               const SizedBox(height: 22),
               _menuSection(),
+              const SizedBox(height: 18),
+              _localStorageSettingsSection(),
               const SizedBox(height: 18),
               _dataGuarantee(),
               const SizedBox(height: 16),
@@ -724,13 +705,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 12),
           const Divider(height: 1, color: _border),
           const SizedBox(height: 12),
-          const Row(
-            children: [
-              Expanded(child: _Stat(label: 'Transaksi', value: '4 Selesai')),
-              Expanded(
-                  child: _Stat(label: 'Poin Belanja', value: '1.450 Poin')),
-              Expanded(child: _Stat(label: 'Koperasi', value: 'Anggota Aktif')),
-            ],
+          _OrderCountBuilder(
+            builder: (context, count) => Row(
+              children: [
+                Expanded(
+                  child: _Stat(
+                    label: 'Transaksi',
+                    value: count > 0 ? '$count Selesai' : 'Belum ada',
+                  ),
+                ),
+                const Expanded(
+                    child: _Stat(label: 'Poin Belanja', value: '1.450 Poin')),
+                const Expanded(
+                    child: _Stat(label: 'Koperasi', value: 'Anggota Aktif')),
+              ],
+            ),
           ),
         ],
       ),
@@ -876,21 +865,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           child: Column(
             children: [
-              _menuItem(
-                icon: Icons.receipt_long_outlined,
-                title: 'Riwayat Transaksi & Pesanan',
-                subtitle: 'Pantau pesanan beras & komoditas tani',
-                trailing: _menuBadge('4 Pesanan', _greenLight, _green),
-                onTap: () => _openFeature(
-                  'Riwayat Transaksi & Pesanan',
-                  Icons.receipt_long_outlined,
-                  'Lihat riwayat transaksi dan pesanan PasarDesa.',
-                  const [
-                    'Pesanan selesai: 4',
-                    'Pesanan diproses',
-                    'Pesanan sedang dikirim',
-                    'Riwayat transaksi sebelumnya',
-                  ],
+              _OrderCountBuilder(
+                builder: (context, count) => _menuItem(
+                  icon: Icons.receipt_long_outlined,
+                  title: 'Riwayat Transaksi & Pesanan',
+                  subtitle: count > 0
+                      ? 'Pantau pesanan beras & komoditas tani'
+                      : 'Belum ada pesanan, yuk mulai belanja',
+                  trailing: count > 0
+                      ? _menuBadge('$count Pesanan', _greenLight, _green)
+                      : null,
+                  onTap: () {
+                    if (count == 0) {
+                      _toast('Belum ada pesanan. Silakan berbelanja dulu.');
+                      return;
+                    }
+                    _push(const OrderHistoryScreen(embedded: true));
+                  },
                 ),
               ),
               _menuDivider(),
@@ -900,17 +891,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 subtitle: 'Klaim potongan ongkir warga',
                 trailing: _menuBadge('2 Aktif', const Color(0xFFFFF4D5),
                     const Color(0xFFC28A00)),
-                onTap: () => _openFeature(
-                  'Voucher & Subsidi BUMDes',
-                  Icons.confirmation_number_outlined,
-                  'Informasi voucher dan program subsidi BUMDes.',
-                  const [
-                    'Voucher aktif: 2',
-                    'Voucher belanja warga',
-                    'Program subsidi BUMDes',
-                    'Riwayat penggunaan voucher',
-                  ],
-                ),
+                onTap: () => _push(const VoucherScreen()),
               ),
               _menuDivider(),
               _menuItem(
@@ -927,51 +908,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     height: 1.2,
                   ),
                 ),
-                onTap: () => _openFeature(
-                  'Saldo Dompet & Kas Desa',
-                  Icons.account_balance_wallet_outlined,
-                  'Informasi saldo dompet warga dan transaksi kas desa.',
-                  const [
-                    'Saldo saat ini: Rp 250.000',
-                    'Top up saldo',
-                    'Riwayat pembayaran',
-                    'Transaksi kas desa',
-                  ],
-                ),
+                onTap: () => _push(const SaldoScreen()),
               ),
               _menuDivider(),
+              // 4. Bantuan
               _menuItem(
                 icon: Icons.support_agent_outlined,
                 title: 'Pusat Bantuan & Pengaduan',
                 subtitle: 'Hubungi BUMDes & Kurir Siaga',
-                onTap: () => _openFeature(
-                  'Pusat Bantuan & Pengaduan',
-                  Icons.support_agent_outlined,
-                  'Informasi bantuan untuk warga PasarDesa.',
-                  const [
-                    'Hubungi pengelola BUMDes',
-                    'Hubungi Kurir Desa',
-                    'Laporkan masalah transaksi',
-                    'Kirim pengaduan warga',
-                  ],
-                ),
+                onTap: () => _push(const BantuanScreen()),
               ),
               _menuDivider(),
+              // 5. Syarat
               _menuItem(
                 icon: Icons.verified_user_outlined,
                 title: 'Syarat & Ketentuan Layanan Desa',
                 subtitle: 'Kebijakan komoditas penggunaan warga',
-                onTap: () => _openFeature(
-                  'Syarat & Ketentuan Layanan Desa',
-                  Icons.verified_user_outlined,
-                  'Ketentuan penggunaan layanan PasarDesa.',
-                  const [
-                    'Ketentuan penggunaan aplikasi',
-                    'Hak dan kewajiban warga',
-                    'Kebijakan transaksi',
-                    'Kebijakan data dan privasi',
-                  ],
-                ),
+                onTap: () => _push(const SyaratScreen()),
               ),
             ],
           ),
@@ -1053,18 +1006,178 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _localStorageSettingsSection() {
+    return Consumer3<SettingsProvider, ProductProvider, AuthProvider>(
+      builder: (context, settings, productProv, auth, _) {
+        final lastTime = productProv.lastSyncTime;
+        final cacheText = lastTime != null
+            ? '${lastTime.hour.toString().padLeft(2, '0')}:${lastTime.minute.toString().padLeft(2, '0')} WIB'
+            : 'Tersedia';
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _border),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.storage_rounded, color: _green, size: 22),
+                  SizedBox(width: 8),
+                  Text(
+                    'Penyimpanan & Pengaturan Lokal',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w900,
+                      color: _textDark,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1, color: _border),
+              const SizedBox(height: 12),
+              const Text(
+                'Pengaturan (shared_preferences)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: _greenDark,
+                ),
+              ),
+              const SizedBox(height: 6),
+              SwitchListTile.adaptive(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                activeTrackColor: _green,
+                title: const Text(
+                  'Notifikasi Pesanan Desa',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+                subtitle: const Text(
+                  'Simpan preferensi non-sensitif di SharedPreferences',
+                  style: TextStyle(fontSize: 11, color: _textGrey),
+                ),
+                value: settings.notificationsEnabled,
+                onChanged: (v) => settings.setNotificationsEnabled(v),
+              ),
+              SwitchListTile.adaptive(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                activeTrackColor: _green,
+                title: const Text(
+                  'Mode Gelap (Dark Mode)',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+                subtitle: const Text(
+                  'Simpan preferensi tampilan di SharedPreferences',
+                  style: TextStyle(fontSize: 11, color: _textGrey),
+                ),
+                value: settings.isDarkMode,
+                onChanged: (v) => settings.setDarkMode(v),
+              ),
+              const SizedBox(height: 8),
+              const Divider(height: 1, color: _border),
+              const SizedBox(height: 12),
+              const Text(
+                'Database Terstruktur (Drift SQLite)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: _greenDark,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Status Cache Produk',
+                    style: TextStyle(fontSize: 12.5, color: _textDark),
+                  ),
+                  Text(
+                    'Tersimpan ($cacheText)',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: _green,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: productProv.isSyncing
+                      ? null
+                      : () => productProv.syncProducts(forceRefresh: true),
+                  icon: const Icon(Icons.sync, size: 16, color: _green),
+                  label: Text(
+                    productProv.isSyncing
+                        ? 'Menyinkronkan...'
+                        : 'Sinkronkan Ulang dari Backend (Atomic)',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: _green,
+                        fontWeight: FontWeight.w700),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: _green),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Divider(height: 1, color: _border),
+              const SizedBox(height: 12),
+              // 3. FlutterSecureStorage
+              const Text(
+                'Keamanan Rahasia (flutter_secure_storage)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: _greenDark,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Row(
+                children: [
+                  Icon(Icons.lock_outline, size: 16, color: _green),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Access Token & Kredensial terlindungi di Keystore hardware (TIDAK di shared_preferences).',
+                      style: TextStyle(fontSize: 11.5, color: _textGrey),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _dataGuarantee() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 2),
             child: Icon(Icons.verified_user, color: _green, size: 34),
           ),
-          const SizedBox(width: 12),
-          const Expanded(
+          SizedBox(width: 12),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1111,6 +1224,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
+    );
+  }
+}
+
+class _OrderCountBuilder extends StatelessWidget {
+  final Widget Function(BuildContext context, int count) builder;
+
+  const _OrderCountBuilder({required this.builder});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: orderStore,
+      builder: (ctx, _) => builder(ctx, orderStore.orders.length),
     );
   }
 }
@@ -1250,10 +1377,11 @@ class _AddressScreenState extends State<AddressScreen> {
   Widget build(BuildContext context) {
     final dp = _data.dropPoint;
     final p = _primary;
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
         _close();
-        return false;
       },
       child: Scaffold(
         backgroundColor: _background,
@@ -2172,7 +2300,7 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
               const SizedBox(width: 6),
               InkWell(
                 onTap: () {
-                  // TODO: buka halaman peta untuk memindahkan pin.
+                  // Catatan: buka halaman peta untuk memindahkan pin.
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Fitur peta segera hadir.')),
                   );
@@ -2275,7 +2403,7 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
           ),
           Switch(
             value: _isPrimary,
-            activeColor: Colors.white,
+            activeThumbColor: Colors.white,
             activeTrackColor: _green,
             onChanged: (v) => setState(() => _isPrimary = v),
           ),
@@ -2492,7 +2620,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
       return;
     }
-    // TODO: hubungkan ke API/database agar tersimpan permanen.
     final result = widget.data.copy()
       ..name = _name.text.trim()
       ..phone = _phone.text.trim()
@@ -2702,7 +2829,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         children: [
           _label('Nama Dusun'),
           DropdownButtonFormField<String>(
-            value: _dusun,
+            initialValue: _dusun,
             isDense: true,
             isExpanded: true,
             icon: const Icon(Icons.keyboard_arrow_down, color: _textGrey),
@@ -2902,126 +3029,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             child: Icon(icon, size: 17, color: _green),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class FeatureDetailScreen extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final String description;
-  final List<String> items;
-
-  const FeatureDetailScreen({
-    super.key,
-    required this.title,
-    required this.icon,
-    required this.description,
-    required this.items,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _background,
-      appBar: _appBar(context, title),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _border),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: _greenLight,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(icon, color: _green, size: 32),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: _textDark,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    description,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 13.5, color: _textGrey, height: 1.5),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              'Informasi',
-              style: TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.w900, color: _textDark),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _border),
-              ),
-              child: Column(
-                children: List.generate(items.length, (index) {
-                  return Column(
-                    children: [
-                      ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 4),
-                        leading: Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: _greenLight,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.check_circle_outline,
-                              color: _green, size: 20),
-                        ),
-                        title: Text(
-                          items[index],
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                            color: _textDark,
-                          ),
-                        ),
-                      ),
-                      if (index != items.length - 1)
-                        const Divider(
-                            height: 1,
-                            indent: 64,
-                            endIndent: 12,
-                            color: _border),
-                    ],
-                  );
-                }),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

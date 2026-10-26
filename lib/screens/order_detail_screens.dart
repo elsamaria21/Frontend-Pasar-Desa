@@ -4,9 +4,22 @@ import 'address_screen.dart' show AddressBook;
 import 'dashboard_screen.dart'
     show DashboardNav, NotificationCenter, showTopUpSheet;
 import 'order_models.dart' show OrderEntry, OrderLine, OrderStatus;
-import 'order_flow_screens.dart' show OrderOverrides, orderBuyAgain;
+import 'order_flow_screens.dart' show orderBuyAgain;
 import 'order_tracking_screen.dart';
 import 'order_ui.dart';
+
+String statusLabel(OrderStatus s) {
+  switch (s) {
+    case OrderStatus.diproses:
+      return 'Pesanan Diproses';
+    case OrderStatus.dikirim:
+      return 'Sedang Dikirim';
+    case OrderStatus.selesai:
+      return 'Pesanan Selesai';
+    case OrderStatus.dibatalkan:
+      return 'Pesanan Dibatalkan';
+  }
+}
 
 String _clock(OrderEntry o, int plusMinutes) {
   final m = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(o.dateLabel);
@@ -321,9 +334,9 @@ class OrderDetailScreen extends StatelessWidget {
             ? order.deliveryAddress.trim()
             : '${legacyAddress.dusun}\n${legacyAddress.area}';
 
-        final Color fg;
-        final Color bg;
-        final IconData icon;
+        Color fg = AppColors.green;
+        Color bg = AppColors.greenLight;
+        IconData icon = Icons.check_circle_outline_rounded;
         switch (status) {
           case OrderStatus.diproses:
             fg = const Color(0xFF1D6FB8);
@@ -347,7 +360,7 @@ class OrderDetailScreen extends StatelessWidget {
             break;
         }
 
-        final List<Widget> actions;
+        List<Widget> actions = [];
         switch (status) {
           case OrderStatus.diproses:
             actions = [

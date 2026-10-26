@@ -232,7 +232,7 @@ class _DetailScreenState extends State<DetailScreen> {
   bool get isOutOfStock => p.stock <= 0;
   _ProductInfo get info => _infoFor(p);
 
-  /// contoh: [p.image, 'assets/beras_2.png', 'assets/beras_3.png']
+  /// images: [p.image, 'assets/beras_2.png', 'assets/beras_3.png']
   List<String> get _images => [p.image];
 
   @override

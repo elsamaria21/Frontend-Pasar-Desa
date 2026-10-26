@@ -18,11 +18,11 @@ class OrderSuccessScreen extends StatelessWidget {
   final String receiverPhone;
   final String address;
   final String paymentLabel;
-  final String deliveryTitle; // contoh: Kurir Desa Sukorejo
-  final String deliveryInfo; // contoh: Estimasi diantar sore ini (...)
+  final String deliveryTitle;
+  final String deliveryInfo;
   final String note;
-  final bool isPaid; // false untuk COD
-  final List<dynamic> items; // item keranjang yang dipilih
+  final bool isPaid;
+  final List<dynamic> items;
   final int subtotal;
   final int deliveryFee;
   final int discount;
@@ -234,6 +234,7 @@ class OrderSuccessScreen extends StatelessWidget {
                   GestureDetector(
                     onTap: () {
                       Clipboard.setData(ClipboardData(text: orderId));
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Nomor pesanan disalin')),
                       );
@@ -453,6 +454,7 @@ class OrderSuccessScreen extends StatelessWidget {
           const Divider(height: 1, color: Color(0xFFE5E9E6)),
           ...items.map((line) {
             final p = line.product;
+
             return Padding(
               padding: const EdgeInsets.all(10),
               child: Row(

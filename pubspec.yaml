@@ -1,9 +1,6 @@
 name: pasar_desa_umkm
-
-description: Aplikasi PasarDesa UMKM Desa Sukorejo - Tugas #6 Mobile Developer Documentation.
-
+description: Aplikasi PasarDesa UMKM Desa Sukorejo
 publish_to: 'none'
-
 version: 1.0.0+1
 
 environment:
@@ -16,19 +13,83 @@ dependencies:
   provider: ^6.1.2
   cupertino_icons: ^1.0.8
   image_picker: ^1.1.2
+  http: ^1.6.0
+  drift: ^2.35.2
+  drift_flutter: ^0.3.1
+  shared_preferences: ^2.5.6
+  flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^4.0.0
+  drift_dev: ^2.35.1
+  build_runner: ^2.16.2
+  flutter_launcher_icons: ^0.14.1
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/logo.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icon/logo.png"
 
 flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/beras.png
-    - assets/images/jagung.png
-    - assets/images/telur.png
-    - assets/images/keripik.png
+    - assets/images/ayam_kampung.jpg
+    - assets/images/ayam_potong.jpg
+    - assets/images/bakul.jpg
+    - assets/images/bawang.jpg
+    - assets/images/bayam.png
     - assets/images/beras_detail.jpeg
+    - assets/images/beras_hitam.jpg
+    - assets/images/beras_merah.png
+    - assets/images/beras_pandan.jpg
+    - assets/images/beras_premium.jpg
+    - assets/images/beras.png
+    - assets/images/besek.png
+    - assets/images/bubuk.jpg
+    - assets/images/cabai.jpg
+    - assets/images/cobek.jpg
+    - assets/images/empon.jpg
+    - assets/images/es_kelapa.jpg
+    - assets/images/gula.jpg
+    - assets/images/gula.png
+    - assets/images/gurame.png
+    - assets/images/hiasan.jpg
+    - assets/images/ijuk.jpg
+    - assets/images/jagung.png
+    - assets/images/jamu.jpg
+    - assets/images/kangkung.jpg
+    - assets/images/keripik_singkong.png
+    - assets/images/keripik.png
+    - assets/images/kuali.jpg
+    - assets/images/lele.jpg
+    - assets/images/madu.png
+    - assets/images/mangga.jpg
+    - assets/images/miniatur.jpg
+    - assets/images/minyak.png
+    - assets/images/naga.jpg
+    - assets/images/nila.png
+    - assets/images/pepaya.jpg
+    - assets/images/pisang.jpg
+    - assets/images/sambal.jpg
+    - assets/images/selendang.jpg
+    - assets/images/sendok_masak.jpg
+    - assets/images/spatula.jpg
+    - assets/images/sutil.png
+    - assets/images/tanaman.jpg
+    - assets/images/tas.jpg
+    - assets/images/teh.jpg
+    - assets/images/telur_puyuh.jpg
+    - assets/images/telur.png
+    - assets/images/tempe.png
+    - assets/images/tepung.png
+    - assets/images/timun.jpg
+    - assets/images/udang.png
+    - assets/images/ulekan.jpg
+    - assets/images/wedang.jpg

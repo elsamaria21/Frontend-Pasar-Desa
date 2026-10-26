@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
 import '../theme/app_theme.dart';
@@ -16,8 +15,12 @@ class ProductCard extends StatelessWidget {
     this.onTap,
   });
 
+  bool get _soldOut => product.stock <= 0;
+
   @override
   Widget build(BuildContext context) {
+    final cartColor = _soldOut ? const Color(0xFF9AA39E) : AppColors.green;
+
     return InkWell(
       borderRadius: BorderRadius.circular(9),
       onTap: onTap,
@@ -25,15 +28,12 @@ class ProductCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(9),
-          border: Border.all(
-            color: const Color(0xFFE5E9E6),
-          ),
+          border: Border.all(color: const Color(0xFFE5E9E6)),
         ),
         padding: const EdgeInsets.all(6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // FOTO PRODUK
             AspectRatio(
               aspectRatio: 1.05,
               child: ClipRRect(
@@ -41,78 +41,62 @@ class ProductCard extends StatelessWidget {
                 child: Image.asset(
                   product.image,
                   fit: BoxFit.cover,
+                  width: double.infinity,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: const Color(0xFFF0F3F1),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.image_not_supported_outlined,
+                        color: AppColors.muted,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
-
             const SizedBox(height: 5),
-
-            // NAMA PRODUK
             Text(
               product.shortName,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
             ),
-
             const SizedBox(height: 2),
-
-            // PENJUAL DAN UNIT
             Text(
               '${product.seller} • ${product.unit}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 7.5,
-                color: AppColors.muted,
-              ),
+              style: const TextStyle(fontSize: 7.5, color: AppColors.muted),
             ),
-
             const SizedBox(height: 3),
-
-            // HARGA
-            Money(
-              value: product.price,
-              size: 11,
-            ),
-
+            Money(value: product.price, size: 11),
             const SizedBox(height: 2),
-
-            // RATING + KERANJANG
             Row(
               children: [
-                const Icon(
-                  Icons.star,
-                  color: Color(0xFFFFB300),
-                  size: 11,
-                ),
+                const Icon(Icons.star, color: Color(0xFFFFB300), size: 11),
                 Text(
-                  ' ${product.rating}',
-                  style: const TextStyle(
-                    fontSize: 8,
-                  ),
+                  ' ${product.rating.toStringAsFixed(1)}',
+                  style: const TextStyle(fontSize: 8),
                 ),
                 const Spacer(),
                 InkWell(
-                  onTap: () {
-                    context.read<CartProvider>().add(product);
-                  },
-                  child: const Row(
+                  onTap: _soldOut
+                      ? null
+                      : () => context.read<CartProvider>().add(product),
+                  child: Row(
                     children: [
                       Icon(
                         Icons.shopping_cart_outlined,
-                        color: AppColors.green,
+                        color: cartColor,
                         size: 13,
                       ),
-                      SizedBox(width: 2),
+                      const SizedBox(width: 2),
                       Text(
-                        'Keranjang',
+                        _soldOut ? 'Stok Habis' : 'Keranjang',
                         style: TextStyle(
                           fontSize: 8,
-                          color: AppColors.green,
+                          color: cartColor,
                           fontWeight: FontWeight.w700,
                         ),
                       ),

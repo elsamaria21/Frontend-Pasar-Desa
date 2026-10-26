@@ -15,20 +15,8 @@ import 'dashboard_screen.dart'
         showNotificationSheet,
         openCategoryPage,
         CategoryProductCard,
-        TrustBanner;
-
-enum _Sort { laris, termurah, termahal }
-
-String _sortLabel(_Sort sort) {
-  switch (sort) {
-    case _Sort.laris:
-      return 'Paling Laris (rating tertinggi)';
-    case _Sort.termurah:
-      return 'Harga Termurah';
-    case _Sort.termahal:
-      return 'Harga Termahal';
-  }
-}
+        ListSort,
+        openSortSheet;
 
 const List<String> _originOptions = [
   'Blok Sawah & UMKM Sukorejo',
@@ -60,8 +48,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   String _searchText = '';
 
   VillageCategory? _tab;
-  _Sort _sort = _Sort.laris;
-  bool _onlyInStock = false;
+  ListSort _sort = ListSort.rating;
   String _origin = _originOptions.first;
 
   @override
@@ -86,17 +73,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   bool _matchesCategory(VillageCategory category, Product p) {
-    final title = category.title.toLowerCase();
-    final text = '${p.name} ${p.shortName} ${p.seller}'.toLowerCase();
-
-    return p.category.toLowerCase().contains(title) ||
-        category.keywords.any((k) => text.contains(k));
+    return p.category == category.title;
   }
 
   List<Product> get _visibleProducts {
     final list = products.where((p) {
       if (_tab != null && !_matchesCategory(_tab!, p)) return false;
-      if (_onlyInStock && p.stock <= 0) return false;
 
       if (_searchText.isNotEmpty) {
         final name = p.name.toLowerCase();
@@ -112,28 +94,28 @@ class _CategoryScreenState extends State<CategoryScreen> {
     }).toList();
 
     switch (_sort) {
-      case _Sort.laris:
-        list.sort((a, b) => b.rating.compareTo(a.rating));
+      case ListSort.terbaru:
         break;
-      case _Sort.termurah:
+      case ListSort.termurah:
         list.sort((a, b) => a.price.compareTo(b.price));
         break;
-      case _Sort.termahal:
+      case ListSort.termahal:
         list.sort((a, b) => b.price.compareTo(a.price));
+        break;
+      case ListSort.rating:
+        list.sort((a, b) => b.rating.compareTo(a.rating));
         break;
     }
 
     return list;
   }
 
-  bool get _hasActiveFilter =>
-      _tab != null || _onlyInStock || _searchText.isNotEmpty;
+  bool get _hasActiveFilter => _tab != null || _searchText.isNotEmpty;
 
   void _resetFilter() {
     setState(() {
       _tab = null;
-      _onlyInStock = false;
-      _sort = _Sort.laris;
+      _sort = ListSort.rating;
       _searchController.clear();
     });
   }
@@ -163,78 +145,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   void _showFilterSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _sheetHandle(),
-                const SizedBox(height: 18),
-                const Text(
-                  'Urutkan & Filter',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 10),
-                for (final s in _Sort.values)
-                  _sheetOption(
-                    icon: s == _Sort.laris
-                        ? Icons.local_fire_department_outlined
-                        : s == _Sort.termurah
-                            ? Icons.payments_outlined
-                            : Icons.trending_up_rounded,
-                    title: _sortLabel(s),
-                    selected: _sort == s,
-                    onTap: () {
-                      setState(() => _sort = s);
-                      Navigator.pop(sheetContext);
-                    },
-                  ),
-                _sheetOption(
-                  icon: Icons.inventory_2_outlined,
-                  title: 'Hanya stok tersedia',
-                  selected: _onlyInStock,
-                  onTap: () {
-                    setState(() => _onlyInStock = !_onlyInStock);
-                    Navigator.pop(sheetContext);
-                  },
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      _resetFilter();
-                      Navigator.pop(sheetContext);
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.green,
-                      side: const BorderSide(color: AppColors.green),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Reset Filter',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+    openSortSheet(context, _sort, (s) => setState(() => _sort = s));
   }
 
   void _showOriginSheet() {
@@ -378,13 +289,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 crossAxisCount: 2,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
-                mainAxisExtent: 268,
+                mainAxisExtent: 304,
               ),
             ),
           ),
         const SliverPadding(
           padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
-          sliver: SliverToBoxAdapter(child: TrustBanner()),
+          sliver: SliverToBoxAdapter(child: _PlainTrustNote()),
         ),
       ],
     );
@@ -435,10 +346,25 @@ class _CategoryScreenState extends State<CategoryScreen> {
             ],
           ),
         ),
-        GestureDetector(
-          onTap: widget.onGoProfile,
-          behavior: HitTestBehavior.opaque,
-          child: const RoundAvatar(),
+        ValueListenableBuilder<List<AppNotification>>(
+          valueListenable: NotificationCenter.items,
+          builder: (context, _, __) {
+            return _TopIcon(
+              icon: Icons.notifications_none_rounded,
+              badge: NotificationCenter.unread,
+              onTap: () => showNotificationSheet(context),
+            );
+          },
+        ),
+        const SizedBox(width: 7),
+        Consumer<CartProvider>(
+          builder: (context, cart, _) {
+            return _TopIcon(
+              icon: Icons.shopping_cart_outlined,
+              badge: cart.count,
+              onTap: _openCart,
+            );
+          },
         ),
       ],
     );
@@ -482,26 +408,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
               ),
             ],
           ),
-        ),
-        ValueListenableBuilder<List<AppNotification>>(
-          valueListenable: NotificationCenter.items,
-          builder: (context, _, __) {
-            return _TopIcon(
-              icon: Icons.notifications_none_rounded,
-              badge: NotificationCenter.unread,
-              onTap: () => showNotificationSheet(context),
-            );
-          },
-        ),
-        const SizedBox(width: 7),
-        Consumer<CartProvider>(
-          builder: (context, cart, _) {
-            return _TopIcon(
-              icon: Icons.shopping_cart_outlined,
-              badge: cart.count,
-              onTap: _openCart,
-            );
-          },
         ),
       ],
     );
@@ -697,7 +603,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   Widget _buildListHeader() {
     final title =
         _tab == null ? 'Produk Unggulan Warga' : 'Produk ${_tab!.title}';
-    final badge = _tab == null ? 'Panen Mingguan' : _tab!.badge;
+    final badge = _tab == null ? 'Panen Minggu Ini' : _tab!.badge;
 
     return Row(
       children: [
@@ -710,19 +616,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
           ),
         ),
         const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE1F5E9),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            badge,
-            style: const TextStyle(
-              color: AppColors.green,
-              fontSize: 9.5,
-              fontWeight: FontWeight.w900,
-            ),
+        Text(
+          badge,
+          style: const TextStyle(
+            color: Color(0xFF13231C),
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -779,6 +678,64 @@ class _CategoryScreenState extends State<CategoryScreen> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PlainTrustNote extends StatelessWidget {
+  const _PlainTrustNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 34,
+            height: 34,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(Icons.shield_rounded, size: 34, color: AppColors.green),
+                Padding(
+                  padding: EdgeInsets.only(bottom: 1),
+                  child:
+                      Icon(Icons.check_rounded, size: 19, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Aman & Terpercaya untuk Warga Desa',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.green,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Setiap transaksi langsung disalurkan ke keluarga petani '
+                  'dan pengrajin warga Desa Sukorejo dengan jaminan mutu '
+                  'BUMDes.',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    height: 1.4,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
