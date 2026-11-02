@@ -293,10 +293,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
               ),
             ),
           ),
-        const SliverPadding(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
-          sliver: SliverToBoxAdapter(child: _PlainTrustNote()),
-        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
       ],
     );
   }
@@ -678,64 +675,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _PlainTrustNote extends StatelessWidget {
-  const _PlainTrustNote();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 34,
-            height: 34,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(Icons.shield_rounded, size: 34, color: AppColors.green),
-                Padding(
-                  padding: EdgeInsets.only(bottom: 1),
-                  child:
-                      Icon(Icons.check_rounded, size: 19, color: Colors.white),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Aman & Terpercaya untuk Warga Desa',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.green,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Setiap transaksi langsung disalurkan ke keluarga petani '
-                  'dan pengrajin warga Desa Sukorejo dengan jaminan mutu '
-                  'BUMDes.',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    height: 1.4,
-                    color: AppColors.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

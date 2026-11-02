@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import '../providers/order_provider.dart';
 import 'order_models.dart';
 import '../theme/app_theme.dart';
-import '../widgets/checkout_widgets.dart';
 import '../widgets/common.dart';
 import 'dashboard_screen.dart';
 import 'order_flow_screens.dart';
+import 'order_tracking_screen.dart' show OrderTrackingScreen, stageLabel;
 
 const bool kShowDemoOrders = true;
 
@@ -22,11 +22,16 @@ class OrderHistoryScreen extends StatefulWidget {
 }
 
 class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
-  static const _filters = ['SEMUA', 'Berjalan', 'Selesai', 'Dibatalkan'];
+  static const _filters = [
+    'SEMUA',
+    'Dikemas',
+    'Dikirim',
+    'Selesai',
+    'Dibatalkan',
+  ];
 
   static const Map<int, List<String>> _subLabels = {
-    1: ['Semua Berjalan', 'Diproses', 'Sedang Dikirim'],
-    2: ['Semua Selesai', 'Belum Diulas', 'Sudah Diulas'],
+    3: ['Semua Selesai', 'Belum Diulas', 'Sudah Diulas'],
   };
 
   int _filter = 0;
@@ -35,7 +40,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   static const String _demoReviewedId = 'PSD-2026-D003';
   static bool _seeded = false;
 
-  static const String _rcvName = 'Pak RT Joko';
+  static const String _rcvName = 'Elsa Maria';
   static const String _rcvPhone = '0812-3456-7890';
   static const String _rcvAddr =
       'Dusun Krajan RT 02 / RW 01 (Pos Drop-point BUMDes Depan Balai Desa Sukorejo)';
@@ -71,42 +76,20 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       deliveryAddress: _rcvAddr,
     ),
     const OrderEntry(
-      id: 'PSD-2026-D006',
-      seller: 'UMKM Dapur Sari',
-      dateLabel: '20 Okt 2026 • 11:05 WIB',
-      status: OrderStatus.diproses,
-      lines: [
-        OrderLine(
-          name: 'Keripik Singkong',
-          variant: 'Renyah Gurih • 250g',
-          price: 18000,
-          qty: 2,
-          image: 'assets/images/keripik.png',
-        ),
-      ],
-      total: 36000,
-      paymentLabel: 'QRIS Lunas',
-      courierTitle: 'Kurir Desa Sukorejo',
-      courierInfo: 'Penjual sedang menyiapkan pesanan Anda',
-      receiverName: _rcvName,
-      receiverPhone: _rcvPhone,
-      deliveryAddress: _rcvAddr,
-    ),
-    const OrderEntry(
       id: 'PSD-2026-D002',
-      seller: 'KWT Sari Tani Sukorejo',
+      seller: 'Kelompok Tani Makmur',
       dateLabel: '19 Okt 2026 • 10:30 WIB',
       status: OrderStatus.selesai,
       lines: [
         OrderLine(
-          name: 'Cabai Rawit Merah',
-          variant: 'Petik Pagi Segar Desa',
-          price: 36000,
+          name: 'Cabai Rawit & Keriting Campur 250g',
+          variant: 'Pedas Segar • 250g',
+          price: 12000,
           qty: 1,
-          image: 'assets/images/cabai.png',
+          image: 'assets/images/cabai.jpg',
         ),
       ],
-      total: 36000,
+      total: 12000,
       paymentLabel: 'Saldo Lunas',
       receiverName: _rcvName,
       receiverPhone: _rcvPhone,
@@ -239,18 +222,15 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
     switch (_filter) {
       case 1:
-        if (st != OrderStatus.diproses && st != OrderStatus.dikirim) {
-          return false;
-        }
-        if (_sub == 1) return st == OrderStatus.diproses;
-        if (_sub == 2) return st == OrderStatus.dikirim;
-        return true;
+        return st == OrderStatus.diproses;
       case 2:
+        return st == OrderStatus.dikirim;
+      case 3:
         if (st != OrderStatus.selesai) return false;
         if (_sub == 1) return !orderMeta.isReviewed(o);
         if (_sub == 2) return orderMeta.isReviewed(o);
         return true;
-      case 3:
+      case 4:
         return st == OrderStatus.dibatalkan;
       default:
         return true;
@@ -271,17 +251,17 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     );
   }
 
+  void _openTrack(OrderEntry o) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => OrderTrackingScreen(order: o)),
+    );
+  }
+
   void _openReview(OrderEntry o) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => OrderReviewScreen(order: o)),
-    );
-  }
-
-  void _openChat(OrderEntry o) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => CourierChatScreen(order: o)),
     );
   }
 
@@ -377,7 +357,6 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   Future<void> _pickFilter(int i, BuildContext chipContext) async {
     final subs = _subLabels[i];
 
-    // SEMUA & Dibatalkan: langsung pilih tanpa dropdown.
     if (subs == null) {
       setState(() {
         _filter = i;
@@ -448,104 +427,89 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
     final content = Column(
       children: [
-        const PasarDesaHeader(),
         Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight - 34,
-                  ),
-                  child: IntrinsicHeight(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Riwayat Pemesanan',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Pantau transaksi hasil bumi & UMKM Sukorejo',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: AppColors.muted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (hasAny)
-                              InkWell(
-                                onTap: _showFilterSheet,
-                                child: const Padding(
-                                  padding: EdgeInsets.all(4),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.tune,
-                                          size: 16, color: AppColors.green),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Filter',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w800,
-                                          color: AppColors.green,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        if (!hasAny) _emptyState(),
-                        if (hasAny) ...[
-                          const SizedBox(height: 12),
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: List.generate(_filters.length, _chip),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Riwayat Pemesanan',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
-                          const SizedBox(height: 14),
-                          if (orders.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 60),
-                              child: Center(
-                                child: Text(
-                                  'Belum ada pesanan di kategori ini.',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: AppColors.muted,
-                                  ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Pantau transaksi hasil bumi & UMKM Sukorejo',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (hasAny)
+                      InkWell(
+                        onTap: _showFilterSheet,
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Row(
+                            children: [
+                              Icon(Icons.tune,
+                                  size: 16, color: AppColors.green),
+                              SizedBox(width: 4),
+                              Text(
+                                'Filter',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.green,
                                 ),
                               ),
-                            ),
-                          ...orders.map(_orderCard),
-                        ],
-                        const Spacer(),
-                        const SizedBox(height: 16),
-                        _guaranteeCard(),
-                      ],
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (!hasAny) _emptyState(),
+                if (hasAny) ...[
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: List.generate(_filters.length, _chip),
                     ),
                   ),
-                ),
-              );
-            },
+                  const SizedBox(height: 14),
+                  if (orders.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 60),
+                      child: Center(
+                        child: Text(
+                          'Belum ada pesanan di kategori ini.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ...orders.map(_orderCard),
+                ],
+              ],
+            ),
           ),
         ),
         if (!widget.embedded)
@@ -752,7 +716,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                 if (o.courierTitle != null &&
                     (st == OrderStatus.dikirim || st == OrderStatus.diproses))
                   InkWell(
-                    onTap: () => _openDetail(o),
+                    onTap: () => _openTrack(o),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
                       child: Row(
@@ -891,28 +855,54 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
     switch (st) {
       case OrderStatus.diproses:
-        return [
-          _btn('Detail', () => _openDetail(o), plain: true),
-        ];
-
       case OrderStatus.dikirim:
         return [
-          _btn('Hubungi', () => _openChat(o), plain: true),
+          _btn('Detail', () => _openDetail(o), plain: true),
           _btn(
             'Lacak',
-            () => _openDetail(o),
+            () => _openTrack(o),
             filled: true,
             icon: Icons.near_me_outlined,
           ),
         ];
 
       case OrderStatus.selesai:
-        final actions = <Widget>[
-          _btn(
-            orderMeta.isReviewed(o) ? 'Lihat Ulasan' : 'Ulasan',
-            () => _openReview(o),
-            plain: true,
-          ),
+        if (orderMeta.isReturnRequested(o)) {
+          return [
+            _btn(
+              'Rincian Retur',
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ReturnDetailScreen(order: o),
+                ),
+              ),
+              plain: true,
+            ),
+            _btn(
+              'Detail Solusi',
+              () => _showSolutionSheet(o),
+              filled: true,
+              icon: Icons.build_circle_outlined,
+            ),
+          ];
+        }
+
+        final reviewed = orderMeta.isReviewed(o);
+        return [
+          reviewed
+              ? _btn(
+                  'Lihat Ulasan',
+                  () => _openReview(o),
+                  green: true,
+                  icon: Icons.check_circle_outline,
+                )
+              : _btn(
+                  'Ulasan',
+                  () => _openReview(o),
+                  filled: true,
+                  icon: Icons.star_rounded,
+                ),
           _btn(
             'Beli Lagi',
             () => orderBuyAgain(context, o),
@@ -921,32 +911,114 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
           ),
         ];
 
-        if (orderMeta.isReturnRequested(o)) {
-          actions.add(
-            _btn(
-              'Detail Retur',
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ReturnDetailScreen(order: o),
-                ),
-              ),
-            ),
-          );
-        }
-        return actions;
-
       case OrderStatus.dibatalkan:
         return [
-          _btn('Rincian Batal', () => _openDetail(o), plain: true),
+          _btn('Rincian Pembatalan', () => _openDetail(o), plain: true),
           _btn(
             'Pesan Ulang',
             () => orderBuyAgain(context, o),
-            green: true,
+            filled: true,
             icon: Icons.refresh,
           ),
         ];
     }
+  }
+
+  void _showSolutionSheet(OrderEntry o) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Detail Solusi',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '#${o.id} • ${o.seller}',
+                  style: const TextStyle(fontSize: 10, color: AppColors.muted),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF7EF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.autorenew_rounded,
+                          size: 18, color: AppColors.green),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Solusi Penggantian Barang\n'
+                          'Barang pengganti disiapkan penjual dan diantar '
+                          'kurir Desa Sukorejo. Pantau prosesnya di Rincian '
+                          'Retur.',
+                          style: TextStyle(fontSize: 11, height: 1.4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ReturnDetailScreen(order: o),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.green,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Lihat Rincian Retur',
+                      style:
+                          TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _btn(
@@ -1068,30 +1140,26 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   }
 
   Widget _statusChip(OrderStatus s) {
-    late final String label;
+    final String label = stageLabel(s);
     late final Color fg;
     late final Color bg;
     IconData? icon;
 
     switch (s) {
       case OrderStatus.diproses:
-        label = 'Diproses';
         fg = const Color(0xFF1D6FB8);
         bg = const Color(0xFFE8F2FB);
         break;
       case OrderStatus.dikirim:
-        label = 'Sedang Dikirim';
         fg = const Color(0xFFD97706);
         bg = const Color(0xFFFFF4E0);
         break;
       case OrderStatus.selesai:
-        label = 'Selesai';
         fg = AppColors.green;
         bg = AppColors.greenLight;
         icon = Icons.check_circle_outline;
         break;
       case OrderStatus.dibatalkan:
-        label = 'Dibatalkan';
         fg = Colors.red.shade600;
         bg = Colors.red.shade50;
         break;
@@ -1124,53 +1192,6 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
               fontSize: 9,
               fontWeight: FontWeight.w800,
               color: fg,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _guaranteeCard() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 15,
-            backgroundColor: AppColors.green,
-            child: Icon(
-              Icons.verified_user_rounded,
-              size: 16,
-              color: Colors.white,
-            ),
-          ),
-          SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Jaminan Transaksi Resmi BUMDes',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.green,
-                  ),
-                ),
-                SizedBox(height: 3),
-                Text(
-                  'Seluruh transaksi diawasi oleh Kas BUMDes Sukorejo. '
-                  'Komplain & bantuan pengantaran hubungi Pos Pelayanan '
-                  'Balai Desa Sukorejo.',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    height: 1.4,
-                    color: AppColors.muted,
-                  ),
-                ),
-              ],
             ),
           ),
         ],

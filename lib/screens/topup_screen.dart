@@ -50,52 +50,15 @@ class _TopUpHeader extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 6),
-        const BrandMark(size: 29),
         const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  RichText(
-                    text: const TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'Pasar',
-                          style: TextStyle(
-                            color: AppColors.green,
-                            fontSize: 19,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        TextSpan(
-                          text: 'Desa',
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontSize: 19,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.circle, size: 6, color: Colors.redAccent),
-                ],
-              ),
-              const Text(
-                'UMKM DESA SUKOREJO',
-                style: TextStyle(
-                  color: AppColors.green,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.35,
-                ),
-              ),
-            ],
+        const Expanded(
+          child: Text(
+            'Saldo Kas Desa',
+            style: TextStyle(
+              color: Colors.black87,
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
       ],
@@ -136,7 +99,7 @@ class TopUpScreen extends StatefulWidget {
 class _TopUpScreenState extends State<TopUpScreen> {
   static const int minAmount = 10000;
   static const int maxAmount = 10000000;
-  static const List<int> quickAmounts = [20000, 50000, 100000, 200000, 500000];
+  static const List<int> quickAmounts = [10000, 50000, 100000, 200000, 500000];
 
   final TextEditingController _controller =
       TextEditingController(text: '50.000');
@@ -522,26 +485,6 @@ class _TopUpScreenState extends State<TopUpScreen> {
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.verified_user_outlined,
-                size: 13, color: AppColors.green),
-            SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                'Transaksi Instan & aman terverifikasi Koperasi Desa',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: AppColors.muted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
         ),
       ],
     );
@@ -1268,28 +1211,18 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
     return Container(
       width: double.infinity,
       height: 46,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: AppColors.green,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            _isQris ? Icons.qr_code_2_rounded : Icons.account_balance_outlined,
-            color: Colors.white,
-            size: 20,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            _isQris ? 'QRIS Desa' : 'Transfer BUMDes',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
+      child: Text(
+        _isQris ? 'QRIS Desa' : 'Transfer BUMDes',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
@@ -1471,48 +1404,6 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE6F6EC),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.verified_user_rounded,
-                  color: AppColors.green, size: 24),
-              SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Rekening Resmi Kas BUMDes',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: AppColors.green,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Sukorejo Makmur Mandiri. Verifikasi otomatis berlangsung '
-                      '1-5 menit setelah dana terkirim.',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        height: 1.4,
-                        color: AppColors.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
         Row(
           children: [
             const Expanded(

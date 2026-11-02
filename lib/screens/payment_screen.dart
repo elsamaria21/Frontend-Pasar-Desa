@@ -13,7 +13,6 @@ const Color _muted = Color(0xFF1F2A24);
 const Color _line = Color(0xFFE3E8E5);
 const Color _fieldBg = Color(0xFFF1F5F2);
 const Color _red = Color(0xFFC62828);
-const Color _orange = Color(0xFFF59E0B);
 
 enum PaymentTab { qris, transfer }
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'profile_screen.dart' show PasarDesaLogo;
+import 'topup_screen.dart' show WalletBalance, formatRupiahId, TopUpScreen;
 
 const Color _g = Color(0xFF0A9B4A);
 const Color _gd = Color(0xFF087B3B);
@@ -12,23 +12,22 @@ const Color _bd = Color(0xFFDDE5DF);
 const Color _red = Color(0xFFE05B5B);
 const Color _orange = Color(0xFFE8833A);
 
-Widget _topBar(BuildContext c) => Row(children: [
+Widget _topBar(BuildContext c, String title) => Row(children: [
       InkWell(
         onTap: () => Navigator.pop(c),
+        borderRadius: BorderRadius.circular(20),
         child: const Padding(
-          padding: EdgeInsets.all(6),
+          padding: EdgeInsets.all(8),
           child: Icon(Icons.arrow_back_ios_new, size: 18, color: _t),
         ),
       ),
-      const PasarDesaLogo(scale: 0.85),
-      const Spacer(),
-      const Icon(Icons.notifications_none_outlined, size: 22, color: _t),
-      const SizedBox(width: 10),
-      Container(
-        width: 32,
-        height: 32,
-        decoration: const BoxDecoration(color: _g, shape: BoxShape.circle),
-        child: const Icon(Icons.person_outline, color: Colors.white, size: 18),
+      const SizedBox(width: 4),
+      Expanded(
+        child: Text(title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                fontSize: 18, fontWeight: FontWeight.w900, color: _t)),
       ),
     ]);
 
@@ -96,7 +95,7 @@ Widget _wargaCard() => _box(
             children: [
               Text('WARGA TERVERIFIKASI',
                   style: TextStyle(fontSize: 9.5, color: _tg)),
-              Text('Bu RT Elsa Cinta FrontEnd',
+              Text('Elsa Maria',
                   style: TextStyle(
                       fontSize: 13.5, fontWeight: FontWeight.w900, color: _t)),
             ],
@@ -106,14 +105,15 @@ Widget _wargaCard() => _box(
       ]),
     );
 
-Widget _page(BuildContext c, List<Widget> children, {Widget? bottom}) =>
+Widget _page(BuildContext c, List<Widget> children,
+        {required String title, Widget? bottom}) =>
     Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
         child: Column(children: [
           Padding(
               padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
-              child: _topBar(c)),
+              child: _topBar(c, title)),
           Expanded(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -214,123 +214,131 @@ class _VoucherScreenState extends State<VoucherScreen> {
     final active = _list.where((v) => !v.used).toList();
     final used = _list.where((v) => v.used).toList();
     final canClaim = _code.text.trim().isNotEmpty;
-    return _page(context, [
-      _wargaCard(),
-      const SizedBox(height: 14),
-      _title('Punya voucher khusus desa?'),
-      const SizedBox(height: 8),
-      Row(children: [
-        Expanded(
-          child: TextField(
-            controller: _code,
-            onChanged: (_) => setState(() {}),
-            textCapitalization: TextCapitalization.characters,
-            decoration: InputDecoration(
-              hintText: 'KETIK KODE PROMO DESA',
-              hintStyle: const TextStyle(fontSize: 12, color: _tg),
-              filled: true,
-              fillColor: _gl,
-              isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          height: 46,
-          child: ElevatedButton(
-            onPressed: canClaim ? _claim : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _gd,
-              disabledBackgroundColor: const Color(0xFF8A938D),
-              foregroundColor: Colors.white,
-              disabledForegroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Klaim',
-                style: TextStyle(fontWeight: FontWeight.w800)),
-          ),
-        ),
-      ]),
-      const SizedBox(height: 6),
-      const Text('Contoh: SUKOREJOBANGKIT • PANENRAYA',
-          style: TextStyle(fontSize: 10.5, color: _tg)),
-      const SizedBox(height: 14),
-      _box(
-        color: _gl,
-        border: const Color(0xFFBCE8CA),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _pill('SUBSIDI APBDES & BUMDES', Colors.white, _gd, size: 9.5),
-          const SizedBox(height: 8),
-          const Text('Subsidi Warga RT 02 / RW 01',
-              style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w900, color: _t)),
-          const SizedBox(height: 4),
-          const Text(
-              'Hak subsidi pangan pokok & logistik bulan berjalan yang dijamin oleh Musdes Desa Sukorejo.',
-              style: TextStyle(fontSize: 12, color: _tg, height: 1.4)),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(10)),
-            child: Column(children: [
-              Row(children: [
-                const Expanded(
-                    child: Text('Sisa Kuota Aktif Bulan Ini',
-                        style: TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w800))),
-                Text('${3 - _quotaUsed} dari 3 Hak',
-                    style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w900)),
-              ]),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: _quotaUsed / 3,
-                  minHeight: 7,
-                  backgroundColor: _bd,
-                  valueColor: const AlwaysStoppedAnimation(_gd),
-                ),
+    return _page(
+      context,
+      [
+        _wargaCard(),
+        const SizedBox(height: 14),
+        _title('Punya voucher khusus desa?'),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+            child: TextField(
+              controller: _code,
+              onChanged: (_) => setState(() {}),
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(
+                hintText: 'KETIK KODE PROMO DESA',
+                hintStyle: const TextStyle(fontSize: 12, color: _tg),
+                filled: true,
+                fillColor: _gl,
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none),
               ),
-              const SizedBox(height: 6),
-              Row(children: [
-                Text('Terpakai: $_quotaUsed Kupon',
-                    style: const TextStyle(fontSize: 10.5, color: _tg)),
-                const Spacer(),
-                const Text('Batas: 30 Nov 2023',
-                    style: TextStyle(fontSize: 10.5, color: _red)),
-              ]),
-            ]),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            height: 46,
+            child: ElevatedButton(
+              onPressed: canClaim ? _claim : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _gd,
+                disabledBackgroundColor: const Color(0xFF8A938D),
+                foregroundColor: Colors.white,
+                disabledForegroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Klaim',
+                  style: TextStyle(fontWeight: FontWeight.w800)),
+            ),
           ),
         ]),
-      ),
-      const SizedBox(height: 16),
-      Row(children: [
-        _title('Voucher Tersedia'),
-        const Spacer(),
-        const Text('Otomatis Terhubung ke Kasir',
-            style: TextStyle(
-                fontSize: 10.5, color: _gd, fontWeight: FontWeight.w800)),
-      ]),
-      const SizedBox(height: 10),
-      if (active.isEmpty)
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 20),
-          child: Center(
-              child: Text('Belum ada voucher aktif',
-                  style: TextStyle(color: _tg))),
+        const SizedBox(height: 6),
+        const Text('Contoh: SUKOREJOBANGKIT • PANENRAYA',
+            style: TextStyle(fontSize: 10.5, color: _tg)),
+        const SizedBox(height: 14),
+        _box(
+          color: _gl,
+          border: const Color(0xFFBCE8CA),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _pill('SUBSIDI APBDES & BUMDES', Colors.white, _gd, size: 9.5),
+            const SizedBox(height: 8),
+            const Text('Subsidi Warga RT 02 / RW 01',
+                style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w900, color: _t)),
+            const SizedBox(height: 4),
+            const Text(
+                'Hak subsidi pangan pokok & logistik bulan berjalan yang dijamin oleh Musdes Desa Sukorejo.',
+                style: TextStyle(fontSize: 12, color: _tg, height: 1.4)),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(10)),
+              child: Column(children: [
+                Row(children: [
+                  const Expanded(
+                      child: Text('Sisa Kuota Aktif Bulan Ini',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w800))),
+                  Text('${3 - _quotaUsed} dari 3 Hak',
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w900)),
+                ]),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: _quotaUsed / 3,
+                    minHeight: 7,
+                    backgroundColor: _bd,
+                    valueColor: const AlwaysStoppedAnimation(_gd),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(children: [
+                  Text('Terpakai: $_quotaUsed Kupon',
+                      style: const TextStyle(fontSize: 10.5, color: _tg)),
+                  const Spacer(),
+                  const Text('Batas: 30 Nov 2023',
+                      style: TextStyle(fontSize: 10.5, color: _red)),
+                ]),
+              ]),
+            ),
+          ]),
         ),
-      for (final v in active) ...[_voucherCard(v), const SizedBox(height: 12)],
-      for (final v in used) _usedCard(v),
-    ]);
+        const SizedBox(height: 16),
+        Row(children: [
+          _title('Voucher Tersedia'),
+          const Spacer(),
+          const Text('Otomatis Terhubung ke Kasir',
+              style: TextStyle(
+                  fontSize: 10.5, color: _gd, fontWeight: FontWeight.w800)),
+        ]),
+        const SizedBox(height: 10),
+        if (active.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(
+                child: Text('Belum ada voucher aktif',
+                    style: TextStyle(color: _tg))),
+          ),
+        for (final v in active) ...[
+          _voucherCard(v),
+          const SizedBox(height: 12)
+        ],
+        for (final v in used) _usedCard(v),
+      ],
+      title: 'Voucher',
+    );
   }
 
   Widget _voucherCard(_Voucher v) => _box(
@@ -440,6 +448,7 @@ class SaldoScreen extends StatelessWidget {
   const SaldoScreen({super.key});
 
   static const _rek = 'BUMD-SKR-9921';
+  static const int _simpananWajib = 100000;
 
   @override
   Widget build(BuildContext context) {
@@ -473,152 +482,173 @@ class SaldoScreen extends StatelessWidget {
         'in'
       ],
     ];
-    return _page(context, [
-      _box(
-        color: _gl,
-        pad: 12,
-        child: Row(children: [
-          const Icon(Icons.account_circle, color: _g, size: 26),
-          const SizedBox(width: 10),
-          const Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Bu RT Elsa Cinta FrontEnd',
-                  style:
-                      TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900)),
-              Text('#WRG-3507-0089 • RW 02 Krajan',
-                  style: TextStyle(fontSize: 10.5, color: _tg)),
-            ]),
-          ),
-          _pill('Kas Aktif', Colors.white, _gd),
-        ]),
-      ),
-      const SizedBox(height: 14),
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-              colors: [Color(0xFF0A9B4A), Color(0xFF066B32)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('SALDO DOMPET & KAS DESA',
-              style: TextStyle(fontSize: 10.5, color: Colors.white70)),
-          const Text('Tabungan Koperasi & Kembalian Belanja',
-              style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800)),
-          const SizedBox(height: 10),
-          const Text('Rp 250.000',
-              style: TextStyle(
-                  fontSize: 32,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900)),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-                color: Colors.white24, borderRadius: BorderRadius.circular(10)),
-            child: Row(children: [
-              const Text('Rek. BUMDes:  ',
-                  style: TextStyle(fontSize: 11, color: Colors.white70)),
-              const Expanded(
-                  child: Text(_rek,
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900))),
-              InkWell(
-                onTap: () {
-                  Clipboard.setData(const ClipboardData(text: _rek));
-                  _snack(context, 'Nomor rekening disalin');
-                },
-                child: _pill('Salin', Colors.white, _gd),
-              ),
-            ]),
-          ),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(
-                child:
-                    _sub('Saldo Belanja', 'Rp 150.000', 'Siap Belanja Lapak')),
-            const SizedBox(width: 8),
-            Expanded(
-                child:
-                    _sub('Simpanan Wajib', 'Rp 100.000', 'Koperasi Sukorejo')),
-          ]),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton.icon(
-              onPressed: () => _snack(context,
-                  'Isi saldo via kasir BUMDes atau transfer ke rekening di atas'),
-              icon: const Icon(Icons.add_circle, size: 18),
-              label: const Text('Isi Saldo',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: _gd,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-        ]),
-      ),
-      const SizedBox(height: 18),
-      const Text('Riwayat Mutasi',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-      const SizedBox(height: 10),
-      for (final m in mutasi) ...[
+    return _page(
+      context,
+      [
         _box(
+          color: _gl,
           pad: 12,
           child: Row(children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                  color: m[4] == 'in' ? _gl : const Color(0xFFFFEDE3),
-                  borderRadius: BorderRadius.circular(10)),
-              child: Icon(
-                  m[4] == 'in'
-                      ? Icons.south_west
-                      : Icons.shopping_cart_outlined,
-                  size: 20,
-                  color: m[4] == 'in' ? _g : _orange),
-            ),
+            const Icon(Icons.account_circle, color: _g, size: 26),
             const SizedBox(width: 10),
-            Expanded(
+            const Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(m[0],
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w900)),
-                    Text(m[1],
-                        style: const TextStyle(fontSize: 10, color: _tg)),
-                    const SizedBox(height: 3),
-                    _pill('Sukses', _gl, _gd, size: 9),
+                    Text('Elsa Maria',
+                        style: TextStyle(
+                            fontSize: 13.5, fontWeight: FontWeight.w900)),
+                    Text('#WRG-3507-0089 • RW 02 Krajan',
+                        style: TextStyle(fontSize: 10.5, color: _tg)),
                   ]),
             ),
-            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(m[2],
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
-                      color: m[4] == 'in' ? _gd : _red)),
-              Text(m[3], style: const TextStyle(fontSize: 10, color: _tg)),
-            ]),
+            _pill('Kas Aktif', Colors.white, _gd),
           ]),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 14),
+        ValueListenableBuilder<int>(
+          valueListenable: WalletBalance.balance,
+          builder: (context, saldo, _) {
+            final belanja = saldo > _simpananWajib ? saldo - _simpananWajib : 0;
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                    colors: [Color(0xFF0A9B4A), Color(0xFF066B32)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('SALDO DOMPET & KAS DESA',
+                        style:
+                            TextStyle(fontSize: 10.5, color: Colors.white70)),
+                    const Text('Tabungan Koperasi & Kembalian Belanja',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 10),
+                    Text(formatRupiahId(saldo),
+                        style: const TextStyle(
+                            fontSize: 32,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Row(children: [
+                        const Text('Rek. BUMDes:  ',
+                            style:
+                                TextStyle(fontSize: 11, color: Colors.white70)),
+                        const Expanded(
+                            child: Text(_rek,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900))),
+                        InkWell(
+                          onTap: () {
+                            Clipboard.setData(const ClipboardData(text: _rek));
+                            _snack(context, 'Nomor rekening disalin');
+                          },
+                          child: _pill('Salin', Colors.white, _gd),
+                        ),
+                      ]),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(
+                          child: _sub('Saldo Belanja', formatRupiahId(belanja),
+                              'Siap Belanja Lapak')),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: _sub(
+                              'Simpanan Wajib',
+                              formatRupiahId(_simpananWajib),
+                              'Koperasi Sukorejo')),
+                    ]),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: ElevatedButton.icon(
+                        onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const TopUpScreen())),
+                        icon: const Icon(Icons.add_circle, size: 18),
+                        label: const Text('Isi Saldo',
+                            style: TextStyle(fontWeight: FontWeight.w800)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: _gd,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ]),
+            );
+          },
+        ),
+        const SizedBox(height: 18),
+        const Text('Riwayat Mutasi',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 10),
+        for (final m in mutasi) ...[
+          _box(
+            pad: 12,
+            child: Row(children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                    color: m[4] == 'in' ? _gl : const Color(0xFFFFEDE3),
+                    borderRadius: BorderRadius.circular(10)),
+                child: Icon(
+                    m[4] == 'in'
+                        ? Icons.south_west
+                        : Icons.shopping_cart_outlined,
+                    size: 20,
+                    color: m[4] == 'in' ? _g : _orange),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(m[0],
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w900)),
+                      Text(m[1],
+                          style: const TextStyle(fontSize: 10, color: _tg)),
+                      const SizedBox(height: 3),
+                      _pill('Sukses', _gl, _gd, size: 9),
+                    ]),
+              ),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(m[2],
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: m[4] == 'in' ? _gd : _red)),
+                Text(m[3], style: const TextStyle(fontSize: 10, color: _tg)),
+              ]),
+            ]),
+          ),
+          const SizedBox(height: 8),
+        ],
       ],
-    ]);
+      title: 'Saldo Dompet',
+    );
   }
 
   Widget _sub(String a, String b, String c) => Container(
@@ -654,152 +684,159 @@ class BantuanScreen extends StatelessWidget {
       'Bagaimana jika sayur atau ikan yang saya terima tidak segar?',
       'Apakah saya bisa melaporkan pedagang yang curang timbangan?',
     ];
-    return _page(context, [
-      const Text('Pusat Bantuan & Pos\nPengaduan Warga',
-          style: TextStyle(
-              fontSize: 20, fontWeight: FontWeight.w900, height: 1.2)),
-      const SizedBox(height: 4),
-      const Text('Layanan resmi BUMDes Sukorejo Makmur untuk warga.',
-          style: TextStyle(fontSize: 12, color: _tg)),
-      const SizedBox(height: 12),
-      TextField(
-        decoration: InputDecoration(
-          hintText: 'Cari kendala, pesanan, atau bantuan...',
-          hintStyle: const TextStyle(fontSize: 12.5, color: _tg),
-          prefixIcon: const Icon(Icons.search, size: 20),
-          filled: true,
-          fillColor: Colors.white,
-          isDense: true,
-          border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _bd)),
-          enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _bd)),
+    return _page(
+      context,
+      [
+        const Text('Pusat Bantuan & Pos\nPengaduan Warga',
+            style: TextStyle(
+                fontSize: 20, fontWeight: FontWeight.w900, height: 1.2)),
+        const SizedBox(height: 4),
+        const Text('Layanan resmi BUMDes Sukorejo Makmur untuk warga.',
+            style: TextStyle(fontSize: 12, color: _tg)),
+        const SizedBox(height: 12),
+        TextField(
+          decoration: InputDecoration(
+            hintText: 'Cari kendala, pesanan, atau bantuan...',
+            hintStyle: const TextStyle(fontSize: 12.5, color: _tg),
+            prefixIcon: const Icon(Icons.search, size: 20),
+            filled: true,
+            fillColor: Colors.white,
+            isDense: true,
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: _bd)),
+            enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: _bd)),
+          ),
         ),
-      ),
-      const SizedBox(height: 16),
-      _title('Kanal Bantuan Langsung'),
-      const SizedBox(height: 8),
-      _channel(context, Icons.chat_bubble_outline, 'WhatsApp Pengelola',
-          'Respon cepat jam kerja', 'Chat Segera'),
-      _channel(context, Icons.store_outlined, 'Posko Balai Desa',
-          'Datang langsung 07.00–17.00', 'Lokasi'),
-      _channel(context, Icons.phone_in_talk_outlined, 'Hotline Darurat Kurir',
-          'Barang tertahan / salah antar', 'Panggil'),
-      const SizedBox(height: 12),
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration:
-            BoxDecoration(color: _gd, borderRadius: BorderRadius.circular(16)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Punya Kesulitan atau Masalah Pesanan Belum Selesai?',
-              style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900)),
-          const SizedBox(height: 4),
-          const Text(
-              'Sampaikan langsung ke petugas, ditindaklanjuti maks. 1×24 jam.',
-              style: TextStyle(fontSize: 11.5, color: Colors.white70)),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton.icon(
-              onPressed: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const BuatTiketScreen())),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Buat Tiket Aduan Baru',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: _gd,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+        const SizedBox(height: 16),
+        _title('Kanal Bantuan Langsung'),
+        const SizedBox(height: 8),
+        _channel(context, Icons.chat_bubble_outline, 'WhatsApp Pengelola',
+            'Respon cepat jam kerja', 'Chat Segera'),
+        _channel(context, Icons.store_outlined, 'Posko Balai Desa',
+            'Datang langsung 07.00–17.00', 'Lokasi'),
+        _channel(context, Icons.phone_in_talk_outlined, 'Hotline Darurat Kurir',
+            'Barang tertahan / salah antar', 'Panggil'),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+              color: _gd, borderRadius: BorderRadius.circular(16)),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Punya Kesulitan atau Masalah Pesanan Belum Selesai?',
+                style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            const Text(
+                'Sampaikan langsung ke petugas, ditindaklanjuti maks. 1×24 jam.',
+                style: TextStyle(fontSize: 11.5, color: Colors.white70)),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const BuatTiketScreen())),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Buat Tiket Aduan Baru',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: _gd,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
               ),
             ),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        _title('Topik Bantuan Pasar & Panen'),
+        const SizedBox(height: 8),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 2.2,
+          children: [
+            for (final k in topik)
+              _box(
+                pad: 10,
+                child: Row(children: [
+                  Icon(k[0] as IconData, color: _g),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: Text(k[1] as String,
+                          style: const TextStyle(
+                              fontSize: 11.5, fontWeight: FontWeight.w800))),
+                ]),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(children: [
+          _title('Riwayat Aduan Saya'),
+          const Spacer(),
+          InkWell(
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const RiwayatAduanScreen())),
+            child: const Text('Lihat Semua',
+                style: TextStyle(
+                    fontSize: 11.5, color: _g, fontWeight: FontWeight.w800)),
           ),
         ]),
-      ),
-      const SizedBox(height: 16),
-      _title('Topik Bantuan Pasar & Panen'),
-      const SizedBox(height: 8),
-      GridView.count(
-        crossAxisCount: 2,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 2.2,
-        children: [
-          for (final k in topik)
-            _box(
-              pad: 10,
-              child: Row(children: [
-                Icon(k[0] as IconData, color: _g),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: Text(k[1] as String,
-                        style: const TextStyle(
-                            fontSize: 11.5, fontWeight: FontWeight.w800))),
-              ]),
-            ),
-        ],
-      ),
-      const SizedBox(height: 16),
-      Row(children: [
-        _title('Riwayat Aduan Saya'),
-        const Spacer(),
-        InkWell(
-          onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const RiwayatAduanScreen())),
-          child: const Text('Lihat Semua',
-              style: TextStyle(
-                  fontSize: 11.5, color: _g, fontWeight: FontWeight.w800)),
-        ),
-      ]),
-      const SizedBox(height: 8),
-      _box(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            const Text('#ADU-20231024-0021',
-                style: TextStyle(fontSize: 10.5, color: _tg)),
-            const Spacer(),
-            _pill('Sedang Diverifikasi', const Color(0xFFFFEDE3), _orange),
+        const SizedBox(height: 8),
+        _box(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Text('#ADU-20231024-0021',
+                  style: TextStyle(fontSize: 10.5, color: _tg)),
+              const Spacer(),
+              _pill('Sedang Diverifikasi', const Color(0xFFFFEDE3), _orange),
+            ]),
+            const SizedBox(height: 4),
+            const Text('Jagung Manis Kurang 1 Ikat & Biji Belum Matang',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
           ]),
-          const SizedBox(height: 4),
-          const Text('Jagung Manis Kurang 1 Ikat & Biji Belum Matang',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
-        ]),
-      ),
-      const SizedBox(height: 16),
-      _title('Pertanyaan Warga Sering Ditanyakan (FAQ)'),
-      const SizedBox(height: 8),
-      _box(
-        pad: 0,
-        child: Column(children: [
-          for (final q in faq)
-            ExpansionTile(
-              shape: const Border(),
-              collapsedShape: const Border(),
-              title: Text(q,
-                  style: const TextStyle(
-                      fontSize: 12.5, fontWeight: FontWeight.w800)),
-              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              children: const [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                      'Silakan buat tiket aduan agar petugas BUMDes dapat memverifikasi dan menindaklanjuti dalam 1×24 jam kerja.',
-                      style: TextStyle(fontSize: 12, color: _tg, height: 1.4)),
-                ),
-              ],
-            ),
-        ]),
-      ),
-    ]);
+        ),
+        const SizedBox(height: 16),
+        _title('Pertanyaan Warga Sering Ditanyakan (FAQ)'),
+        const SizedBox(height: 8),
+        _box(
+          pad: 0,
+          child: Column(children: [
+            for (final q in faq)
+              ExpansionTile(
+                shape: const Border(),
+                collapsedShape: const Border(),
+                title: Text(q,
+                    style: const TextStyle(
+                        fontSize: 12.5, fontWeight: FontWeight.w800)),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                children: const [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                        'Silakan buat tiket aduan agar petugas BUMDes dapat memverifikasi dan menindaklanjuti dalam 1×24 jam kerja.',
+                        style:
+                            TextStyle(fontSize: 12, color: _tg, height: 1.4)),
+                  ),
+                ],
+              ),
+          ]),
+        ),
+      ],
+      title: 'Pusat Bantuan',
+    );
   }
 
   Widget _channel(BuildContext c, IconData i, String a, String b, String act) =>
@@ -998,6 +1035,7 @@ class _BuatTiketScreenState extends State<BuatTiketScreen> {
             ),
           ),
       ],
+      title: 'Buat Aduan',
       bottom:
           _btn('Kirim Tiket Aduan Sekarang', _kirim, icon: Icons.arrow_forward),
     );
@@ -1009,53 +1047,57 @@ class RiwayatAduanScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _page(context, [
-      _box(
-        color: _gl,
-        border: const Color(0xFFBCE8CA),
-        pad: 12,
-        child: const Text(
-            'Pos Layanan Warga BUMDes Sukorejo Makmur — jaminan penanganan transparan, adil & tuntas maksimal 1×24 jam kerja.',
-            style: TextStyle(fontSize: 11.5, color: _gd, height: 1.4)),
-      ),
-      const SizedBox(height: 12),
-      _ticket(
-          '#ADU-20231024-0021',
-          'Hari ini, 10.30 WIB',
-          'Sedang Diverifikasi',
-          const Color(0xFFFFEDE3),
-          _orange,
-          'Jagung Manis Kurang 1 Ikat & Biji Belum Matang',
-          'Kirim Ulang Barang Pengganti'),
-      const SizedBox(height: 12),
-      _ticket(
-          '#ADU-20231024-0012',
-          'Kemarin, 08.14 WIB',
-          'Selesai & Ditunaskan',
-          _gl,
-          _gd,
-          'Retur Madu Murni Asli Hutan Desa (Kemasan Rembes)',
-          'Pengembalian Dana 100% Berhasil'),
-      const SizedBox(height: 16),
-      _box(
-        color: _gl,
-        border: const Color(0xFFBCE8CA),
-        child: Column(children: [
-          const Text('Ada barang belanjaan lain bermasalah?',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 4),
-          const Text(
-              'Foto barang rusak, pesanan tertukar, atau timbangan tidak pas.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11.5, color: _tg)),
-          const SizedBox(height: 10),
-          _btn('Buat Aduan Baru Sekarang', () {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const BuatTiketScreen()));
-          }, icon: Icons.add_circle_outline),
-        ]),
-      ),
-    ]);
+    return _page(
+      context,
+      [
+        _box(
+          color: _gl,
+          border: const Color(0xFFBCE8CA),
+          pad: 12,
+          child: const Text(
+              'Pos Layanan Warga BUMDes Sukorejo Makmur — jaminan penanganan transparan, adil & tuntas maksimal 1×24 jam kerja.',
+              style: TextStyle(fontSize: 11.5, color: _gd, height: 1.4)),
+        ),
+        const SizedBox(height: 12),
+        _ticket(
+            '#ADU-20231024-0021',
+            'Hari ini, 10.30 WIB',
+            'Sedang Diverifikasi',
+            const Color(0xFFFFEDE3),
+            _orange,
+            'Jagung Manis Kurang 1 Ikat & Biji Belum Matang',
+            'Kirim Ulang Barang Pengganti'),
+        const SizedBox(height: 12),
+        _ticket(
+            '#ADU-20231024-0012',
+            'Kemarin, 08.14 WIB',
+            'Selesai & Ditunaskan',
+            _gl,
+            _gd,
+            'Retur Madu Murni Asli Hutan Desa (Kemasan Rembes)',
+            'Pengembalian Dana 100% Berhasil'),
+        const SizedBox(height: 16),
+        _box(
+          color: _gl,
+          border: const Color(0xFFBCE8CA),
+          child: Column(children: [
+            const Text('Ada barang belanjaan lain bermasalah?',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            const Text(
+                'Foto barang rusak, pesanan tertukar, atau timbangan tidak pas.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11.5, color: _tg)),
+            const SizedBox(height: 10),
+            _btn('Buat Aduan Baru Sekarang', () {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const BuatTiketScreen()));
+            }, icon: Icons.add_circle_outline),
+          ]),
+        ),
+      ],
+      title: 'Riwayat Aduan',
+    );
   }
 
   Widget _ticket(String id, String time, String status, Color sb, Color sf,
@@ -1209,6 +1251,7 @@ class SyaratScreen extends StatelessWidget {
             ),
           ),
       ],
+      title: 'Syarat & Ketentuan',
       bottom: _btn('Saya Mengerti & Setuju', () {
         Navigator.pop(context);
         _snack(context, 'Terima kasih, ketentuan telah disetujui');

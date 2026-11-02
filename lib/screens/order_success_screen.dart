@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
-import '../widgets/checkout_widgets.dart';
 import '../widgets/common.dart';
 import 'dashboard_screen.dart';
 
@@ -63,11 +62,10 @@ class OrderSuccessScreen extends StatelessWidget {
         body: SafeArea(
           child: Column(
             children: [
-              const PasarDesaHeader(),
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 28, 16, 24),
                   child: Column(
                     children: [
                       _hero(),
@@ -85,8 +83,6 @@ class OrderSuccessScreen extends StatelessWidget {
                       _productsCard(),
                       const SizedBox(height: 12),
                       _paymentDetail(),
-                      const SizedBox(height: 12),
-                      const AmanahKasCard(),
                       const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,
@@ -193,13 +189,18 @@ class OrderSuccessScreen extends StatelessWidget {
   }
 
   Widget _orderIdCard(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.green),
-          borderRadius: BorderRadius.circular(12),
-        ),
+    const double borderWidth = 1.5;
+    const double outerRadius = 12;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppColors.green, width: borderWidth),
+        borderRadius: BorderRadius.circular(outerRadius),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(outerRadius - borderWidth),
         child: Column(
           children: [
             Container(

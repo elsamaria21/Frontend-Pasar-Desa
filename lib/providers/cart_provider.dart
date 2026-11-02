@@ -9,7 +9,7 @@ class CartLine {
   CartLine({
     required this.product,
     this.quantity = 1,
-    this.selected = true,
+    this.selected = false,
   });
 
   int get subtotal => product.price * quantity;
@@ -136,6 +136,8 @@ class CartProvider extends ChangeNotifier {
         line.selected = false;
       } else if (line.quantity > product.stock) {
         line.quantity = product.stock;
+      } else if (line.canIncrease) {
+        line.quantity++;
       }
 
       notifyListeners();
@@ -148,7 +150,8 @@ class CartProvider extends ChangeNotifier {
       CartLine(
         product: product,
         quantity: 1,
-        selected: true,
+        // FIX: tidak otomatis tercentang.
+        selected: false,
       ),
     );
 

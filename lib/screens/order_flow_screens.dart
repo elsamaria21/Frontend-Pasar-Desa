@@ -41,7 +41,6 @@ final OrderMetaStore orderMeta = OrderMetaStore();
 
 const String _kCourierName = 'Pak Wardi';
 const String _kCourierArea = 'RW 02';
-const Color _kOrange = Color(0xFFE8742A);
 const Color _kRed = Color(0xFFE5484D);
 
 String _two(int n) => n.toString().padLeft(2, '0');
@@ -121,8 +120,13 @@ void orderBuyAgain(BuildContext context, OrderEntry o) {
 class _FlowHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
+  final bool showLogo;
 
-  const _FlowHeader({required this.title, this.subtitle});
+  const _FlowHeader({
+    required this.title,
+    this.subtitle,
+    this.showLogo = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -140,8 +144,10 @@ class _FlowHeader extends StatelessWidget {
                   size: 22, color: AppColors.text),
             ),
           ),
-          const BrandMark(size: 28),
-          const SizedBox(width: 8),
+          if (showLogo) ...[
+            const BrandMark(size: 28),
+            const SizedBox(width: 8),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,14 +240,15 @@ class _FlowPage extends StatelessWidget {
   final List<Widget> children;
   final Widget? bottom;
   final bool brandHeader;
+  final bool showLogo;
 
   const _FlowPage({
     required this.title,
     required this.children,
     this.subtitle,
     this.bottom,
-    this.brandHeader = false,
-  });
+    this.showLogo = true,
+  }) : brandHeader = false;
 
   @override
   Widget build(BuildContext context) {
@@ -254,7 +261,11 @@ class _FlowPage extends StatelessWidget {
               const PasarDesaHeader(),
               _FlowTitleBar(title: title, subtitle: subtitle),
             ] else
-              _FlowHeader(title: title, subtitle: subtitle),
+              _FlowHeader(
+                title: title,
+                subtitle: subtitle,
+                showLogo: showLogo,
+              ),
             Expanded(
               child: ListView(
                 physics: const BouncingScrollPhysics(),
@@ -436,46 +447,6 @@ Widget _lineTile(OrderLine l) {
         ),
         Text('x ${l.qty}',
             style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
-      ],
-    ),
-  );
-}
-
-Widget _guaranteeBox() {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-    child: const Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(Icons.verified_user, size: 24, color: AppColors.green),
-        SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Amanah Transaksi Koperasi Desa',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.text,
-                ),
-              ),
-              SizedBox(height: 3),
-              Text(
-                'Seluruh transaksi diawasi Kas BUMDes Sukorejo. Dana Anda '
-                'aman dan baru diteruskan ke petani setelah pesanan '
-                'diterima dengan baik.',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  height: 1.4,
-                  color: AppColors.muted,
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     ),
   );
@@ -759,21 +730,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final st = orderMeta.statusOf(o);
 
     return _FlowPage(
-      title: 'Lacak Pengiriman',
+      title: 'Detail Pesanan',
       subtitle: o.id,
+      showLogo: false,
       bottom: _buildBottom(st),
       children: [
         _buildStatusCard(st),
-        const SizedBox(height: 14),
-        _buildTracking(st),
         const SizedBox(height: 14),
         _buildAddress(),
         const SizedBox(height: 14),
         _buildProducts(),
         const SizedBox(height: 14),
         _buildPayment(),
-        const SizedBox(height: 14),
-        _guaranteeBox(),
       ],
     );
   }
@@ -785,12 +753,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
     switch (st) {
       case OrderStatus.diproses:
-        chip = 'Pesanan Diproses';
-        title = 'Pesanan sedang disiapkan lapak';
+        chip = 'Dikemas';
+        title = 'Pesanan sedang dikemas';
         subtitle = 'Petani menyiapkan dan mengemas hasil bumi pesanan Anda.';
         break;
       case OrderStatus.dikirim:
-        chip = 'Sedang Dikirim';
+        chip = 'Dikirim';
         title = 'Pesanan dalam perjalanan';
         subtitle = (o.courierInfo != null && o.courierInfo!.isNotEmpty)
             ? o.courierInfo!
@@ -798,7 +766,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         break;
       default:
         final m = orderMeta.metaOf(o.id);
-        chip = 'Pesanan Selesai';
+        chip = 'Selesai';
         title = 'Pesanan telah diterima';
         subtitle = m.receivedAt != null
             ? 'Diterima pada ${_dateLabel(m.receivedAt!)}'
@@ -889,16 +857,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   color: const Color.fromRGBO(255, 255, 255, 0.16),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 18,
                       backgroundColor: Colors.white,
                       child: Icon(Icons.two_wheeler_rounded,
                           color: AppColors.green, size: 20),
                     ),
-                    const SizedBox(width: 10),
-                    const Expanded(
+                    SizedBox(width: 10),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -920,201 +888,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ],
                       ),
                     ),
-                    InkWell(
-                      onTap: _openChat,
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.chat_bubble_outline_rounded,
-                                size: 14, color: AppColors.green),
-                            SizedBox(width: 5),
-                            Text(
-                              'Hubungi',
-                              style: TextStyle(
-                                color: AppColors.green,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
             ],
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildTracking(OrderStatus st) {
-    final current = st == OrderStatus.selesai
-        ? 5
-        : st == OrderStatus.dikirim
-            ? 3
-            : 1;
-
-    final time =
-        o.dateLabel.contains('•') ? o.dateLabel.split('•').last.trim() : '';
-
-    const titles = [
-      'Pesanan Dikonfirmasi',
-      'Sedang Disiapkan Lapak',
-      'Diambil Kurir BUMDes',
-      'Sedang Diantar ke Rumah',
-      'Diterima Warga Desa',
-    ];
-
-    final descs = [
-      'Pembayaran diterima & pesanan masuk ke lapak',
-      'Petani memanen dan mengemas pesanan Anda',
-      'Kurir desa membawa pesanan dari lapak',
-      'Kurir menuju alamat pengantaran Anda',
-      st == OrderStatus.selesai
-          ? 'Pesanan telah diterima warga'
-          : 'Menunggu konfirmasi penerimaan',
-    ];
-
-    return _box(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(
-            'Lacak Pengiriman Desa',
-            icon: Icons.location_on_outlined,
-            trailing: st == OrderStatus.selesai
-                ? null
-                : _pill(
-                    'Live Update', AppColors.green, const Color(0xFFE1F5E9)),
-          ),
-          for (int i = 0; i < titles.length; i++)
-            _timelineItem(
-              index: i,
-              current: current,
-              last: i == titles.length - 1,
-              title: titles[i],
-              desc: descs[i],
-              time: i == 0 ? time : '',
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _timelineItem({
-    required int index,
-    required int current,
-    required bool last,
-    required String title,
-    required String desc,
-    String time = '',
-  }) {
-    final done = index < current;
-    final active = index == current;
-    final color = done
-        ? AppColors.green
-        : active
-            ? _kOrange
-            : const Color(0xFFCBD3CE);
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 24,
-            child: Column(
-              children: [
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: (done || active) ? color : Colors.white,
-                    border: Border.all(color: color, width: 2),
-                  ),
-                  child: done
-                      ? const Icon(Icons.check_rounded,
-                          size: 13, color: Colors.white)
-                      : active
-                          ? Center(
-                              child: Container(
-                                width: 7,
-                                height: 7,
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            )
-                          : null,
-                ),
-                if (!last)
-                  Expanded(
-                    child: Container(
-                      width: 2,
-                      color: done ? AppColors.green : const Color(0xFFE3E8E5),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: last ? 0 : 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w900,
-                            color: active
-                                ? _kOrange
-                                : (done ? AppColors.text : AppColors.muted),
-                          ),
-                        ),
-                      ),
-                      if (time.isNotEmpty)
-                        Text(
-                          time,
-                          style: const TextStyle(
-                              fontSize: 10, color: AppColors.muted),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    desc,
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      height: 1.35,
-                      color: AppColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1487,7 +1266,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return _FlowPage(
-      brandHeader: true,
+      showLogo: false,
       title: _readOnly ? 'Ulasan Anda' : 'Beri Ulasan',
       subtitle: o.id,
       bottom: _readOnly
@@ -1544,8 +1323,6 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
         _buildQuality(),
         const SizedBox(height: 14),
         _buildCourierRating(),
-        const SizedBox(height: 14),
-        _buildAmanah(),
       ],
     );
   }
@@ -2124,51 +1901,6 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
       ),
     );
   }
-
-  Widget _buildAmanah() {
-    return _box(
-      color: const Color(0xFFF1FBF4),
-      border: const Color(0xFFD3EFDD),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: AppColors.green,
-            child: Icon(Icons.verified_user_rounded,
-                size: 17, color: Colors.white),
-          ),
-          SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Amanah Kas BUMDes Sukorejo',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.green,
-                  ),
-                ),
-                SizedBox(height: 3),
-                Text(
-                  'Ulasan jujur Anda membantu menjaga mutu hasil bumi desa. '
-                  'Dana pesanan diteruskan ke petani setelah Anda '
-                  'mengonfirmasi penerimaan.',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    height: 1.4,
-                    color: AppColors.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class ReturnDetailScreen extends StatefulWidget {
@@ -2230,6 +1962,7 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen> {
     return _FlowPage(
       title: 'Detail Retur',
       subtitle: o.id,
+      showLogo: false,
       bottom: _submitted
           ? _bigButton(
               'Kembali ke Pesanan',
@@ -2446,30 +2179,6 @@ class _ReturnDetailScreenState extends State<ReturnDetailScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 14),
-        _box(
-          color: const Color(0xFFF1FBF4),
-          border: AppColors.green,
-          child: const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 15,
-                backgroundColor: AppColors.green,
-                child: Icon(Icons.verified_user_rounded,
-                    size: 16, color: Colors.white),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Pengajuan retur diverifikasi oleh BUMDes Sukorejo agar proses pengembalian dana tetap aman dan transparan.',
-                  style: TextStyle(
-                      fontSize: 9.5, height: 1.4, color: AppColors.muted),
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -2550,6 +2259,7 @@ class CancelledOrderScreen extends StatelessWidget {
     return _FlowPage(
       title: 'Rincian Pembatalan',
       subtitle: o.id,
+      showLogo: false,
       bottom: _bigButton(
         'Pesan Ulang',
         onTap: () => orderBuyAgain(context, o),
@@ -2562,16 +2272,16 @@ class CancelledOrderScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              const Row(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 20,
                     backgroundColor: _kRed,
                     child: Icon(Icons.close_rounded,
                         color: Colors.white, size: 24),
                   ),
-                  const SizedBox(width: 12),
-                  const Expanded(
+                  SizedBox(width: 12),
+                  Expanded(
                     child: Text(
                       'Pesanan Dibatalkan',
                       style: TextStyle(
@@ -2581,8 +2291,6 @@ class CancelledOrderScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  _pill('Selesai', AppColors.green, const Color(0xFFE1F5E9),
-                      icon: Icons.check_circle_outline_rounded),
                 ],
               ),
               const SizedBox(height: 10),
@@ -2817,6 +2525,130 @@ class CancelledOrderScreen extends StatelessWidget {
   }
 }
 
+class CourierTurn {
+  final String text;
+  final bool fromBuyer;
+
+  const CourierTurn(this.text, this.fromBuyer);
+}
+
+class CourierChatContext {
+  final OrderEntry order;
+  final OrderStatus status;
+  final String courierName;
+  final String courierArea;
+  final List<CourierTurn> history;
+
+  const CourierChatContext({
+    required this.order,
+    required this.status,
+    required this.courierName,
+    required this.courierArea,
+    required this.history,
+  });
+}
+
+abstract class CourierReplyService {
+  Future<String> reply(CourierChatContext ctx, String message);
+}
+
+class RuleBasedCourierReply implements CourierReplyService {
+  const RuleBasedCourierReply();
+
+  @override
+  Future<String> reply(CourierChatContext ctx, String message) async {
+    await Future.delayed(const Duration(milliseconds: 900));
+
+    final m = message.toLowerCase();
+    final o = ctx.order;
+    final st = ctx.status;
+    final call = _callName(o.receiverName);
+    final address = o.deliveryAddress.trim().isNotEmpty
+        ? o.deliveryAddress.trim()
+        : 'alamat Anda';
+
+    bool has(List<String> keys) => keys.any(m.contains);
+
+    final preparing = st == OrderStatus.diproses;
+    final delivered = st == OrderStatus.selesai;
+
+    if (has(['terima kasih', 'makasih', 'thanks'])) {
+      return 'Sama-sama $call, selamat menikmati hasil panen desa kita.';
+    }
+
+    if (has(['posisi', 'dimana', 'di mana', 'dmn', 'sampai mana', 'lokasi'])) {
+      if (delivered) {
+        return 'Pesanan sudah selesai diantar, $call.';
+      }
+      if (preparing) {
+        return 'Saya masih standby di Pos BUMDes, $call. Pesanan masih '
+            'disiapkan lapak dan belum saya jemput. Begitu berangkat, saya '
+            'kabari lewat chat ini.';
+      }
+      return 'Saya sudah dalam perjalanan, $call. Tinggal sekitar 10 menit '
+          'lagi menuju $address.';
+    }
+
+    if (has(['menit', 'kapan', 'lama', 'berapa lama', 'sampai'])) {
+      if (delivered) {
+        return 'Pesanan sudah sampai ya, $call.';
+      }
+      if (preparing) {
+        return 'Pesanan masih disiapkan lapak, $call. Perkiraan siap '
+            'berangkat sekitar 20–30 menit lagi, nanti saya kabari.';
+      }
+      return 'Sekitar 10 menit lagi sampai, $call.';
+    }
+
+    if (has(['titip', 'tetangga', 'teras', 'depan pintu', 'warung'])) {
+      if (delivered) {
+        return 'Pesanan sudah diantar ya, $call.';
+      }
+      return 'Nggih $call, siap. Pesanan akan saya titipkan sesuai '
+          'permintaan dan saya kabari lewat chat setelah sampai.';
+    }
+
+    if (has(['tunggu'])) {
+      return 'Siap $call, saya tunggu kabar dari Anda.';
+    }
+
+    if (has(['di rumah', 'silakan', 'silahkan', 'boleh diantar'])) {
+      if (preparing) {
+        return 'Baik $call, pesanan masih disiapkan lapak. Nanti saya '
+            'antar ke $address begitu siap.';
+      }
+      return 'Baik $call, saya antar ke $address ya.';
+    }
+
+    if (has(['ganti alamat', 'ubah alamat', 'batal'])) {
+      return 'Untuk ubah alamat atau pembatalan, mohon lewat halaman pesanan '
+          'ya $call, karena saya hanya bisa mengantar sesuai data pesanan.';
+    }
+
+    if (preparing) {
+      return 'Nggih $call, pesan diterima. Pesanan masih disiapkan lapak, '
+          'nanti saya kabari kalau sudah saya jemput.';
+    }
+    if (delivered) {
+      return 'Nggih $call, pesan diterima.';
+    }
+    return 'Nggih $call, pesan diterima. Saya segera antar ke $address.';
+  }
+
+  static String _callName(String fullName) {
+    final parts = fullName.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return 'Kak';
+    const honorifics = ['bapak', 'ibu', 'mas', 'mbak', 'kak', 'dik'];
+    final first = parts.first;
+    if (honorifics.contains(first.toLowerCase())) {
+      return parts.length > 1 ? '$first ${parts[1]}' : first;
+    }
+    return 'Kak $first';
+  }
+}
+
+CourierReplyService courierReplyService = const RuleBasedCourierReply();
+
 class _ChatMsg {
   final String text;
   final bool mine;
@@ -2836,15 +2668,17 @@ class CourierChatScreen extends StatefulWidget {
 
 class _CourierChatScreenState extends State<CourierChatScreen> {
   static const List<String> _quick = [
+    'Posisi sekarang di mana?',
+    'Berapa menit lagi sampai?',
     'Saya di rumah, silakan diantar',
     'Titip ke tetangga ya, Pak',
-    'Tolong tunggu 5 menit',
     'Taruh di depan pintu saja',
   ];
 
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
   final List<_ChatMsg> _messages = [];
+  int _pending = 0;
 
   OrderEntry get o => widget.order;
 
@@ -2856,12 +2690,18 @@ class _CourierChatScreenState extends State<CourierChatScreen> {
   @override
   void initState() {
     super.initState();
+    final who = o.receiverName.isNotEmpty ? o.receiverName : 'Kak';
+    final preparing = orderMeta.statusOf(o) == OrderStatus.diproses;
     _messages.add(
       _ChatMsg(
-        'Selamat siang ${o.receiverName.isNotEmpty ? o.receiverName : 'Kak'}, '
-        'pesanan ${o.id} sedang dalam perjalanan menuju alamat Anda. '
-        '${o.deliveryAddress.isNotEmpty ? 'Alamat: ${o.deliveryAddress}. ' : ''}'
-        'Mohon siap ya 🙏',
+        preparing
+            ? 'Halo $who, saya $_kCourierName kurir desa. Pesanan ${o.id} '
+                'masih disiapkan lapak. Begitu siap, saya jemput dan antar '
+                'ke alamat Anda. Kalau ada pesan, tulis di sini ya 🙏'
+            : 'Halo $who, saya $_kCourierName kurir desa. Pesanan ${o.id} '
+                'sedang dalam perjalanan menuju alamat Anda. '
+                '${o.deliveryAddress.isNotEmpty ? 'Alamat: ${o.deliveryAddress}. ' : ''}'
+                'Mohon siap ya 🙏',
         false,
         _hm(),
       ),
@@ -2890,19 +2730,34 @@ class _CourierChatScreenState extends State<CourierChatScreen> {
     final value = text.trim();
     if (value.isEmpty) return;
 
+    final ctx = CourierChatContext(
+      order: o,
+      status: orderMeta.statusOf(o),
+      courierName: _kCourierName,
+      courierArea: _kCourierArea,
+      history: [
+        for (final m in _messages) CourierTurn(m.text, m.mine),
+      ],
+    );
+
     setState(() {
       _messages.add(_ChatMsg(value, true, _hm()));
       _input.clear();
+      _pending++;
     });
     _scrollDown();
 
-    await Future.delayed(const Duration(milliseconds: 1200));
+    String answer;
+    try {
+      answer = await courierReplyService.reply(ctx, value);
+    } catch (_) {
+      answer = 'Maaf, pesan belum bisa dibalas. Coba kirim lagi ya.';
+    }
     if (!mounted) return;
 
     setState(() {
-      _messages.add(
-        _ChatMsg('Baik, siap. Terima kasih infonya 🙏', false, _hm()),
-      );
+      _messages.add(_ChatMsg(answer, false, _hm()));
+      _pending--;
     });
     _scrollDown();
   }
@@ -2920,8 +2775,7 @@ class _CourierChatScreenState extends State<CourierChatScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const _FlowHeader(
-                title: 'Hubungi Kurir', subtitle: 'Chat dengan kurir desa'),
+            const _FlowHeader(title: 'Hubungi Kurir', showLogo: false),
             Expanded(
               child: ListView(
                 controller: _scroll,
@@ -2933,7 +2787,7 @@ class _CourierChatScreenState extends State<CourierChatScreen> {
                   _buildPackage(),
                   const SizedBox(height: 14),
                   const Text(
-                    'Pesan Cepat ke Lapak & Kurir',
+                    'Pesan Cepat ke Kurir',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 8),
@@ -2970,6 +2824,7 @@ class _CourierChatScreenState extends State<CourierChatScreen> {
                   ),
                   const SizedBox(height: 14),
                   for (final m in _messages) _bubble(m),
+                  if (_pending > 0) _typingBubble(),
                 ],
               ),
             ),
@@ -3149,6 +3004,34 @@ class _CourierChatScreenState extends State<CourierChatScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _typingBubble() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(14),
+            topRight: Radius.circular(14),
+            bottomLeft: Radius.circular(3),
+            bottomRight: Radius.circular(14),
+          ),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: const Text(
+          '$_kCourierName sedang mengetik...',
+          style: TextStyle(
+            fontSize: 11,
+            fontStyle: FontStyle.italic,
+            color: AppColors.muted,
+          ),
         ),
       ),
     );

@@ -5,7 +5,6 @@ import '../providers/cart_provider.dart';
 import '../providers/order_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/checkout_failed_dialog.dart';
-import '../widgets/checkout_widgets.dart';
 import '../widgets/common.dart';
 import 'dashboard_screen.dart';
 import 'order_models.dart';
@@ -29,23 +28,44 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   static const int _kurirFee = 5000;
 
+  static const String _voucherCode = 'PANENRAYA';
+  static const int _voucherValue = 5000;
+
   int get _saldo => WalletBalance.balance.value;
 
   DeliveryOption _delivery = DeliveryOption.kurir;
   PayMethod? _pay = PayMethod.qris;
   bool _noteSaved = false;
   bool _loading = false;
+  bool _voucherApplied = false;
 
   final _noteC = TextEditingController();
+  final _voucherC = TextEditingController();
 
-  String _name = 'Pak RT Joko';
-  String _phone = '0812-3456-7890';
-  String _address =
-      'Dusun Krajan RT 02 / RW 01 (Pos Drop-point BUMDes Depan Balai Desa Sukorejo)';
+  static const int _maxAddresses = 4;
+
+  List<AddressData> _addresses = [
+    const AddressData(
+      'Elsa Maria',
+      '0812-3456-7890',
+      'Dusun Krajan RT 02 / RW 01 (Pos Drop-point BUMDes Depan Balai Desa Sukorejo)',
+      label: 'Rumah',
+      isMain: true,
+      dusun: 'Dusun Krajan RT 02 / RW 01',
+      detail: 'Pos Drop-point BUMDes Depan Balai Desa Sukorejo',
+    ),
+  ];
+  int _selectedAddress = 0;
+
+  AddressData get _currentAddress => _addresses[_selectedAddress];
+  String get _name => _currentAddress.name;
+  String get _phone => _currentAddress.phone;
+  String get _address => _currentAddress.address;
 
   @override
   void dispose() {
     _noteC.dispose();
+    _voucherC.dispose();
     super.dispose();
   }
 
@@ -69,26 +89,58 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  Future<void> _editAddress() async {
-    final result = await showModalBottomSheet<AddressData>(
+  void _toast(String text) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  void _applyVoucher() {
+    final code = _voucherC.text.trim().toUpperCase();
+
+    if (code.isEmpty) {
+      _toast('Masukkan kode voucher terlebih dahulu');
+      return;
+    }
+
+    if (code != _voucherCode) {
+      _toast('Kode voucher tidak valid');
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() => _voucherApplied = true);
+    _toast('Voucher $_voucherCode berhasil dipasang');
+  }
+
+  void _removeVoucher() {
+    setState(() {
+      _voucherApplied = false;
+      _voucherC.clear();
+    });
+  }
+
+  Future<void> _openAddressSheet() async {
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => AddressSheet(
-        data: AddressData(_name, _phone, _address),
+      builder: (_) => AddressListSheet(
+        addresses: _addresses,
+        selectedIndex: _selectedAddress,
+        maxAddresses: _maxAddresses,
+        onChanged: (list, selected) {
+          if (!mounted) return;
+          setState(() {
+            _addresses = list;
+            _selectedAddress = selected;
+          });
+        },
       ),
     );
-
-    if (result != null && mounted) {
-      setState(() {
-        _name = result.name;
-        _phone = result.phone;
-        _address = result.address;
-      });
-    }
   }
 
   Future<String?> _openQrisPayment(int total) async {
@@ -166,7 +218,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         WalletBalance.balance.value = _saldo - o.total;
       }
 
-      final note = _noteSaved ? _noteC.text.trim() : '';
+      final userNote = _noteSaved ? _noteC.text.trim() : '';
+      final addressNote = _currentAddress.courierNote.trim();
+      final note = [
+        if (addressNote.isNotEmpty) addressNote,
+        if (userNote.isNotEmpty) userNote,
+      ].join(' • ');
 
       final lines = o.items.map<OrderLine>((line) {
         final product = line.product;
@@ -202,6 +259,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
 
       orderStore.addOrder(entry);
+      context.read<CartProvider>().removeSelected();
 
       NotificationCenter.add(
         'Pesanan berhasil dibuat',
@@ -258,14 +316,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget build(BuildContext context) {
     return Consumer<CartProvider>(
       builder: (context, cart, _) {
-        final items = cart.items.where((i) => i.selected).toList();
+        final items =
+            cart.items.where((i) => i.selected && !i.isOutOfStock).toList();
         final subtotal = items.fold<int>(0, (s, i) => s + i.subtotal);
         final itemCount = items.fold<int>(0, (s, i) => s + i.quantity);
         final fee = _delivery == DeliveryOption.kurir ? _kurirFee : 0;
-        final discount =
-            _delivery == DeliveryOption.kurir && cart.voucherApplied
-                ? cart.discount
-                : 0;
+        final discount = (_delivery == DeliveryOption.kurir && _voucherApplied)
+            ? math.min(fee, _voucherValue)
+            : 0;
 
         final total = math.max(0, subtotal + fee - discount);
         final order = _OrderData(items, subtotal, fee, discount, total);
@@ -275,32 +333,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           body: SafeArea(
             child: Column(
               children: [
-                const PasarDesaHeader(),
                 _topBar(),
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _trustBanner(),
-                        const SizedBox(height: 14),
                         _addressSection(),
                         const SizedBox(height: 16),
                         _deliverySection(),
                         const SizedBox(height: 16),
                         _sellerSection(items, subtotal, itemCount),
                         const SizedBox(height: 10),
-                        _voucherRow(cart.voucherApplied, discount),
+                        _voucherRow(discount),
                         const SizedBox(height: 16),
                         _paymentSection(),
                         const SizedBox(height: 16),
                         _noteSection(),
                         const SizedBox(height: 16),
                         _summarySection(subtotal, fee, discount, total),
-                        const SizedBox(height: 12),
-                        const AmanahKasCard(),
                       ],
                     ),
                   ),
@@ -342,56 +397,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ),
           ),
-          const Text(
-            'Langkah 2 dari 3',
-            style: TextStyle(fontSize: 10, color: AppColors.muted),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-    );
-  }
-
-  Widget _trustBanner() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.greenLight,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.verified_user_outlined,
-            size: 18,
-            color: AppColors.green,
-          ),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text(
-              'BUMDes Sukorejo • Transaksi aman Pasar Desa',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: AppColors.green,
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.green,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              'Terverifikasi',
-              style: TextStyle(
-                fontSize: 9,
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -405,7 +410,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           children: [
             const Expanded(child: _SectionTitle('Alamat Pengiriman')),
             InkWell(
-              onTap: _editAddress,
+              onTap: _openAddressSheet,
               borderRadius: BorderRadius.circular(6),
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -721,50 +726,48 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _voucherRow(bool voucherApplied, int discount) {
-    final isPickup = _delivery == DeliveryOption.ambil;
+  Widget _voucherIcon() {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Icon(
+        Icons.local_activity_outlined,
+        size: 18,
+        color: Colors.red.shade400,
+      ),
+    );
+  }
 
-    final String voucherDescription;
-    if (!voucherApplied) {
-      voucherDescription = 'Voucher belum diterapkan';
-    } else if (isPickup) {
-      voucherDescription =
-          'Voucher terpasang, tetapi subsidi ongkir tidak berlaku untuk ambil mandiri';
-    } else {
-      voucherDescription = 'Subsidi Ongkir Desa -Rp ${formatRupiah(discount)}';
-    }
+  Widget _voucherRow(int discount) {
+    if (_voucherApplied) {
+      final isPickup = _delivery == DeliveryOption.ambil;
 
-    return _card(
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: Colors.red.shade50,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(
-              Icons.local_activity_outlined,
-              size: 18,
-              color: Colors.red.shade400,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'PANENRAYA',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w900,
+      final description = isPickup
+          ? 'Terpasang, tetapi gratis ongkir hanya berlaku untuk Kurir Desa'
+          : 'Gratis ongkir -Rp ${formatRupiah(discount)}';
+
+      return _card(
+        child: Row(
+          children: [
+            _voucherIcon(),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        _voucherCode,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
-                    if (voucherApplied) ...[
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -785,18 +788,133 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      color:
+                          isPickup ? Colors.orange.shade800 : AppColors.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: _removeVoucher,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.red,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(40, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                'Lepas',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _voucherIcon(),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Kode Voucher',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Gratis ongkir Rp ${formatRupiah(_voucherValue)} untuk Kurir Desa',
+                      style: const TextStyle(
+                        fontSize: 9.5,
+                        color: AppColors.muted,
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  voucherDescription,
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    color: AppColors.muted,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 40,
+                  child: TextField(
+                    controller: _voucherC,
+                    textCapitalization: TextCapitalization.characters,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _applyVoucher(),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Masukkan kode, mis. $_voucherCode',
+                      hintStyle: const TextStyle(
+                        fontSize: 10.5,
+                        color: AppColors.muted,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: AppColors.green),
+                      ),
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 40,
+                child: ElevatedButton(
+                  onPressed: _applyVoucher,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.green,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Pasang',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1025,7 +1143,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               if (discount > 0) ...[
                 const SizedBox(height: 8),
                 _summaryRow(
-                  'Subsidi Kupon Desa',
+                  'Voucher Gratis Ongkir',
                   '- Rp ${formatRupiah(discount)}',
                   green: true,
                 ),
@@ -1180,115 +1298,1213 @@ class _SectionTitle extends StatelessWidget {
 class AddressData {
   final String name;
   final String phone;
-  final String address;
 
-  const AddressData(this.name, this.phone, this.address);
+  final String address;
+  final String label;
+  final bool isMain;
+
+  final String dusun;
+  final String detail;
+  final String courierNote;
+
+  const AddressData(
+    this.name,
+    this.phone,
+    this.address, {
+    this.label = 'Rumah',
+    this.isMain = false,
+    this.dusun = '',
+    this.detail = '',
+    this.courierNote = '',
+  });
+
+  AddressData copyWith({
+    String? name,
+    String? phone,
+    String? address,
+    String? label,
+    bool? isMain,
+    String? dusun,
+    String? detail,
+    String? courierNote,
+  }) {
+    return AddressData(
+      name ?? this.name,
+      phone ?? this.phone,
+      address ?? this.address,
+      label: label ?? this.label,
+      isMain: isMain ?? this.isMain,
+      dusun: dusun ?? this.dusun,
+      detail: detail ?? this.detail,
+      courierNote: courierNote ?? this.courierNote,
+    );
+  }
 }
 
-class AddressSheet extends StatefulWidget {
-  final AddressData data;
+const Color _kAddrSoft = Color(0xFFEAF7EE);
+const Color _kAddrSoftBorder = Color(0xFFCDEBD6);
 
-  const AddressSheet({super.key, required this.data});
+class AddressListSheet extends StatefulWidget {
+  final List<AddressData> addresses;
+  final int selectedIndex;
+  final int maxAddresses;
+  final void Function(List<AddressData> addresses, int selectedIndex) onChanged;
+
+  const AddressListSheet({
+    super.key,
+    required this.addresses,
+    required this.selectedIndex,
+    required this.maxAddresses,
+    required this.onChanged,
+  });
 
   @override
-  State<AddressSheet> createState() => _AddressSheetState();
+  State<AddressListSheet> createState() => _AddressListSheetState();
 }
 
-class _AddressSheetState extends State<AddressSheet> {
-  late final TextEditingController _nameC;
-  late final TextEditingController _phoneC;
-  late final TextEditingController _addrC;
+class _AddressListSheetState extends State<AddressListSheet> {
+  late List<AddressData> _list;
+  late int _selected;
 
   @override
   void initState() {
     super.initState();
-    _nameC = TextEditingController(text: widget.data.name);
-    _phoneC = TextEditingController(text: widget.data.phone);
-    _addrC = TextEditingController(text: widget.data.address);
+    _list = List.of(widget.addresses);
+    _selected = widget.selectedIndex.clamp(0, _list.length - 1);
+  }
+
+  bool get _isFull => _list.length >= widget.maxAddresses;
+
+  void _emit() => widget.onChanged(List.of(_list), _selected);
+
+  void _normalizeMain({int? preferIndex}) {
+    if (_list.isEmpty) return;
+    int main = preferIndex ?? _list.indexWhere((a) => a.isMain);
+    if (main < 0) main = 0;
+
+    for (int i = 0; i < _list.length; i++) {
+      final shouldBeMain = i == main;
+      if (_list[i].isMain != shouldBeMain) {
+        _list[i] = _list[i].copyWith(isMain: shouldBeMain);
+      }
+    }
+  }
+
+  Future<AddressData?> _openForm({AddressData? initial}) {
+    return Navigator.push<AddressData>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CheckoutAddressFormScreen(initial: initial),
+      ),
+    );
+  }
+
+  Future<void> _add() async {
+    if (_isFull) return;
+
+    final result = await _openForm();
+    if (result == null || !mounted || _isFull) return;
+
+    setState(() {
+      _list.add(result);
+      _selected = _list.length - 1;
+      _normalizeMain(preferIndex: result.isMain ? _list.length - 1 : null);
+    });
+    _emit();
+  }
+
+  Future<void> _edit(int index) async {
+    final result = await _openForm(initial: _list[index]);
+    if (result == null || !mounted) return;
+
+    setState(() {
+      _list[index] = result;
+      _normalizeMain(preferIndex: result.isMain ? index : null);
+    });
+    _emit();
+  }
+
+  void _select(int index) {
+    setState(() => _selected = index);
+    _emit();
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.of(context).size.height * 0.9;
+
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Alamat Pengiriman',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.text,
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    borderRadius: BorderRadius.circular(20),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.close, size: 22, color: AppColors.text),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'Pilih atau kelola alamat tujuan pengantaran kurir desa',
+                style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+              ),
+              const SizedBox(height: 14),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (int i = 0; i < _list.length; i++) _addressCard(i),
+                      _addButton(),
+                      if (_isFull) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Maksimal ${widget.maxAddresses} alamat. '
+                          'Alamat yang sudah ada masih bisa diubah.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            height: 1.4,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _addressCard(int index) {
+    final a = _list[index];
+    final selected = index == _selected;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () => _select(index),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: selected ? _kAddrSoft : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? AppColors.green : AppColors.border,
+              width: selected ? 1.6 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  if (a.isMain) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0B7A3E),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: const Text(
+                        'ALAMAT UTAMA',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: selected ? Colors.white : const Color(0xFFF1F3F2),
+                      borderRadius: BorderRadius.circular(5),
+                      border: selected
+                          ? Border.all(color: const Color(0xFFE0E5E2))
+                          : null,
+                    ),
+                    child: Text(
+                      a.label,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.text,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    selected
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    size: 24,
+                    color: selected ? AppColors.green : const Color(0xFFC3CBC6),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${a.name} ',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.text,
+                      ),
+                    ),
+                    if (a.phone.isNotEmpty)
+                      TextSpan(
+                        text: '(${a.phone})',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                a.address,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: AppColors.text,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.location_on_outlined,
+                    size: 15,
+                    color: AppColors.green,
+                  ),
+                  const SizedBox(width: 4),
+                  const Expanded(
+                    child: Text(
+                      'Titik Peta Terverifikasi',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.green,
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => _edit(index),
+                    borderRadius: BorderRadius.circular(6),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.edit_outlined,
+                            size: 14,
+                            color: AppColors.green,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Ubah Alamat',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _addButton() {
+    final full = _isFull;
+
+    return Material(
+      color: full ? const Color(0xFFEEF1EF) : const Color(0xFFD8F0E0),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: full ? null : _add,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                full
+                    ? Icons.lock_outline_rounded
+                    : Icons.add_location_alt_outlined,
+                size: 20,
+                color: full ? AppColors.muted : AppColors.green,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                full
+                    ? 'Batas ${widget.maxAddresses} Alamat Tercapai'
+                    : 'Tambah Alamat Baru (${_list.length}/${widget.maxAddresses})',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: full ? AppColors.muted : AppColors.green,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const Color _kFormText = Color(0xFF10231B);
+
+const List<String> _kDusunOptions = [
+  'Dusun Krajan, RT 01 / RW 01',
+  'Dusun Krajan, RT 02 / RW 01',
+  'Dusun Krajan Kulon, RT 02 / RW 03',
+  'Dusun Krajan Kulon, RT 03 / RW 02',
+  'Dusun Sawahan, RT 01 / RW 02',
+  'Dusun Sawahan, RT 02 / RW 02',
+  'Dusun Timur, RT 01 / RW 03',
+];
+
+class _LabelOpt {
+  final String name;
+  final IconData icon;
+
+  const _LabelOpt(this.name, this.icon);
+}
+
+const List<_LabelOpt> _kLabelOpts = [
+  _LabelOpt('Rumah', Icons.home_outlined),
+  _LabelOpt('Toko / Lapak', Icons.storefront_outlined),
+  _LabelOpt('Kantor Desa', Icons.account_balance_outlined),
+];
+
+class _PinSpot {
+  final Alignment align;
+  final String coord;
+
+  const _PinSpot(this.align, this.coord);
+}
+
+const List<_PinSpot> _kPinSpots = [
+  _PinSpot(Alignment(0, -0.1), '-7.5381, 110.8294'),
+  _PinSpot(Alignment(-0.35, 0.1), '-7.5384, 110.8290'),
+  _PinSpot(Alignment(0.35, -0.25), '-7.5379, 110.8298'),
+];
+
+class CheckoutAddressFormScreen extends StatefulWidget {
+  final AddressData? initial;
+
+  const CheckoutAddressFormScreen({super.key, this.initial});
+
+  @override
+  State<CheckoutAddressFormScreen> createState() =>
+      _CheckoutAddressFormScreenState();
+}
+
+class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
+  late final TextEditingController _nameC;
+  late final TextEditingController _phoneC;
+  late final TextEditingController _detailC;
+  late final TextEditingController _noteC;
+  final FocusNode _detailFocus = FocusNode();
+
+  late String _dusun;
+  late String _label;
+  late bool _isMain;
+  int _pin = 0;
+
+  bool get _editing => widget.initial != null;
+  bool get _lockMain => widget.initial?.isMain ?? false;
+
+  static String _phoneToField(String phone) {
+    var d = phone.replaceAll(RegExp(r'[^0-9\-]'), '');
+    if (d.startsWith('0')) {
+      d = d.substring(1);
+    } else if (d.startsWith('62')) {
+      d = d.substring(2);
+    }
+    return d;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final a = widget.initial;
+
+    _nameC = TextEditingController(text: a?.name ?? '');
+    _phoneC = TextEditingController(text: _phoneToField(a?.phone ?? ''));
+
+    final hasParts =
+        (a?.dusun.isNotEmpty ?? false) || (a?.detail.isNotEmpty ?? false);
+    _detailC = TextEditingController(
+      text: hasParts ? (a?.detail ?? '') : (a?.address ?? ''),
+    );
+    _noteC = TextEditingController(text: a?.courierNote ?? '');
+
+    _dusun = (a?.dusun.isNotEmpty ?? false) ? a!.dusun : _kDusunOptions[2];
+
+    _label = _kLabelOpts.any((o) => o.name == a?.label)
+        ? a!.label
+        : _kLabelOpts.first.name;
+    _isMain = a?.isMain ?? false;
+
+    _detailFocus.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
     _nameC.dispose();
     _phoneC.dispose();
-    _addrC.dispose();
+    _detailC.dispose();
+    _noteC.dispose();
+    _detailFocus.dispose();
     super.dispose();
   }
 
-  InputDecoration _dec(String hint) => InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(fontSize: 11, color: AppColors.muted),
-        isDense: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.green),
-        ),
-      );
+  List<String> get _dusunItems => _kDusunOptions.contains(_dusun)
+      ? _kDusunOptions
+      : [_dusun, ..._kDusunOptions];
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        16,
-        16,
-        16 + MediaQuery.of(context).viewInsets.bottom,
+  void _save() {
+    final name = _nameC.text.trim();
+    final phoneRaw = _phoneC.text.trim();
+    final detail = _detailC.text.trim();
+    final phoneDigits = phoneRaw.replaceAll(RegExp(r'[^0-9]'), '');
+
+    String? error;
+    if (name.isEmpty) {
+      error = 'Nama penerima wajib diisi';
+    } else if (phoneDigits.length < 9) {
+      error = 'Nomor telepon / WhatsApp belum benar';
+    } else if (detail.isEmpty) {
+      error = 'Alamat lengkap & patokan rumah wajib diisi';
+    }
+
+    if (error != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+
+    var phone = phoneRaw.replaceAll(RegExp(r'[^0-9\-]'), '');
+    if (phone.startsWith('0')) phone = phone.substring(1);
+    if (phone.startsWith('62')) phone = phone.substring(2);
+
+    Navigator.pop(
+      context,
+      AddressData(
+        name,
+        '0$phone',
+        '$_dusun ($detail)',
+        label: _label,
+        isMain: _isMain,
+        dusun: _dusun,
+        detail: detail,
+        courierNote: _noteC.text.trim(),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Ubah Titik Pengantaran',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _nameC,
-            decoration: _dec('Masukkan nama penerima'),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _phoneC,
-            keyboardType: TextInputType.phone,
-            decoration: _dec('Masukkan nomor HP'),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _addrC,
-            maxLines: 3,
-            decoration: _dec('Masukkan alamat / titik drop-point'),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: GreenButton(
-              text: 'Simpan Alamat',
-              onTap: () {
-                if (_nameC.text.trim().isEmpty || _addrC.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Nama dan alamat wajib diisi'),
-                    ),
-                  );
-                  return;
-                }
+    );
+  }
 
-                Navigator.pop(
-                  context,
-                  AddressData(
-                    _nameC.text.trim(),
-                    _phoneC.text.trim(),
-                    _addrC.text.trim(),
-                  ),
-                );
-              },
+  InputDecoration _decoration({
+    String? hint,
+    Widget? prefixIcon,
+    Widget? suffixIcon,
+  }) {
+    OutlineInputBorder border(Color color, [double width = 1]) {
+      return OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: color, width: width),
+      );
+    }
+
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(fontSize: 12, color: AppColors.muted),
+      filled: true,
+      fillColor: Colors.white,
+      isDense: true,
+      prefixIcon: prefixIcon,
+      prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+      suffixIcon: suffixIcon,
+      suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+      border: border(AppColors.border),
+      enabledBorder: border(AppColors.border),
+      disabledBorder: border(AppColors.border),
+      errorBorder: border(AppColors.red),
+      focusedBorder: border(AppColors.green, 1.5),
+      focusedErrorBorder: border(AppColors.red, 1.5),
+      counterText: '',
+    );
+  }
+
+  Widget _fieldLabel(String text, {bool required = false, Widget? trailing}) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 14, bottom: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                text: text,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: _kFormText,
+                ),
+                children: [
+                  if (required)
+                    const TextSpan(
+                      text: ' *',
+                      style: TextStyle(color: AppColors.red),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (trailing != null) trailing,
+        ],
+      ),
+    );
+  }
+
+  Widget _hint(String text, {IconData icon = Icons.info_outline_rounded}) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 13, color: AppColors.green),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 10,
+                color: AppColors.green,
+                height: 1.3,
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final editingDetail = _detailFocus.hasFocus;
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        inputDecorationTheme: const InputDecorationTheme(),
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAF8),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 16, 8),
+                child: Row(
+                  children: [
+                    InkWell(
+                      onTap: () => Navigator.maybePop(context),
+                      borderRadius: BorderRadius.circular(20),
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 22,
+                          color: _kFormText,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _editing
+                                ? 'Ubah / Isi Alamat Pengiriman'
+                                : 'Tambah Alamat Baru',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: _kFormText,
+                            ),
+                          ),
+                          const Text(
+                            'Pastikan patokan rumah jelas untuk kurir BUMDes',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: const BoxDecoration(
+                        color: AppColors.green,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.person_outline_rounded,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _fieldLabel('Nama Penerima', required: true),
+                      TextField(
+                        controller: _nameC,
+                        textCapitalization: TextCapitalization.words,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: _decoration(
+                          hint: 'Contoh: Elsa Maria',
+                          suffixIcon: const Padding(
+                            padding: EdgeInsets.only(left: 8, right: 12),
+                            child: Icon(
+                              Icons.person_outline_rounded,
+                              size: 18,
+                              color: AppColors.green,
+                            ),
+                          ),
+                        ),
+                      ),
+                      _fieldLabel('Nomor Telepon / WhatsApp', required: true),
+                      TextField(
+                        controller: _phoneC,
+                        keyboardType: TextInputType.phone,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: _decoration(
+                          hint: '812-3456-7890',
+                          prefixIcon: const Padding(
+                            padding: EdgeInsets.only(left: 12, right: 10),
+                            child: Text(
+                              '+62',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: _kFormText,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.only(top: 6),
+                        child: Text(
+                          'Digunakan kurir desa untuk konfirmasi pengantaran via WhatsApp',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppColors.muted,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                      _fieldLabel('Dusun / RT / RW', required: true),
+                      DropdownButtonFormField<String>(
+                        initialValue: _dusun,
+                        isExpanded: true,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                        dropdownColor: Colors.white,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: _kFormText,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        decoration: _decoration().copyWith(
+                          fillColor: _kAddrSoft,
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                const BorderSide(color: _kAddrSoftBorder),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 15,
+                          ),
+                        ),
+                        items: [
+                          for (final d in _dusunItems)
+                            DropdownMenuItem(value: d, child: Text(d)),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) setState(() => _dusun = v);
+                        },
+                      ),
+                      _fieldLabel(
+                        'Alamat Lengkap & Patokan Rumah',
+                        required: true,
+                        trailing: editingDetail
+                            ? const Text(
+                                'Sedang Diedit',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.green,
+                                ),
+                              )
+                            : null,
+                      ),
+                      Stack(
+                        children: [
+                          TextField(
+                            controller: _detailC,
+                            focusNode: _detailFocus,
+                            minLines: 3,
+                            maxLines: 3,
+                            maxLength: 150,
+                            onChanged: (_) => setState(() {}),
+                            style: const TextStyle(fontSize: 13, height: 1.35),
+                            decoration: _decoration(
+                              hint:
+                                  'Nama jalan, nomor rumah, warna pagar, patokan...',
+                            ).copyWith(
+                              contentPadding:
+                                  const EdgeInsets.fromLTRB(12, 13, 12, 36),
+                            ),
+                          ),
+                          Positioned(
+                            right: 10,
+                            bottom: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _kAddrSoft,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${_detailC.text.length} /150',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.green,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      _hint(
+                        'Patokan detail memudahkan kurir menemukan lokasi '
+                        'tanpa tersesat',
+                      ),
+                      _fieldLabel('Catatan untuk Kurir BUMDes (Opsional)'),
+                      TextField(
+                        controller: _noteC,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: _decoration(
+                          hint: 'Titipkan ke Pak RT bila rumah kosong',
+                          suffixIcon: const Padding(
+                            padding: EdgeInsets.only(left: 8, right: 12),
+                            child: Icon(
+                              Icons.chat_bubble_outline_rounded,
+                              size: 18,
+                              color: AppColors.green,
+                            ),
+                          ),
+                        ),
+                      ),
+                      _fieldLabel('Titik Peta Lokasi Rumah'),
+                      _mapCard(),
+                      _fieldLabel('Pilihan Label Alamat'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final o in _kLabelOpts) _labelChip(o),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                        decoration: BoxDecoration(
+                          color: _kAddrSoft,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: _kAddrSoftBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Jadikan sebagai Alamat Utama',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w900,
+                                      color: _kFormText,
+                                    ),
+                                  ),
+                                  SizedBox(height: 3),
+                                  Text(
+                                    'Alamat otomatis dipilih saat checkout '
+                                    'berikutnya',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.muted,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: _isMain,
+                              activeThumbColor: Colors.white,
+                              activeTrackColor: AppColors.green,
+                              onChanged: _lockMain
+                                  ? null
+                                  : (v) => setState(() => _isMain = v),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Color(0xFFE3E7E4))),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _save,
+                    icon: const Icon(Icons.check_rounded, size: 20),
+                    label: const Text(
+                      'Simpan Alamat',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.green,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _labelChip(_LabelOpt option) {
+    final selected = _label == option.name;
+
+    return InkWell(
+      onTap: () => setState(() => _label = option.name),
+      borderRadius: BorderRadius.circular(30),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.green : _kAddrSoft,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: selected ? AppColors.green : _kAddrSoftBorder,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              option.icon,
+              size: 16,
+              color: selected ? Colors.white : AppColors.muted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              option.name,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: selected ? Colors.white : AppColors.muted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _mapCard() {
+    final spot = _kPinSpots[_pin];
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: _kAddrSoft,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kAddrSoftBorder),
+      ),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 112,
+              width: double.infinity,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(painter: _AddrMapPainter()),
+                  ),
+                  Align(
+                    alignment: spot.align,
+                    child: const Icon(
+                      Icons.location_on_rounded,
+                      color: AppColors.green,
+                      size: 34,
+                    ),
+                  ),
+                  Positioned(
+                    left: 8,
+                    bottom: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.gps_fixed_rounded,
+                            size: 11,
+                            color: AppColors.green,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'GPS Akurat (±3m)',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(
+                Icons.location_on_rounded,
+                size: 18,
+                color: AppColors.green,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Titik Lokasi Terpilih (RT 02 Sukorejo)',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w900,
+                        color: _kFormText,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Koordinat: ${spot.coord}',
+                      style: const TextStyle(
+                        fontSize: 9.5,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () {
+                  setState(() => _pin = (_pin + 1) % _kPinSpots.length);
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFD5DBD7)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.map_outlined,
+                        size: 14,
+                        color: AppColors.green,
+                      ),
+                      SizedBox(width: 5),
+                      Text(
+                        'Ubah Pin Peta',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddrMapPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bg = Paint()..color = const Color(0xFFE1EAE4);
+    canvas.drawRect(Offset.zero & size, bg);
+
+    final road = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round;
+    final thin = Paint()
+      ..color = Colors.white.withValues(alpha: 0.8)
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawLine(
+      Offset(0, size.height * 0.62),
+      Offset(size.width, size.height * 0.38),
+      road,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.3, 0),
+      Offset(size.width * 0.42, size.height),
+      road,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.72, 0),
+      Offset(size.width * 0.8, size.height),
+      thin,
+    );
+    canvas.drawLine(
+      Offset(0, size.height * 0.2),
+      Offset(size.width * 0.5, size.height * 0.28),
+      thin,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class PaymentChoiceScreen extends StatelessWidget {

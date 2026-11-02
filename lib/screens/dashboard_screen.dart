@@ -1090,8 +1090,6 @@ class _HomeBodyState extends State<_HomeBody> {
                   );
                 },
               ),
-            const SizedBox(height: 15),
-            const TrustBanner(),
           ],
         ),
       ),
@@ -1271,82 +1269,49 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
             children: [
               Row(
                 children: [
-                  const BrandMark(size: 29),
-                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () => Navigator.maybePop(context),
+                    borderRadius: BorderRadius.circular(20),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 19,
+                        color: AppColors.text,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        RichText(
-                          text: const TextSpan(
-                            children: [
-                              TextSpan(
-                                text: 'Pasar',
-                                style: TextStyle(
-                                  color: AppColors.green,
-                                  fontSize: 21,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              TextSpan(
-                                text: 'Desa',
-                                style: TextStyle(
-                                  color: Colors.black87,
-                                  fontSize: 21,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
+                        Text(
+                          category.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF10231B),
                           ),
                         ),
                         const SizedBox(height: 1),
-                        const Text(
-                          'UMKM DESA SUKOREJO',
-                          style: TextStyle(
-                            color: AppColors.green,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.35,
+                        Text(
+                          'Kategori Hasil Desa • $total produk',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.muted,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  ValueListenableBuilder<List<AppNotification>>(
-                    valueListenable: NotificationCenter.items,
-                    builder: (context, _, __) {
-                      return _HeaderIconButton(
-                        icon: Icons.notifications_none_rounded,
-                        badge: NotificationCenter.unread,
-                        onTap: () => showNotificationSheet(context),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 7),
-                  Consumer<CartProvider>(
-                    builder: (context, cart, _) {
-                      return _HeaderIconButton(
-                        icon: Icons.shopping_cart_outlined,
-                        badge: cart.count,
-                        onTap: () => DashboardNav.goTo(context, 2),
-                      );
-                    },
-                  ),
                 ],
               ),
-              const SizedBox(height: 18),
-              const Text(
-                'Halo, Elsa Maria 👋',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF10231B),
-                ),
-              ),
-              const SizedBox(height: 15),
+              const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
@@ -1395,65 +1360,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              _WalletRow(onTap: () => showTopUpSheet(context)),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: Row(
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFCDEFDB),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        category.icon,
-                        color: AppColors.green,
-                        size: 26,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        category.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.green,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'Kategori Terpilih • $total',
-                          style: const TextStyle(
-                            color: AppColors.muted,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          category.subtitle,
-                          style: const TextStyle(
-                            color: AppColors.muted,
-                            fontSize: 10.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
               Row(
                 children: [
                   Expanded(
@@ -1511,14 +1418,12 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                     );
                   },
                 ),
-              const SizedBox(height: 16),
-              const TrustBanner(),
             ],
           ),
         ),
       ),
       bottomNavigationBar: BottomNav(
-        current: 0,
+        current: 1,
         onTap: (index) => DashboardNav.goTo(context, index),
       ),
     );
@@ -1705,7 +1610,6 @@ class CategoryProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // FOTO + LABEL
             ClipRRect(
               borderRadius: BorderRadius.circular(11),
               child: SizedBox(
@@ -1783,18 +1687,25 @@ class CategoryProductCard extends StatelessWidget {
             ),
             const Spacer(),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  'Rp\n${_formatNumber(product.price)}',
-                  style: const TextStyle(
-                    color: AppColors.green,
-                    fontSize: 16,
-                    height: 1.15,
-                    fontWeight: FontWeight.w900,
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Rp ${_formatNumber(product.price)}',
+                      maxLines: 1,
+                      style: const TextStyle(
+                        color: AppColors.green,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 6),
                 Flexible(
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
@@ -1831,31 +1742,36 @@ class CategoryProductCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 2),
-            InkWell(
-              onTap: _soldOut ? null : () => _addToCart(context),
+            const SizedBox(height: 6),
+            Material(
+              color:
+                  _soldOut ? const Color(0xFFE7EAE8) : const Color(0xFFE8F5ED),
               borderRadius: BorderRadius.circular(10),
-              child: SizedBox(
-                width: double.infinity,
-                height: 30,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.shopping_cart_outlined,
-                      color: cartColor,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 14),
-                    Text(
-                      _soldOut ? 'Stok Habis' : '+ Keranjang',
-                      style: TextStyle(
+              child: InkWell(
+                onTap: _soldOut ? null : () => _addToCart(context),
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 30,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.shopping_cart_outlined,
                         color: cartColor,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w900,
+                        size: 16,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Text(
+                        _soldOut ? 'Stok Habis' : '+ Keranjang',
+                        style: TextStyle(
+                          color: cartColor,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -2076,7 +1992,6 @@ class _FigmaProductCard extends StatelessWidget {
     return 'pcs';
   }
 
-  // Dua baris, sesuai desain Figma
   String get _stockLabel {
     if (_soldOut) return 'Stok\nhabis';
     if (_lowStock) return 'Sisa ${product.stock}\n$_unit';
@@ -2200,7 +2115,6 @@ class _FigmaProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // FOTO + LABEL
             ClipRRect(
               borderRadius: BorderRadius.circular(11),
               child: SizedBox(
@@ -2292,18 +2206,25 @@ class _FigmaProductCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  'Rp\n${_formatNumber(product.price)}',
-                  style: const TextStyle(
-                    color: AppColors.green,
-                    fontSize: 16,
-                    height: 1.15,
-                    fontWeight: FontWeight.w900,
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Rp ${_formatNumber(product.price)}',
+                      maxLines: 1,
+                      style: const TextStyle(
+                        color: AppColors.green,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 6),
                 Flexible(
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
@@ -2340,31 +2261,36 @@ class _FigmaProductCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 2),
-            InkWell(
-              onTap: _soldOut ? null : () => _addToCart(context),
+            const SizedBox(height: 6),
+            Material(
+              color:
+                  _soldOut ? const Color(0xFFE7EAE8) : const Color(0xFFE8F5ED),
               borderRadius: BorderRadius.circular(10),
-              child: SizedBox(
-                width: double.infinity,
-                height: 28,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.shopping_cart_outlined,
-                      color: cartColor,
-                      size: 15,
-                    ),
-                    const SizedBox(width: 20),
-                    Text(
-                      _soldOut ? 'Stok Habis' : '+ Keranjang',
-                      style: TextStyle(
+              child: InkWell(
+                onTap: _soldOut ? null : () => _addToCart(context),
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 28,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.shopping_cart_outlined,
                         color: cartColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
+                        size: 15,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Text(
+                        _soldOut ? 'Stok Habis' : '+ Keranjang',
+                        style: TextStyle(
+                          color: cartColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

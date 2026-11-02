@@ -208,10 +208,10 @@ class ProfileData {
   }) : addresses = addresses ?? [];
 
   factory ProfileData.initial() => ProfileData(
-        name: 'Bu RT Elsa Cinta FrontEnd',
+        name: 'Elsa Maria',
         nik: '3507198800000001',
         phone: '0812-3456-7890',
-        email: 'ilovefe@desasukorejo.id',
+        email: 'elsafe@gmail.com',
         gender: 'Perempuan',
         dusun: 'Dusun Krajan Kulon',
         rt: '02',
@@ -388,10 +388,11 @@ Widget _primaryButton(String text, IconData icon, VoidCallback onTap) {
   );
 }
 
+/// Header halaman Ubah Profil: hanya tombol kembali.
 Widget _appHeader({VoidCallback? onBack}) {
   return Row(
     children: [
-      if (onBack != null) ...[
+      if (onBack != null)
         InkWell(
           onTap: onBack,
           borderRadius: BorderRadius.circular(10),
@@ -400,31 +401,16 @@ Widget _appHeader({VoidCallback? onBack}) {
             child: Icon(Icons.arrow_back_ios_new, size: 18, color: _textDark),
           ),
         ),
-        const SizedBox(width: 4),
-      ],
-      const PasarDesaLogo(),
-      const Spacer(),
-      InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: _border),
+      const SizedBox(width: 6),
+      const Expanded(
+        child: Text(
+          'Ubah Profil',
+          style: TextStyle(
+            fontSize: 19,
+            fontWeight: FontWeight.w900,
+            color: _textDark,
           ),
-          child: const Icon(Icons.notifications_none_outlined,
-              size: 22, color: _textDark),
         ),
-      ),
-      const SizedBox(width: 8),
-      Container(
-        width: 40,
-        height: 40,
-        decoration: const BoxDecoration(color: _green, shape: BoxShape.circle),
-        child: const Icon(Icons.person_outline, color: Colors.white, size: 22),
       ),
     ],
   );
@@ -509,12 +495,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _appHeader(),
-              const SizedBox(height: 18),
+              _pageTitle(),
+              const SizedBox(height: 14),
               _profileCard(),
               const SizedBox(height: 22),
               _deliverySection(),
@@ -523,8 +509,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 18),
               _localStorageSettingsSection(),
               const SizedBox(height: 18),
-              _dataGuarantee(),
-              const SizedBox(height: 16),
               _logoutButton(),
               const SizedBox(height: 16),
               const Center(
@@ -538,6 +522,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _pageTitle() {
+    return Row(
+      children: [
+        const Expanded(
+          child: Text(
+            'Profil Warga',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: _textDark,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: _greenLight,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF9CDEB6)),
+          ),
+          child: Text(
+            _data.wargaId,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: _greenDark,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -555,84 +572,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              GestureDetector(
+                onTap: _openEditProfile,
+                child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    Text(
-                      'Profil Warga',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: _textDark,
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: _green,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: _data.photo != null
+                            ? Image.file(_data.photo!,
+                                fit: BoxFit.cover, width: 64, height: 64)
+                            : const Icon(Icons.person,
+                                color: Colors.white, size: 38),
                       ),
                     ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Akun Resmi Koperasi & BUMDes Sukorejo',
-                      style: TextStyle(fontSize: 12.5, color: _textGrey),
+                    Positioned(
+                      right: -4,
+                      bottom: -4,
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: _green,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(Icons.check,
+                            size: 12, color: Colors.white),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _greenLight,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF9CDEB6)),
-                ),
-                child: Text(
-                  _data.wargaId,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: _greenDark,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: _green,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: _data.photo != null
-                          ? Image.file(_data.photo!,
-                              fit: BoxFit.cover, width: 64, height: 64)
-                          : const Icon(Icons.person,
-                              color: Colors.white, size: 38),
-                    ),
-                  ),
-                  Positioned(
-                    right: -4,
-                    bottom: -4,
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        color: _green,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                      child: const Icon(Icons.check,
-                          size: 12, color: Colors.white),
-                    ),
-                  ),
-                ],
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -667,42 +644,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          const Divider(height: 1, color: _border),
-          const SizedBox(height: 12),
           Row(
             children: [
               const Icon(Icons.phone_outlined, size: 18, color: _textGrey),
               const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _data.phone,
-                  style: const TextStyle(fontSize: 13.5, color: _textDark),
-                ),
-              ),
-              InkWell(
-                onTap: _openEditProfile,
-                borderRadius: BorderRadius.circular(8),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Ubah Profil',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: _green,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(Icons.edit_outlined, size: 15, color: _green),
-                    ],
-                  ),
-                ),
+              Text(
+                _data.phone,
+                style: const TextStyle(fontSize: 13.5, color: _textDark),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton.icon(
+              onPressed: _openEditProfile,
+              icon: const Icon(Icons.edit_outlined, size: 17),
+              label: const Text(
+                'Ubah Profil',
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _greenDark,
+                backgroundColor: _greenLight,
+                side: const BorderSide(color: Color(0xFF9CDEB6)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
           const Divider(height: 1, color: _border),
           const SizedBox(height: 12),
           _OrderCountBuilder(
@@ -872,9 +845,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   subtitle: count > 0
                       ? 'Pantau pesanan beras & komoditas tani'
                       : 'Belum ada pesanan, yuk mulai belanja',
-                  trailing: count > 0
-                      ? _menuBadge('$count Pesanan', _greenLight, _green)
-                      : null,
                   onTap: () {
                     if (count == 0) {
                       _toast('Belum ada pesanan. Silakan berbelanja dulu.');
@@ -889,8 +859,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: Icons.confirmation_number_outlined,
                 title: 'Voucher & Subsidi BUMDes',
                 subtitle: 'Klaim potongan ongkir warga',
-                trailing: _menuBadge('2 Aktif', const Color(0xFFFFF4D5),
-                    const Color(0xFFC28A00)),
                 onTap: () => _push(const VoucherScreen()),
               ),
               _menuDivider(),
@@ -898,20 +866,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: Icons.account_balance_wallet_outlined,
                 title: 'Saldo Dompet & Kas Desa',
                 subtitle: 'Tabungan koperasi & kembalian belanja',
-                trailing: const Text(
-                  'Rp\n250.000',
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: _textDark,
-                    fontWeight: FontWeight.w900,
-                    height: 1.2,
-                  ),
-                ),
                 onTap: () => _push(const SaldoScreen()),
               ),
               _menuDivider(),
-              // 4. Bantuan
               _menuItem(
                 icon: Icons.support_agent_outlined,
                 title: 'Pusat Bantuan & Pengaduan',
@@ -919,7 +876,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: () => _push(const BantuanScreen()),
               ),
               _menuDivider(),
-              // 5. Syarat
               _menuItem(
                 icon: Icons.verified_user_outlined,
                 title: 'Syarat & Ketentuan Layanan Desa',
@@ -937,7 +893,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required IconData icon,
     required String title,
     required String subtitle,
-    Widget? trailing,
     required VoidCallback onTap,
   }) {
     return InkWell(
@@ -977,10 +932,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-            if (trailing != null) ...[
-              const SizedBox(width: 6),
-              trailing,
-            ],
             const SizedBox(width: 2),
             const Icon(Icons.chevron_right, size: 22, color: _textGrey),
           ],
@@ -993,18 +944,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: EdgeInsets.only(left: 66),
         child: Divider(height: 1, color: _border),
       );
-
-  Widget _menuBadge(String text, Color bg, Color fg) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 11, color: fg, fontWeight: FontWeight.w900),
-      ),
-    );
-  }
 
   Widget _localStorageSettingsSection() {
     return Consumer3<SettingsProvider, ProductProvider, AuthProvider>(
@@ -1163,45 +1102,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _dataGuarantee() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(top: 2),
-            child: Icon(Icons.verified_user, color: _green, size: 34),
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Jaminan Data Warga Aman BUMDes',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: _greenDark,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Akun terdaftar dan terverifikasi secara resmi oleh '
-                  'Kantor Desa Sukorejo. Seluruh data transaksi '
-                  'dilindungi kerahasiaannya.',
-                  style:
-                      TextStyle(fontSize: 12.5, color: _textGrey, height: 1.45),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
