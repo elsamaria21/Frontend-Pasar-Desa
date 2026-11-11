@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../data/remote/api_service.dart';
 
 const Color _green = Color(0xFF1B7F3C);
 const Color _ink = Color(0xFF14201A);
@@ -18,7 +19,8 @@ class CheckoutFailure implements Exception {
 
 String describeCheckoutError(Object e) {
   if (e is CheckoutFailure) return e.reason;
-
+  if (e is ApiException) return e.message;
+  
   if (e is TimeoutException) {
     return 'Server BUMDes terlalu lama merespons (waktu habis). '
         'Sinyal Anda mungkin lemah atau sedang tidak stabil.';

@@ -6,6 +6,7 @@ import 'dashboard_screen.dart' show NotificationCenter;
 import 'order_detail_screens.dart' show OrderReturnScreen;
 import 'order_models.dart' show OrderEntry;
 import 'order_ui.dart';
+import '../widgets/app_image.dart';
 
 class ReviewData {
   final int rating;
@@ -250,7 +251,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(9),
-                        child: Image.asset(
+                        child: smartImage(
                           l.image,
                           width: 54,
                           height: 54,

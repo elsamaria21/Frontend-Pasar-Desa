@@ -6,8 +6,9 @@ import '../widgets/common.dart';
 import 'dashboard_screen.dart';
 import 'order_flow_screens.dart';
 import 'order_tracking_screen.dart' show OrderTrackingScreen, stageLabel;
+import '../widgets/app_image.dart';
 
-const bool kShowDemoOrders = true;
+const bool kShowDemoOrders = false;
 
 class OrderHistoryScreen extends StatefulWidget {
   final bool embedded;
@@ -189,6 +190,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   void initState() {
     super.initState();
     if (kShowDemoOrders) _seedDemoMeta();
+    orderStore.syncFromServer();
     orderStore.addListener(_refresh);
     orderMeta.addListener(_refresh);
   }
@@ -1075,7 +1077,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.asset(
+            child: smartImage(
               l.image,
               width: 56,
               height: 56,

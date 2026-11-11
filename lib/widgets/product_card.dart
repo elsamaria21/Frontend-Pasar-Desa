@@ -4,6 +4,7 @@ import '../models/product.dart';
 import '../providers/cart_provider.dart';
 import '../theme/app_theme.dart';
 import 'common.dart';
+import 'app_image.dart';
 
 class ProductCard extends StatelessWidget {
   final Product product;
@@ -38,7 +39,7 @@ class ProductCard extends StatelessWidget {
               aspectRatio: 1.05,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(7),
-                child: Image.asset(
+                child: smartImage(
                   product.image,
                   fit: BoxFit.cover,
                   width: double.infinity,

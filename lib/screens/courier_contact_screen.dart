@@ -6,6 +6,7 @@ import '../widgets/common.dart';
 import 'dashboard_screen.dart' show DashboardNav;
 import 'order_flow_screens.dart' show orderMeta;
 import 'order_models.dart' show OrderEntry, OrderStatus;
+import '../widgets/app_image.dart';
 
 class CourierInfo {
   static const String name = 'Pak Wardi';
@@ -708,7 +709,7 @@ class _ContactCourierScreenState extends State<ContactCourierScreen> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.asset(
+                  child: smartImage(
                     first.image,
                     width: 54,
                     height: 54,

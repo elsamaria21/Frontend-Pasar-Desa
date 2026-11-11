@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
+import '../data/repositories/order_repository.dart'
+    show OrderItemInput, ServerOrder;
 import '../providers/order_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/checkout_failed_dialog.dart';
@@ -11,6 +13,7 @@ import 'order_models.dart';
 import 'order_success_screen.dart';
 import 'payment_screen.dart';
 import 'topup_screen.dart';
+import '../widgets/app_image.dart';
 
 enum DeliveryOption { kurir, ambil }
 
@@ -179,7 +182,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     setState(() => _loading = true);
 
+    ServerOrder? serverOrder;
+    var orderTuntas = false;
+
     try {
+      // Pesanan dibuat di server lebih dulu: stok dikunci dan harga dihitung
+      // server. Bila pembayaran batal/gagal, pesanan dibatalkan lagi.
+      final catatanAlamat = _currentAddress.courierNote.trim();
+      final catatanUser = _noteSaved ? _noteC.text.trim() : '';
+
+      serverOrder = await orderStore.kirimPesanan(
+        items: o.items
+            .map((l) => OrderItemInput(
+                  productId: l.product.id,
+                  quantity: l.quantity,
+                ))
+            .toList(),
+        receiverName: _name,
+        receiverPhone: _phone,
+        address: _address,
+        delivery:
+            _delivery == DeliveryOption.kurir ? 'kurir-desa' : 'ambil-mandiri',
+        paymentMethod: _pay == PayMethod.qris
+            ? 'QRIS'
+            : _pay == PayMethod.saldo
+                ? 'Saldo PasarDesa'
+                : 'COD BUMDes',
+        landmark: catatanAlamat,
+        note: catatanUser,
+      );
+
       String paymentLabel;
 
       if (_pay == PayMethod.qris) {
@@ -187,6 +219,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (!mounted) return;
 
         if (paidLabel == null) {
+          await orderStore.batalkanDiServer(serverOrder.id);
+          if (!mounted) return;
           setState(() => _loading = false);
           return;
         }
@@ -194,6 +228,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         paymentLabel = paidLabel;
       } else if (_pay == PayMethod.saldo) {
         if (o.total > _saldo) {
+          await orderStore.batalkanDiServer(serverOrder.id);
+          if (!mounted) return;
           setState(() => _loading = false);
           await _handleFailure(
             o,
@@ -210,9 +246,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       if (!mounted) return;
 
-      final now = DateTime.now();
-      final id =
-          'PSD-${now.year}-${now.millisecondsSinceEpoch.toString().substring(7)}';
+      final id = serverOrder.kode;
 
       if (_pay == PayMethod.saldo) {
         WalletBalance.balance.value = _saldo - o.total;
@@ -259,6 +293,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
 
       orderStore.addOrder(entry);
+      orderTuntas = true;
       context.read<CartProvider>().removeSelected();
 
       NotificationCenter.add(
@@ -290,6 +325,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
       );
     } catch (e) {
+      final dibuat = serverOrder;
+      if (dibuat != null && !orderTuntas) {
+        await orderStore.batalkanDiServer(dibuat.id);
+      }
       if (!mounted) return;
       setState(() => _loading = false);
       await _handleFailure(o, describeCheckoutError(e));
@@ -646,7 +685,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.asset(
+                    child: smartImage(
                       product.image,
                       width: 56,
                       height: 56,

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
+import '../providers/order_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/checkout_widgets.dart' show PasarDesaHeader;
 import '../widgets/common.dart';
 import 'dashboard_screen.dart' show DashboardNav, NotificationCenter;
 import 'order_models.dart';
 import 'topup_screen.dart' show WalletBalance, formatRupiahId;
+import '../widgets/app_image.dart';
 
 class OrderMeta {
   OrderStatus? status;
@@ -401,7 +403,7 @@ Widget _lineTile(OrderLine l) {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(9),
-          child: Image.asset(
+          child: smartImage(
             l.image,
             width: 54,
             height: 54,
@@ -690,7 +692,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  void _cancel(String reason) {
+  Future<void> _cancel(String reason) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await orderStore.batalkanPesanan(o.id);
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
+      );
+      return;
+    }
+    if (!mounted) return;
+
     final refund = _isCod(o) ? 0 : o.total;
 
     final m = orderMeta.metaOf(o.id);
@@ -1470,7 +1483,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: Image.asset(
+          child: smartImage(
             l.image,
             width: 58,
             height: 58,
@@ -1551,7 +1564,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(
+              smartImage(
                 img,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(

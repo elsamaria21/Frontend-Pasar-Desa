@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../providers/order_provider.dart';
 import '../theme/app_theme.dart';
 import 'address_screen.dart' show AddressBook;
 import 'dashboard_screen.dart'
@@ -7,6 +8,7 @@ import 'order_models.dart' show OrderEntry, OrderLine, OrderStatus;
 import 'order_flow_screens.dart' show orderBuyAgain;
 import 'order_tracking_screen.dart';
 import 'order_ui.dart';
+import '../widgets/app_image.dart';
 
 String statusLabel(OrderStatus s) {
   switch (s) {
@@ -48,7 +50,7 @@ Widget _lineTile(OrderLine l) {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(9),
-          child: Image.asset(
+          child: smartImage(
             l.image,
             width: 54,
             height: 54,
@@ -288,6 +290,17 @@ class OrderDetailScreen extends StatelessWidget {
       'Ya, Batalkan Pesanan',
     );
     if (reason == null || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await orderStore.batalkanPesanan(order.id);
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
+      );
+      return;
+    }
+    if (!context.mounted) return;
 
     OrderOverrides.cancelReasons[order.id] = reason;
     OrderOverrides.setStatus(order.id, OrderStatus.dibatalkan);

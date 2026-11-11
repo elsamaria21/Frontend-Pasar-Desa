@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import '../data/remote/api_service.dart';
 import '../data/repositories/auth_repository.dart';
+import 'order_provider.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthRepository _repository;
@@ -13,6 +17,10 @@ class AuthProvider extends ChangeNotifier {
 
   AuthProvider({AuthRepository? repository})
       : _repository = repository ?? AuthRepository() {
+    // Token ditolak server (kedaluwarsa / dicabut) -> keluarkan pengguna.
+    ApiService.instance.onUnauthorized = () {
+      if (_isAuthenticated) unawaited(logout());
+    };
     _init();
   }
 
@@ -68,6 +76,7 @@ class AuthProvider extends ChangeNotifier {
         _rememberEmail = rememberEmail;
         _savedEmail = rememberEmail ? email : '';
         _currentUser = await _repository.getCurrentUserSession();
+        unawaited(orderStore.syncFromServer());
       }
       return success;
     } catch (e) {
@@ -80,11 +89,34 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Mengembalikan `null` bila berhasil, atau pesan galat untuk ditampilkan.
+  Future<String?> register({
+    required String name,
+    required String email,
+    required String phone,
+    required String password,
+  }) async {
+    try {
+      await _repository.register(
+        name: name,
+        email: email,
+        phone: phone,
+        password: password,
+      );
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'Pendaftaran gagal. Silakan coba lagi.';
+    }
+  }
+
   Future<void> logout() async {
     _isLoading = true;
     notifyListeners();
 
     await _repository.logout();
+    await orderStore.clearLocal();
     _isAuthenticated = false;
     _currentUser = {};
     _isLoading = false;

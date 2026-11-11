@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'dashboard_screen.dart';
+import '../widgets/app_image.dart';
 
 String _rp(int value) {
   return 'Rp ${value.toString().replaceAllMapped(
@@ -462,7 +463,7 @@ class OrderSuccessScreen extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.asset(
+                    child: smartImage(
                       p.image,
                       width: 56,
                       height: 56,

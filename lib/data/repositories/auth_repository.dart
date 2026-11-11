@@ -1,16 +1,19 @@
 import '../local/storage/app_preferences.dart';
 import '../local/storage/secure_storage_service.dart';
-import '../remote/mock_api_service.dart';
+import '../remote/api_service.dart';
 
 class AuthRepository {
   final SecureStorageService _secureStorage;
-  final MockApiService _api;
+  final ApiService _api;
+
+  /// Masa berlaku token dari backend (JWT 7 hari).
+  static const int _tokenLifetimeSeconds = 7 * 24 * 60 * 60;
 
   AuthRepository({
     SecureStorageService? secureStorage,
-    MockApiService? api,
+    ApiService? api,
   })  : _secureStorage = secureStorage ?? SecureStorageService.instance,
-        _api = api ?? MockApiService.instance;
+        _api = api ?? ApiService.instance;
 
   Future<bool> isAuthenticated() async {
     return await _secureStorage.hasValidToken();
@@ -35,19 +38,14 @@ class AuthRepository {
     required String password,
     required bool rememberEmail,
   }) async {
-    final response = await _api.login(email: email, password: password);
-    final accessToken = response['access_token'] as String;
-    final refreshToken = response['refresh_token'] as String;
-    final user = response['user'] as Map<String, dynamic>;
-    final expiresIn = response['expires_in'] as int?;
+    final data = await _api.login(email: email, password: password);
 
     await _secureStorage.saveAuthSession(
-      accessToken: accessToken,
-      refreshToken: refreshToken,
-      userId: user['id'] as String,
-      userEmail: user['email'] as String,
-      userName: user['name'] as String,
-      expiresInSeconds: expiresIn,
+      accessToken: data['token'] as String,
+      userId: '${data['id']}',
+      userEmail: (data['email'] ?? email) as String,
+      userName: (data['name'] ?? '') as String,
+      expiresInSeconds: _tokenLifetimeSeconds,
     );
 
     final prefs = await AppPreferences.getInstance();
@@ -59,6 +57,31 @@ class AuthRepository {
     }
 
     return true;
+  }
+
+  /// Mendaftarkan akun baru. Sesi tidak disimpan: setelah berhasil pengguna
+  /// diarahkan ke layar login (alur yang sudah ada di aplikasi).
+  Future<void> register({
+    required String name,
+    required String email,
+    required String phone,
+    required String password,
+  }) async {
+    final data = await _api.register(
+      name: name,
+      email: email,
+      password: password,
+    );
+
+    // Endpoint register belum menyimpan nomor telepon; simpan lewat profil.
+    // Gagal di langkah ini tidak membatalkan akun yang sudah terbentuk.
+    try {
+      await _api.updateProfile(
+        name: name,
+        phone: phone,
+        token: data['token'] as String?,
+      );
+    } catch (_) {}
   }
 
   Future<void> logout() async {

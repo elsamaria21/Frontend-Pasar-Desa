@@ -691,6 +691,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool obscureConfirmPassword = true;
   bool agreeTerms = false;
   bool registerFailed = false;
+  bool emailTaken = false;
+  bool _submitting = false;
 
   @override
   void dispose() {
@@ -702,14 +704,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void register() {
+  Future<void> register() async {
+    if (_submitting) return;
+
     final name = nameController.text.trim();
     final email = emailController.text.trim();
     final phone = phoneController.text.trim();
     final password = passwordController.text;
     final confirm = confirmPasswordController.text;
-    final emailAlreadyRegistered =
-        email.toLowerCase() == 'budisantoso12@gmail.com';
 
     final failed = name.isEmpty ||
         email.isEmpty ||
@@ -717,19 +719,62 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password.isEmpty ||
         confirm.isEmpty ||
         password != confirm ||
-        !agreeTerms ||
-        emailAlreadyRegistered;
+        !agreeTerms;
 
     if (failed) {
       setState(() {
         registerFailed = true;
+        emailTaken = false;
       });
+      return;
+    }
+
+    // Aturan yang sama dengan backend (authController.register).
+    if (password.length < 8) {
+      setState(() {
+        registerFailed = true;
+        emailTaken = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kata sandi minimal 8 karakter.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
 
     setState(() {
       registerFailed = false;
+      emailTaken = false;
+      _submitting = true;
     });
+
+    final error = await context.read<AuthProvider>().register(
+          name: name,
+          email: email,
+          phone: phone,
+          password: password,
+        );
+
+    if (!mounted) return;
+
+    if (error != null) {
+      setState(() {
+        _submitting = false;
+        registerFailed = true;
+        emailTaken = error.toLowerCase().contains('email sudah terdaftar');
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _submitting = false);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -923,8 +968,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final emailError = registerFailed &&
-        emailController.text.trim().toLowerCase() == 'budisantoso12@gmail.com';
+    final emailError = registerFailed && emailTaken;
     final confirmError = registerFailed &&
         confirmPasswordController.text.isNotEmpty &&
         passwordController.text != confirmPasswordController.text;

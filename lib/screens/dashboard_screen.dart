@@ -11,6 +11,7 @@ import 'cart_screen.dart';
 import 'profile_screen.dart';
 import 'topup_screen.dart';
 import 'order_history_screen.dart' show OrderHistoryScreen;
+import '../widgets/app_image.dart';
 
 class AppNotification {
   final String title;
@@ -1618,7 +1619,7 @@ class CategoryProductCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.asset(
+                    smartImage(
                       product.image,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
@@ -2123,7 +2124,7 @@ class _FigmaProductCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.asset(
+                    smartImage(
                       product.image,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {

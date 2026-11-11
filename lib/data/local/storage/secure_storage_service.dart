@@ -22,7 +22,7 @@ class SecureStorageService {
 
   Future<void> saveAuthSession({
     required String accessToken,
-    required String refreshToken,
+    String? refreshToken,
     required String userId,
     required String userEmail,
     required String userName,
@@ -33,7 +33,9 @@ class SecureStorageService {
         .millisecondsSinceEpoch;
 
     await _storage.write(key: _keyAccessToken, value: accessToken);
-    await _storage.write(key: _keyRefreshToken, value: refreshToken);
+    if (refreshToken != null) {
+      await _storage.write(key: _keyRefreshToken, value: refreshToken);
+    }
     await _storage.write(key: _keyUserId, value: userId);
     await _storage.write(key: _keyUserEmail, value: userEmail);
     await _storage.write(key: _keyUserName, value: userName);

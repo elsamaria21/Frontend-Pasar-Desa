@@ -6,6 +6,7 @@ import '../providers/product_provider.dart';
 import '../theme/app_theme.dart';
 import 'checkout_screen.dart';
 import 'detail_screen.dart';
+import '../widgets/app_image.dart';
 
 const Color _kTextDark = Color(0xFF10231B);
 const Color _kPageBackground = Color(0xFFF8FAF8);
@@ -574,7 +575,7 @@ class _CartItem extends StatelessWidget {
                 const SizedBox(width: 9),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.asset(
+                  child: smartImage(
                     product.image,
                     width: 68,
                     height: 68,
@@ -1017,7 +1018,7 @@ class _SimilarProductRow extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.asset(
+              child: smartImage(
                 product.image,
                 width: 64,
                 height: 64,

@@ -5,6 +5,7 @@ import '../providers/cart_provider.dart';
 import '../theme/app_theme.dart';
 import 'cart_screen.dart';
 import 'dashboard_screen.dart' show NotificationCenter;
+import '../widgets/app_image.dart';
 
 class _ProductInfo {
   final String badge;
@@ -702,7 +703,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   itemCount: images.length,
                   onPageChanged: (v) => setState(() => _page = v),
                   itemBuilder: (context, index) {
-                    return Image.asset(
+                    return smartImage(
                       images[index],
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
@@ -2092,7 +2093,7 @@ class _StoreProductCard extends StatelessWidget {
               child: SizedBox(
                 height: 100,
                 width: double.infinity,
-                child: Image.asset(
+                child: smartImage(
                   product.image,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {

@@ -8,6 +8,7 @@ import 'order_flow_screens.dart'
     show orderMeta, orderBuyAgain, OrderReviewScreen, CancelledOrderScreen;
 import 'order_models.dart' show OrderEntry, OrderLine, OrderStatus;
 import 'topup_screen.dart' show WalletBalance;
+import '../widgets/app_image.dart';
 
 const Color _ink = Color(0xFF10231B);
 const Color _line = Color(0xFFE3E7E4);
@@ -899,7 +900,7 @@ class _TrackDetailScreenState extends State<TrackDetailScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.asset(
+            child: smartImage(
               l.image,
               width: 58,
               height: 58,

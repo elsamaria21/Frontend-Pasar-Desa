@@ -54,6 +54,7 @@ class ProductProvider extends ChangeNotifier {
     _lastSyncTime = await _repository.getLastCacheTime();
     _subscription = _repository.watchProducts().listen((updatedProducts) {
       _products = updatedProducts;
+      setCatalog(updatedProducts);
       _isLoading = false;
       notifyListeners();
     }, onError: (err) {

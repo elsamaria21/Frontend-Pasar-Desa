@@ -52,8 +52,44 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  /// Menyamakan cache dengan katalog server: produk yang dihapus atau
+  /// disembunyikan admin ikut hilang dari cache.
+  Future<void> replaceProductsAtomic(
+    List<ProductsTableCompanion> entries,
+  ) async {
+    await transaction(() async {
+      final ids = entries.map((e) => e.id.value).toList();
+      await (delete(productsTable)..where((t) => t.id.isNotIn(ids))).go();
+      await batch((b) {
+        b.insertAllOnConflictUpdate(productsTable, entries);
+      });
+    });
+  }
+
   Future<void> clearProductsCache() async {
     await delete(productsTable).go();
+  }
+
+  /// Mengganti seluruh riwayat pesanan lokal dengan data dari server.
+  Future<void> replaceOrdersAtomic({
+    required List<DbOrder> orders,
+    required List<OrderItemsTableCompanion> items,
+  }) async {
+    await transaction(() async {
+      await delete(orderItemsTable).go();
+      await delete(ordersTable).go();
+      await batch((b) {
+        b.insertAllOnConflictUpdate(ordersTable, orders);
+        b.insertAll(orderItemsTable, items);
+      });
+    });
+  }
+
+  Future<void> clearOrders() async {
+    await transaction(() async {
+      await delete(orderItemsTable).go();
+      await delete(ordersTable).go();
+    });
   }
 
   Stream<List<DbOrder>> watchOrders() {
