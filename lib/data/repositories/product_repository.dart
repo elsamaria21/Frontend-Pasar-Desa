@@ -51,8 +51,6 @@ class ProductRepository {
     return DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
   }
 
-  /// mysql2 mengirim kolom DECIMAL sebagai teks ("68000.00"), jadi nilai
-  /// numerik dibaca lewat toString().
   static double _angka(dynamic value) {
     if (value is num) return value.toDouble();
     return double.tryParse('${value ?? ''}') ?? 0;
@@ -96,7 +94,8 @@ class ProductRepository {
       }
 
       final rows = await _api.fetchProducts();
-      final companions = rows.map((r) => _toCompanion(r, nowUtcMillis)).toList();
+      final companions =
+          rows.map((r) => _toCompanion(r, nowUtcMillis)).toList();
 
       await _db.replaceProductsAtomic(companions);
 

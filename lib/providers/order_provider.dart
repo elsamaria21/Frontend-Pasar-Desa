@@ -36,7 +36,6 @@ class OrderProvider extends ChangeNotifier {
     }
   }
 
-  /// Membuat pesanan di server (stok berkurang, kode dibuat server).
   Future<ServerOrder> kirimPesanan({
     required List<OrderItemInput> items,
     required String receiverName,
@@ -59,9 +58,6 @@ class OrderProvider extends ChangeNotifier {
     );
   }
 
-  /// Membatalkan pesanan yang baru dibuat (id numerik dari server).
-  /// Gagal-diam: dipakai saat pembayaran dibatalkan, jadi tidak boleh
-  /// menutupi galat utama.
   Future<void> batalkanDiServer(int serverId) async {
     try {
       await _repository.cancelOnServer(serverId);
@@ -70,8 +66,6 @@ class OrderProvider extends ChangeNotifier {
     }
   }
 
-  /// Membatalkan lewat kode pesanan. Melempar [ApiException] bila server
-  /// menolak (mis. pesanan sudah dikemas).
   Future<void> batalkanPesanan(String kode) async {
     await _repository.cancelByCode(kode);
   }

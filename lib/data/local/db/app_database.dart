@@ -52,8 +52,6 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  /// Menyamakan cache dengan katalog server: produk yang dihapus atau
-  /// disembunyikan admin ikut hilang dari cache.
   Future<void> replaceProductsAtomic(
     List<ProductsTableCompanion> entries,
   ) async {
@@ -70,7 +68,6 @@ class AppDatabase extends _$AppDatabase {
     await delete(productsTable).go();
   }
 
-  /// Mengganti seluruh riwayat pesanan lokal dengan data dari server.
   Future<void> replaceOrdersAtomic({
     required List<DbOrder> orders,
     required List<OrderItemsTableCompanion> items,

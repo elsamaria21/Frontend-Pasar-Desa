@@ -1,14 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:http/http.dart' as http;
-
 import '../../config/api_config.dart';
 import '../local/storage/secure_storage_service.dart';
 
-/// Galat dari server maupun jaringan. [message] sudah berbahasa Indonesia dan
-/// aman ditampilkan langsung ke pengguna.
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
@@ -19,17 +15,12 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-/// Klien HTTP tunggal untuk backend. Semua respons backend berbentuk
-/// `{ success, message?, data }`; kelas ini membuka `data` atau melempar
-/// [ApiException] dengan pesan dari server.
 class ApiService {
   static final ApiService instance = ApiService._();
   ApiService._();
 
   final http.Client _client = http.Client();
 
-  /// Dipanggil saat server menolak token (401) pada permintaan yang memakai
-  /// token. AuthProvider memakainya untuk mengeluarkan pengguna.
   void Function()? onUnauthorized;
 
   Future<dynamic> _send(
@@ -105,9 +96,6 @@ class ApiService {
     );
   }
 
-  // ---------------------------------------------------------------- Auth
-
-  /// POST /auth/login -> { id, name, email, role, token }
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -121,24 +109,26 @@ class ApiService {
     return Map<String, dynamic>.from(data as Map);
   }
 
-  /// POST /auth/register -> { id, name, email, role, token }
-  /// Backend hanya menerima name, email, password (telepon lewat profil).
   Future<Map<String, dynamic>> register({
     required String name,
     required String email,
     required String password,
+    String? phone,
   }) async {
     final data = await _send(
       'POST',
       '/auth/register',
-      body: {'name': name, 'email': email, 'password': password},
+      body: {
+        'name': name,
+        'email': email,
+        'password': password,
+        if (phone != null && phone.isNotEmpty) 'phone': phone,
+      },
       auth: false,
     );
     return Map<String, dynamic>.from(data as Map);
   }
 
-  /// PUT /users/profile. [token] dipakai saat sesi belum disimpan
-  /// (tepat setelah registrasi).
   Future<void> updateProfile({
     required String name,
     String? phone,
@@ -152,9 +142,6 @@ class ApiService {
     );
   }
 
-  // ------------------------------------------------------------ Katalog
-
-  /// GET /products (publik; hanya produk yang tampil).
   Future<List<Map<String, dynamic>>> fetchProducts() async {
     final data = await _send('GET', '/products', auth: false);
     return (data as List)
@@ -162,15 +149,11 @@ class ApiService {
         .toList();
   }
 
-  // ------------------------------------------------------------ Pesanan
-
-  /// POST /orders -> { id, kode, total, status }
   Future<Map<String, dynamic>> createOrder(Map<String, dynamic> payload) async {
     final data = await _send('POST', '/orders', body: payload);
     return Map<String, dynamic>.from(data as Map);
   }
 
-  /// GET /orders -> pesanan milik akun yang login, lengkap dengan items.
   Future<List<Map<String, dynamic>>> fetchMyOrders() async {
     final data = await _send('GET', '/orders');
     return (data as List)
@@ -178,8 +161,6 @@ class ApiService {
         .toList();
   }
 
-  /// PATCH /orders/:id/status -> membatalkan pesanan (stok dikembalikan).
-  /// Server hanya mengizinkan saat status masih pending / perlu-dikemas.
   Future<void> cancelOrder(int id) async {
     await _send('PATCH', '/orders/$id/status', body: {'status': 'dibatalkan'});
   }

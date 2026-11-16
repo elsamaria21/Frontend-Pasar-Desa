@@ -13,10 +13,10 @@ import 'dashboard_screen.dart'
         mainCategories,
         moreCategories,
         showNotificationSheet,
+        showImageSearchSheet,
         openCategoryPage,
         CategoryProductCard,
-        ListSort,
-        openSortSheet;
+        ListSort;
 
 const List<String> _originOptions = [
   'Blok Sawah & UMKM Sukorejo',
@@ -142,10 +142,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
         ),
       ),
     );
-  }
-
-  void _showFilterSheet() {
-    openSortSheet(context, _sort, (s) => setState(() => _sort = s));
   }
 
   void _showOriginSheet() {
@@ -482,7 +478,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
         ),
         const SizedBox(width: 8),
         InkWell(
-          onTap: _showFilterSheet,
+          onTap: () => showImageSearchSheet(context),
           borderRadius: BorderRadius.circular(13),
           child: Container(
             width: 48,
@@ -491,8 +487,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
               color: AppColors.green,
               borderRadius: BorderRadius.circular(13),
             ),
-            child:
-                const Icon(Icons.tune_rounded, color: Colors.white, size: 22),
+            child: const Icon(Icons.photo_camera_rounded,
+                color: Colors.white, size: 22),
           ),
         ),
       ],

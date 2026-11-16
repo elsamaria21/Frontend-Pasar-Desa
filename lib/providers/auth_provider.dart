@@ -17,7 +17,6 @@ class AuthProvider extends ChangeNotifier {
 
   AuthProvider({AuthRepository? repository})
       : _repository = repository ?? AuthRepository() {
-    // Token ditolak server (kedaluwarsa / dicabut) -> keluarkan pengguna.
     ApiService.instance.onUnauthorized = () {
       if (_isAuthenticated) unawaited(logout());
     };
@@ -89,7 +88,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Mengembalikan `null` bila berhasil, atau pesan galat untuk ditampilkan.
   Future<String?> register({
     required String name,
     required String email,

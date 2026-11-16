@@ -18,6 +18,7 @@ class SecureStorageService {
   static const String _keyUserId = 'sec_user_id';
   static const String _keyUserEmail = 'sec_user_email';
   static const String _keyUserName = 'sec_user_name';
+  static const String _keyUserPhone = 'sec_user_phone';
   static const String _keyExpiresAt = 'sec_expires_at_millis';
 
   Future<void> saveAuthSession({
@@ -26,6 +27,7 @@ class SecureStorageService {
     required String userId,
     required String userEmail,
     required String userName,
+    String? userPhone,
     int? expiresInSeconds,
   }) async {
     final expiresAt = DateTime.now()
@@ -39,6 +41,7 @@ class SecureStorageService {
     await _storage.write(key: _keyUserId, value: userId);
     await _storage.write(key: _keyUserEmail, value: userEmail);
     await _storage.write(key: _keyUserName, value: userName);
+    await _storage.write(key: _keyUserPhone, value: userPhone ?? '');
     await _storage.write(key: _keyExpiresAt, value: expiresAt.toString());
   }
 
@@ -62,6 +65,10 @@ class SecureStorageService {
     return await _storage.read(key: _keyUserName);
   }
 
+  Future<String?> getUserPhone() async {
+    return await _storage.read(key: _keyUserPhone);
+  }
+
   Future<bool> hasValidToken() async {
     final token = await getAccessToken();
     if (token == null || token.isEmpty) return false;
@@ -81,6 +88,7 @@ class SecureStorageService {
     await _storage.delete(key: _keyUserId);
     await _storage.delete(key: _keyUserEmail);
     await _storage.delete(key: _keyUserName);
+    await _storage.delete(key: _keyUserPhone);
     await _storage.delete(key: _keyExpiresAt);
   }
 

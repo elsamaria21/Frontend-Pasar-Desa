@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/product.dart';
+import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/product_provider.dart';
 import '../theme/app_theme.dart';
@@ -572,7 +575,6 @@ class _HomeBodyState extends State<_HomeBody> {
   final TextEditingController searchController = TextEditingController();
   String searchText = '';
   bool showAllCategories = false;
-  ListSort sort = ListSort.terbaru;
 
   @override
   void dispose() {
@@ -584,7 +586,7 @@ class _HomeBodyState extends State<_HomeBody> {
     final provider = context.watch<ProductProvider>();
     final query = searchText.trim().toLowerCase();
 
-    if (query.isEmpty && sort == ListSort.terbaru) {
+    if (query.isEmpty) {
       return featuredProducts;
     }
 
@@ -595,96 +597,12 @@ class _HomeBodyState extends State<_HomeBody> {
     ];
 
     final list = base.where((product) {
-      if (query.isEmpty) return true;
       final name = product.shortName.toLowerCase();
       final seller = product.seller.toLowerCase();
       return name.contains(query) || seller.contains(query);
     }).toList();
 
-    switch (sort) {
-      case ListSort.terbaru:
-        break;
-      case ListSort.termurah:
-        list.sort((a, b) => a.price.compareTo(b.price));
-        break;
-      case ListSort.termahal:
-        list.sort((a, b) => b.price.compareTo(a.price));
-        break;
-      case ListSort.rating:
-        list.sort((a, b) => b.rating.compareTo(a.rating));
-        break;
-    }
-
     return list.take(4).toList();
-  }
-
-  Widget _driftCacheStatusBadge(ProductProvider provider) {
-    final lastTime = provider.lastSyncTime;
-    String timeStr = 'Baru saja';
-    if (lastTime != null) {
-      final hour = lastTime.hour.toString().padLeft(2, '0');
-      final min = lastTime.minute.toString().padLeft(2, '0');
-      timeStr = '$hour:$min WIB';
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F7F3),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.green.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: AppColors.green,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Drift DB Reaktif (.watch) • Cache: $timeStr',
-              style: const TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.greenDark,
-              ),
-            ),
-          ),
-          if (provider.isSyncing)
-            const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.green,
-              ),
-            )
-          else
-            InkWell(
-              onTap: () => provider.syncProducts(forceRefresh: true),
-              child: const Icon(
-                Icons.sync,
-                size: 16,
-                color: AppColors.green,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  void showFilter() {
-    openSortSheet(
-      context,
-      sort,
-      (s) => setState(() => sort = s),
-    );
   }
 
   void openNotifications() => showNotificationSheet(context);
@@ -727,7 +645,6 @@ class _HomeBodyState extends State<_HomeBody> {
 
   @override
   Widget build(BuildContext context) {
-    final productProvider = context.watch<ProductProvider>();
     final productList = _getProducts(context);
 
     return RefreshIndicator(
@@ -809,15 +726,20 @@ class _HomeBodyState extends State<_HomeBody> {
               ],
             ),
             const SizedBox(height: 18),
-            const Text(
-              'Halo, Elsa Maria 👋',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF10231B),
-              ),
+            Consumer<AuthProvider>(
+              builder: (context, auth, _) {
+                final name = (auth.currentUser['name'] ?? '').trim();
+                return Text(
+                  'Halo, ${name.isEmpty ? 'Warga' : name} 👋',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF10231B),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 15),
             Row(
@@ -843,7 +765,7 @@ class _HomeBodyState extends State<_HomeBody> {
                 ),
                 const SizedBox(width: 8),
                 InkWell(
-                  onTap: showFilter,
+                  onTap: () => showImageSearchSheet(context),
                   borderRadius: BorderRadius.circular(13),
                   child: Container(
                     width: 48,
@@ -853,7 +775,7 @@ class _HomeBodyState extends State<_HomeBody> {
                       borderRadius: BorderRadius.circular(13),
                     ),
                     child: const Icon(
-                      Icons.tune_rounded,
+                      Icons.photo_camera_rounded,
                       color: Colors.white,
                       size: 22,
                     ),
@@ -1068,8 +990,6 @@ class _HomeBodyState extends State<_HomeBody> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            _driftCacheStatusBadge(productProvider),
             const SizedBox(height: 12),
             if (productList.isEmpty)
               const _EmptyProducts()
@@ -1807,7 +1727,7 @@ class _WalletRow extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
-                  'TABUNGAN KOPERASI DESA',
+                  'SALDO DOMPET',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -2468,5 +2388,386 @@ class _HistoryBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const OrderHistoryScreen(embedded: true);
+  }
+}
+
+Future<void> showImageSearchSheet(BuildContext context) async {
+  final source = await showModalBottomSheet<ImageSource>(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (sheetContext) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 25),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sheetHandleBar(),
+              const SizedBox(height: 20),
+              const Text(
+                'Cari dengan Foto',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Foto atau pilih gambar produk untuk melihat produk yang serupa.',
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 11.5,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _ImageSourceOption(
+                icon: Icons.photo_camera_outlined,
+                title: 'Scan dengan Kamera',
+                subtitle: 'Ambil foto produk langsung',
+                onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+              ),
+              const SizedBox(height: 10),
+              _ImageSourceOption(
+                icon: Icons.photo_library_outlined,
+                title: 'Pilih dari Galeri',
+                subtitle: 'Gunakan foto yang sudah ada',
+                onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+  if (source == null || !context.mounted) return;
+
+  try {
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1280,
+      imageQuality: 85,
+    );
+
+    if (picked == null || !context.mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ImageSearchScreen(image: picked)),
+    );
+  } catch (_) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Tidak bisa membuka kamera / galeri'),
+        ),
+      );
+  }
+}
+
+Future<List<Product>> searchSimilarProducts(
+  XFile image,
+  List<Product> catalog,
+) async {
+  await Future.delayed(const Duration(milliseconds: 1400));
+  return catalog.take(6).toList();
+}
+
+class _ImageSourceOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ImageSourceOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE1F5E9),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(icon, color: AppColors.green, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 10.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.muted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ImageSearchScreen extends StatefulWidget {
+  final XFile image;
+
+  const ImageSearchScreen({super.key, required this.image});
+
+  @override
+  State<ImageSearchScreen> createState() => _ImageSearchScreenState();
+}
+
+class _ImageSearchScreenState extends State<ImageSearchScreen> {
+  late Future<List<Product>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _search();
+  }
+
+  Future<List<Product>> _search() {
+    final provider = context.read<ProductProvider>();
+    final catalog = provider.products.isNotEmpty ? provider.products : products;
+    return searchSimilarProducts(widget.image, catalog);
+  }
+
+  void _retry() {
+    setState(() {
+      _future = _search();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAF8),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  InkWell(
+                    onTap: () => Navigator.maybePop(context),
+                    borderRadius: BorderRadius.circular(20),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 19,
+                        color: AppColors.text,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Expanded(
+                    child: Text(
+                      'Cari dengan Foto',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF10231B),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      showImageSearchSheet(context);
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Text(
+                        'Ganti Foto',
+                        style: TextStyle(
+                          color: AppColors.green,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: SizedBox(
+                  height: 190,
+                  width: double.infinity,
+                  child: Image.file(
+                    File(widget.image.path),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: const Color(0xFFF0F3F1),
+                        child: const Icon(
+                          Icons.image_not_supported_outlined,
+                          color: AppColors.muted,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              FutureBuilder<List<Product>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              strokeWidth: 3,
+                              color: AppColors.green,
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'Mencari produk serupa...',
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Column(
+                      children: [
+                        const _EmptyProducts(
+                          message: 'Pencarian gagal, coba lagi',
+                        ),
+                        const SizedBox(height: 10),
+                        TextButton(
+                          onPressed: _retry,
+                          child: const Text(
+                            'Coba Lagi',
+                            style: TextStyle(
+                              color: AppColors.green,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  final results = snapshot.data ?? const <Product>[];
+
+                  if (results.isEmpty) {
+                    return const _EmptyProducts(
+                      message: 'Produk serupa tidak ditemukan',
+                    );
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Produk Serupa',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${results.length} produk',
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: results.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          mainAxisExtent: 304,
+                        ),
+                        itemBuilder: (context, index) {
+                          return CategoryProductCard(
+                            product: results[index],
+                            index: index,
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: BottomNav(
+        current: 0,
+        onTap: (index) => DashboardNav.goTo(context, index),
+      ),
+    );
   }
 }

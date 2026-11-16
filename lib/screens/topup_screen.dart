@@ -16,11 +16,14 @@ class WalletBalance {
 
 String _group(int value) {
   final text = value.toString();
+
   final buffer = StringBuffer();
 
   for (int i = 0; i < text.length; i++) {
     final fromEnd = text.length - i;
+
     buffer.write(text[i]);
+
     if (fromEnd > 1 && fromEnd % 3 == 1) buffer.write('.');
   }
 
@@ -53,7 +56,7 @@ class _TopUpHeader extends StatelessWidget {
         const SizedBox(width: 8),
         const Expanded(
           child: Text(
-            'Saldo Kas Desa',
+            'Saldo Dompet',
             style: TextStyle(
               color: Colors.black87,
               fontSize: 19,
@@ -98,14 +101,18 @@ class TopUpScreen extends StatefulWidget {
 
 class _TopUpScreenState extends State<TopUpScreen> {
   static const int minAmount = 10000;
+
   static const int maxAmount = 10000000;
+
   static const List<int> quickAmounts = [10000, 50000, 100000, 200000, 500000];
 
   final TextEditingController _controller =
       TextEditingController(text: '50.000');
+
   final FocusNode _focus = FocusNode();
 
   int _amount = 50000;
+
   TopUpMethod _method = TopUpMethod.qris;
 
   bool get _valid => _amount >= minAmount && _amount <= maxAmount;
@@ -113,23 +120,29 @@ class _TopUpScreenState extends State<TopUpScreen> {
   @override
   void dispose() {
     _controller.dispose();
+
     _focus.dispose();
+
     super.dispose();
   }
 
   void _pickAmount(int value) {
     setState(() {
       _amount = value;
+
       _controller.text = _group(value);
+
       _controller.selection =
           TextSelection.collapsed(offset: _controller.text.length);
     });
+
     _focus.unfocus();
   }
 
   void _clear() {
     setState(() {
       _amount = 0;
+
       _controller.clear();
     });
   }
@@ -137,8 +150,10 @@ class _TopUpScreenState extends State<TopUpScreen> {
   void _custom() {
     setState(() {
       _amount = 0;
+
       _controller.clear();
     });
+
     _focus.requestFocus();
   }
 
@@ -203,103 +218,30 @@ class _TopUpScreenState extends State<TopUpScreen> {
             colors: [AppColors.green, Color(0xFF0B6E3A)],
           ),
         ),
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Positioned(
-              right: -8,
-              bottom: -12,
-              child: Icon(
-                Icons.account_balance_wallet_outlined,
-                size: 92,
-                color: Color.fromRGBO(255, 255, 255, 0.13),
+            const Text(
+              'Saldo Saya',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
               ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'KOPERASI DESA SUKOREJO',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color.fromRGBO(255, 255, 255, 0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.verified_rounded,
-                              size: 12, color: Colors.white),
-                          SizedBox(width: 4),
-                          Text(
-                            'Terdaftar BUMDes',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  'SALDO AKTIF TABUNGAN KOPERASI',
-                  style: TextStyle(
-                    color: Color.fromRGBO(255, 255, 255, 0.8),
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
+            const SizedBox(height: 10),
+            ValueListenableBuilder<int>(
+              valueListenable: WalletBalance.balance,
+              builder: (context, balance, _) {
+                return Text(
+                  formatRupiahId(balance),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
                   ),
-                ),
-                const SizedBox(height: 3),
-                ValueListenableBuilder<int>(
-                  valueListenable: WalletBalance.balance,
-                  builder: (context, balance, _) {
-                    return Text(
-                      formatRupiahId(balance),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 4),
-                const Row(
-                  children: [
-                    Icon(Icons.shield_outlined, size: 13, color: Colors.white),
-                    SizedBox(width: 4),
-                    Text(
-                      'Terlindungi Aman',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                );
+              },
             ),
           ],
         ),
@@ -309,6 +251,7 @@ class _TopUpScreenState extends State<TopUpScreen> {
 
   Widget _buildNominalSection() {
     final tooLow = _amount > 0 && _amount < minAmount;
+
     final tooHigh = _amount > maxAmount;
 
     return Column(
@@ -381,6 +324,7 @@ class _TopUpScreenState extends State<TopUpScreen> {
                 inputFormatters: [_ThousandsFormatter()],
                 onChanged: (value) {
                   final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+
                   setState(() {
                     _amount = digits.isEmpty ? 0 : int.parse(digits);
                   });
@@ -439,7 +383,6 @@ class _TopUpScreenState extends State<TopUpScreen> {
                 _AmountChip(
                   width: width,
                   label: 'Lainnya',
-                  icon: Icons.edit_outlined,
                   selected: false,
                   onTap: _custom,
                 ),
@@ -463,26 +406,17 @@ class _TopUpScreenState extends State<TopUpScreen> {
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.lock_outline_rounded, size: 18),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      _valid
-                          ? 'Lanjutkan Isi Saldo ${formatRupiahId(_amount)}  →'
-                          : 'Masukkan nominal top up',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                _valid
+                    ? 'Lanjutkan Isi Saldo ${formatRupiahId(_amount)}'
+                    : 'Masukkan nominal top up',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -494,23 +428,9 @@ class _TopUpScreenState extends State<TopUpScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Pilih Metode Pengisian Resmi',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
-              ),
-            ),
-            Text(
-              'Semua Resmi BUMDes',
-              style: TextStyle(
-                color: AppColors.green,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
+        const Text(
+          'Pilih Metode Pengisian Resmi',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 10),
         _MethodCard(
@@ -558,12 +478,6 @@ class _TopUpScreenState extends State<TopUpScreen> {
             children: [
               _summaryRow('Nominal Pengisian', formatRupiahId(nominal)),
               const SizedBox(height: 9),
-              _summaryRow(
-                'Biaya Layanan Koperasi',
-                'Gratis (Rp 0)',
-                valueColor: AppColors.green,
-              ),
-              const SizedBox(height: 9),
               _summaryRow('Saldo Saat Ini', formatRupiahId(balance)),
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
@@ -594,19 +508,6 @@ class _TopUpScreenState extends State<TopUpScreen> {
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE1F5E9),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.trending_up_rounded,
-                      color: AppColors.green,
-                      size: 22,
                     ),
                   ),
                 ],
@@ -642,9 +543,11 @@ class _TopUpScreenState extends State<TopUpScreen> {
 
 class _AmountChip extends StatelessWidget {
   final double width;
+
   final String label;
+
   final bool selected;
-  final IconData? icon;
+
   final VoidCallback onTap;
 
   const _AmountChip({
@@ -652,7 +555,6 @@ class _AmountChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
-    this.icon,
   });
 
   @override
@@ -679,10 +581,6 @@ class _AmountChip extends StatelessWidget {
                     size: 15, color: Colors.white),
                 const SizedBox(width: 5),
               ],
-              if (icon != null) ...[
-                Icon(icon, size: 15, color: AppColors.text),
-                const SizedBox(width: 5),
-              ],
               Text(
                 label,
                 style: TextStyle(
@@ -701,11 +599,17 @@ class _AmountChip extends StatelessWidget {
 
 class _MethodCard extends StatelessWidget {
   final IconData icon;
+
   final String title;
+
   final String tag;
+
   final Color tagColor;
+
   final String description;
+
   final bool selected;
+
   final VoidCallback onTap;
 
   const _MethodCard({
@@ -796,22 +700,6 @@ class _MethodCard extends StatelessWidget {
                       color: AppColors.muted,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  const Row(
-                    children: [
-                      Icon(Icons.local_offer_outlined,
-                          size: 12, color: AppColors.green),
-                      SizedBox(width: 4),
-                      Text(
-                        'Biaya Layanan: Gratis (Rp 0)',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: AppColors.green,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
@@ -832,9 +720,13 @@ class _MethodCard extends StatelessWidget {
 
 class _Bank {
   final String logo;
+
   final Color color;
+
   final String name;
+
   final String code;
+
   final String number;
 
   const _Bank({
@@ -865,6 +757,7 @@ const List<_Bank> _banks = [
 
 class TopUpPaymentScreen extends StatefulWidget {
   final int amount;
+
   final TopUpMethod method;
 
   const TopUpPaymentScreen({
@@ -881,13 +774,17 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
   static const int totalSeconds = 15 * 60;
 
   int _left = totalSeconds;
+
   Timer? _timer;
+
   late final String _orderId;
 
   int _bank = 0;
+
   bool _checking = false;
 
   bool get _isQris => widget.method == TopUpMethod.qris;
+
   bool get _expired => _left <= 0;
 
   @override
@@ -899,11 +796,13 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
+
         return;
       }
 
       if (_left <= 1) {
         timer.cancel();
+
         setState(() => _left = 0);
       } else {
         setState(() => _left--);
@@ -914,12 +813,15 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+
     super.dispose();
   }
 
   String get _timeText {
     final m = (_left ~/ 60).toString().padLeft(2, '0');
+
     final s = (_left % 60).toString().padLeft(2, '0');
+
     return '$m:$s';
   }
 
@@ -936,7 +838,9 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
 
   Future<void> _copy(String value, String label) async {
     await Clipboard.setData(ClipboardData(text: value));
+
     if (!mounted) return;
+
     _snack('$label disalin');
   }
 
@@ -946,6 +850,7 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
     setState(() => _checking = true);
 
     await Future.delayed(const Duration(milliseconds: 1500));
+
     if (!mounted) return;
 
     _timer?.cancel();
@@ -954,7 +859,7 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
 
     NotificationCenter.add(
       'Top Up Berhasil',
-      'Saldo Tabungan Koperasi bertambah ${formatRupiahId(widget.amount)}.',
+      'Saldo Dompet bertambah ${formatRupiahId(widget.amount)}.',
     );
 
     setState(() => _checking = false);
@@ -1010,7 +915,7 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
                   child: Column(
                     children: [
                       const Text(
-                        'SALDO TABUNGAN KOPERASI',
+                        'SALDO DOMPET',
                         style: TextStyle(
                           fontSize: 9.5,
                           color: AppColors.muted,
@@ -1060,6 +965,7 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
     if (!mounted) return;
 
     int popped = 0;
+
     Navigator.of(context).popUntil((_) => popped++ >= 2);
   }
 
@@ -1433,6 +1339,7 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
 
   Widget _buildBankCard(int index) {
     final bank = _banks[index];
+
     final selected = _bank == index;
 
     return InkWell(
@@ -1666,6 +1573,7 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
 
 class _ExpandableSteps extends StatefulWidget {
   final String title;
+
   final List<String> steps;
 
   const _ExpandableSteps({required this.title, required this.steps});
@@ -1781,13 +1689,18 @@ class _QrPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final cell = size.width / _n;
+
     final dark = Paint()..color = const Color(0xFF111111);
+
     final light = Paint()..color = Colors.white;
 
     bool inFinder(int r, int c) {
       final tl = r < 8 && c < 8;
+
       final tr = r < 8 && c >= _n - 8;
+
       final bl = r >= _n - 8 && c < 8;
+
       return tl || tr || bl;
     }
 
@@ -1796,6 +1709,7 @@ class _QrPainter extends CustomPainter {
     for (int r = 0; r < _n; r++) {
       for (int c = 0; c < _n; c++) {
         final on = random.nextDouble() > 0.52;
+
         if (inFinder(r, c) || !on) continue;
 
         canvas.drawRect(
@@ -1807,13 +1721,16 @@ class _QrPainter extends CustomPainter {
 
     void finder(int row, int col) {
       final x = col * cell;
+
       final y = row * cell;
 
       canvas.drawRect(Rect.fromLTWH(x, y, cell * 7, cell * 7), dark);
+
       canvas.drawRect(
         Rect.fromLTWH(x + cell, y + cell, cell * 5, cell * 5),
         light,
       );
+
       canvas.drawRect(
         Rect.fromLTWH(x + cell * 2, y + cell * 2, cell * 3, cell * 3),
         dark,
@@ -1821,7 +1738,9 @@ class _QrPainter extends CustomPainter {
     }
 
     finder(0, 0);
+
     finder(0, _n - 7);
+
     finder(_n - 7, 0);
   }
 

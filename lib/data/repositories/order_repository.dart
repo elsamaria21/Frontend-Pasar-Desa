@@ -2,8 +2,6 @@ import '../../screens/order_models.dart';
 import '../local/db/app_database.dart';
 import '../remote/api_service.dart';
 
-/// Satu baris belanja yang dikirim ke server. Harga tidak dikirim: server
-/// menghitungnya dari tabel produk.
 class OrderItemInput {
   final String productId;
   final int quantity;
@@ -11,7 +9,6 @@ class OrderItemInput {
   const OrderItemInput({required this.productId, required this.quantity});
 }
 
-/// Hasil POST /orders.
 class ServerOrder {
   final int id;
   final String kode;
@@ -108,9 +105,6 @@ class OrderRepository {
     );
   }
 
-  // ------------------------------------------------------------- Server
-
-  /// Membuat pesanan di server. Stok dikurangi dan kode pesanan dibuat server.
   Future<ServerOrder> createOnServer({
     required List<OrderItemInput> items,
     required String receiverName,
@@ -147,7 +141,6 @@ class OrderRepository {
 
   Future<void> cancelOnServer(int serverId) => _api.cancelOrder(serverId);
 
-  /// Membatalkan berdasarkan kode pesanan (yang dikenal layar riwayat).
   Future<void> cancelByCode(String kode) async {
     final rows = await _api.fetchMyOrders();
     final match = rows.where((r) => '${r['order_code']}' == kode);
@@ -158,7 +151,6 @@ class OrderRepository {
     await syncFromServer();
   }
 
-  /// Mengambil riwayat pesanan akun ini dari server dan menggantikan cache.
   Future<void> syncFromServer() async {
     final rows = await _api.fetchMyOrders();
 
@@ -208,9 +200,6 @@ class OrderRepository {
 
   Future<void> clearLocal() => _db.clearOrders();
 
-  // ------------------------------------------------------------ Helper
-
-  /// Status server (9 nilai) -> status yang dipahami layar mobile (4 nilai).
   static OrderStatus statusFromServer(String status) {
     switch (status) {
       case 'selesai':
@@ -234,8 +223,18 @@ class OrderRepository {
 
   static String _dateLabel(DateTime d) {
     const bulan = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
     ];
     String two(int n) => n.toString().padLeft(2, '0');
     return '${d.day} ${bulan[d.month - 1]} ${d.year} • ${two(d.hour)}:${two(d.minute)} WIB';

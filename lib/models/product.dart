@@ -24,13 +24,7 @@ class Product {
   });
 }
 
-/// Katalog aktif di memori. Diisi dari backend lewat [setCatalog] setiap kali
-/// ProductProvider menerima data baru, sehingga layar yang membaca daftar
-/// global ini (kategori, toko petani, beli lagi, produk serupa) memakai
-/// produk dan id yang sama dengan database.
 final List<Product> products = [];
-
-/// Produk unggulan beranda: empat produk pertama yang stoknya masih ada.
 final List<Product> featuredProducts = [];
 
 void setCatalog(List<Product> source) {

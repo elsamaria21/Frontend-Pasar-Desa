@@ -27,6 +27,7 @@ dev_dependencies:
   drift_dev: ^2.35.1
   build_runner: ^2.16.2
   flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.8
 
 flutter_launcher_icons:
   android: true
@@ -35,6 +36,18 @@ flutter_launcher_icons:
   min_sdk_android: 21
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icon/logo.png"
+  adaptive_icon_foreground_inset: 28
+
+flutter_native_splash:
+  color: "#F8FFFB"
+  image: assets/images/transparent_splash.png
+
+  android: true
+  ios: false
+
+  android_12:
+    color: "#F8FFFB"
+    image: assets/images/transparent_splash.png
 
 flutter:
   uses-material-design: true
@@ -93,3 +106,5 @@ flutter:
     - assets/images/udang.png
     - assets/images/ulekan.jpg
     - assets/images/wedang.jpg
+    - assets/images/splash_screen.gif
+    - assets/images/transparent_splash.png

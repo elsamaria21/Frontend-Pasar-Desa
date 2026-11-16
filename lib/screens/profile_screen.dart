@@ -1,10 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../providers/product_provider.dart';
-import '../providers/settings_provider.dart';
 import 'auth_screens.dart';
 import '../providers/order_provider.dart';
 import 'profile_features.dart';
@@ -210,7 +209,7 @@ class ProfileData {
   factory ProfileData.initial() => ProfileData(
         name: 'Elsa Maria',
         nik: '3507198800000001',
-        phone: '0812-3456-7890',
+        phone: '0823-3456-7858',
         email: 'elsafe@gmail.com',
         gender: 'Perempuan',
         dusun: 'Dusun Krajan Kulon',
@@ -223,7 +222,7 @@ class ProfileData {
         addresses: [
           AddressItem(
             id: 'a1',
-            recipient: 'Pak Alex',
+            recipient: 'Lutfia',
             phone: '0812-3456-7890',
             dusun: 'Dusun Krajan Kulon',
             rt: '02',
@@ -236,7 +235,7 @@ class ProfileData {
           ),
           AddressItem(
             id: 'a2',
-            recipient: 'Ibu Hanum',
+            recipient: 'Belqis',
             phone: '0821-9876-5432',
             dusun: 'Dusun Krajan Kulon',
             rt: '05',
@@ -334,6 +333,7 @@ Widget _field(
   TextAlign align = TextAlign.start,
   bool readOnly = false,
   bool verified = false,
+  List<TextInputFormatter>? formatters,
 }) {
   OutlineInputBorder border(Color c, double w) => OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -347,6 +347,7 @@ Widget _field(
     maxLines: maxLines,
     textAlign: align,
     readOnly: readOnly,
+    inputFormatters: formatters,
     style: TextStyle(
       fontSize: 14,
       color: readOnly ? _textGrey : _textDark,
@@ -388,7 +389,6 @@ Widget _primaryButton(String text, IconData icon, VoidCallback onTap) {
   );
 }
 
-/// Header halaman Ubah Profil: hanya tombol kembali.
 Widget _appHeader({VoidCallback? onBack}) {
   return Row(
     children: [
@@ -424,7 +424,19 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  ProfileData _data = ProfileData.initial();
+  late ProfileData _data;
+
+  @override
+  void initState() {
+    super.initState();
+    // Isi nama, email, dan HP dari akun yang sedang login.
+    final user = context.read<AuthProvider>().currentUser;
+    final name = (user['name'] ?? '').trim();
+    _data = ProfileData.initial()
+      ..name = name.isEmpty ? 'Warga' : name
+      ..email = user['email'] ?? ''
+      ..phone = user['phone'] ?? '';
+  }
 
   void _push(Widget page) =>
       Navigator.push(context, MaterialPageRoute(builder: (_) => page));
@@ -507,8 +519,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 22),
               _menuSection(),
               const SizedBox(height: 18),
-              _localStorageSettingsSection(),
-              const SizedBox(height: 18),
               _logoutButton(),
               const SizedBox(height: 16),
               const Center(
@@ -526,31 +536,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _pageTitle() {
-    return Row(
+    return const Row(
       children: [
-        const Expanded(
+        Expanded(
           child: Text(
             'Profil Warga',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w900,
               color: _textDark,
-            ),
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: _greenLight,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFF9CDEB6)),
-          ),
-          child: Text(
-            _data.wargaId,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: _greenDark,
             ),
           ),
         ),
@@ -616,26 +610,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _data.name,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        color: _textDark,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _data.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: _textDark,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const _SmallGreenBadge(text: 'Aktif'),
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'NIK: ${_data.maskedNik}',
                       style: const TextStyle(fontSize: 12.5, color: _textGrey),
                     ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
+                    const SizedBox(height: 4),
+                    Row(
                       children: [
-                        _SmallGreenBadge(text: 'Warga Tetap ${_data.rtRw}'),
-                        const _SmallGreenBadge(text: 'Aktif'),
+                        const Icon(Icons.phone_outlined,
+                            size: 14, color: _textGrey),
+                        const SizedBox(width: 5),
+                        Text(
+                          _data.phone,
+                          style:
+                              const TextStyle(fontSize: 12.5, color: _textGrey),
+                        ),
                       ],
                     ),
                   ],
@@ -644,27 +652,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              const Icon(Icons.phone_outlined, size: 18, color: _textGrey),
-              const SizedBox(width: 8),
-              Text(
-                _data.phone,
-                style: const TextStyle(fontSize: 13.5, color: _textDark),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             height: 44,
-            child: OutlinedButton.icon(
+            child: OutlinedButton(
               onPressed: _openEditProfile,
-              icon: const Icon(Icons.edit_outlined, size: 17),
-              label: const Text(
-                'Ubah Profil',
-                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800),
-              ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _greenDark,
                 backgroundColor: _greenLight,
@@ -673,25 +665,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          const Divider(height: 1, color: _border),
-          const SizedBox(height: 12),
-          _OrderCountBuilder(
-            builder: (context, count) => Row(
-              children: [
-                Expanded(
-                  child: _Stat(
-                    label: 'Transaksi',
-                    value: count > 0 ? '$count Selesai' : 'Belum ada',
-                  ),
-                ),
-                const Expanded(
-                    child: _Stat(label: 'Poin Belanja', value: '1.450 Poin')),
-                const Expanded(
-                    child: _Stat(label: 'Koperasi', value: 'Anggota Aktif')),
-              ],
+              child: const Text(
+                'Ubah Profil',
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800),
+              ),
             ),
           ),
         ],
@@ -864,8 +841,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _menuDivider(),
               _menuItem(
                 icon: Icons.account_balance_wallet_outlined,
-                title: 'Saldo Dompet & Kas Desa',
-                subtitle: 'Tabungan koperasi & kembalian belanja',
+                title: 'Saldo Dompet',
+                subtitle: 'Cek saldo & riwayat mutasi',
                 onTap: () => _push(const SaldoScreen()),
               ),
               _menuDivider(),
@@ -945,166 +922,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Divider(height: 1, color: _border),
       );
 
-  Widget _localStorageSettingsSection() {
-    return Consumer3<SettingsProvider, ProductProvider, AuthProvider>(
-      builder: (context, settings, productProv, auth, _) {
-        final lastTime = productProv.lastSyncTime;
-        final cacheText = lastTime != null
-            ? '${lastTime.hour.toString().padLeft(2, '0')}:${lastTime.minute.toString().padLeft(2, '0')} WIB'
-            : 'Tersedia';
-
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _border),
-          ),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Icon(Icons.storage_rounded, color: _green, size: 22),
-                  SizedBox(width: 8),
-                  Text(
-                    'Penyimpanan & Pengaturan Lokal',
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w900,
-                      color: _textDark,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Divider(height: 1, color: _border),
-              const SizedBox(height: 12),
-              const Text(
-                'Pengaturan (shared_preferences)',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: _greenDark,
-                ),
-              ),
-              const SizedBox(height: 6),
-              SwitchListTile.adaptive(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                activeTrackColor: _green,
-                title: const Text(
-                  'Notifikasi Pesanan Desa',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                ),
-                subtitle: const Text(
-                  'Simpan preferensi non-sensitif di SharedPreferences',
-                  style: TextStyle(fontSize: 11, color: _textGrey),
-                ),
-                value: settings.notificationsEnabled,
-                onChanged: (v) => settings.setNotificationsEnabled(v),
-              ),
-              SwitchListTile.adaptive(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                activeTrackColor: _green,
-                title: const Text(
-                  'Mode Gelap (Dark Mode)',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                ),
-                subtitle: const Text(
-                  'Simpan preferensi tampilan di SharedPreferences',
-                  style: TextStyle(fontSize: 11, color: _textGrey),
-                ),
-                value: settings.isDarkMode,
-                onChanged: (v) => settings.setDarkMode(v),
-              ),
-              const SizedBox(height: 8),
-              const Divider(height: 1, color: _border),
-              const SizedBox(height: 12),
-              const Text(
-                'Database Terstruktur (Drift SQLite)',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: _greenDark,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Status Cache Produk',
-                    style: TextStyle(fontSize: 12.5, color: _textDark),
-                  ),
-                  Text(
-                    'Tersimpan ($cacheText)',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: _green,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: productProv.isSyncing
-                      ? null
-                      : () => productProv.syncProducts(forceRefresh: true),
-                  icon: const Icon(Icons.sync, size: 16, color: _green),
-                  label: Text(
-                    productProv.isSyncing
-                        ? 'Menyinkronkan...'
-                        : 'Sinkronkan Ulang dari Backend (Atomic)',
-                    style: const TextStyle(
-                        fontSize: 12,
-                        color: _green,
-                        fontWeight: FontWeight.w700),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: _green),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Divider(height: 1, color: _border),
-              const SizedBox(height: 12),
-              // 3. FlutterSecureStorage
-              const Text(
-                'Keamanan Rahasia (flutter_secure_storage)',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: _greenDark,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Row(
-                children: [
-                  Icon(Icons.lock_outline, size: 16, color: _green),
-                  SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Access Token & Kredensial terlindungi di Keystore hardware (TIDAK di shared_preferences).',
-                      style: TextStyle(fontSize: 11.5, color: _textGrey),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Widget _logoutButton() {
     return SizedBox(
       width: double.infinity,
@@ -1138,32 +955,6 @@ class _OrderCountBuilder extends StatelessWidget {
     return AnimatedBuilder(
       animation: orderStore,
       builder: (ctx, _) => builder(ctx, orderStore.orders.length),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _Stat({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: _textGrey)),
-        const SizedBox(height: 3),
-        Text(
-          value,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w900,
-            color: _textDark,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1699,7 +1490,7 @@ class _Wilayah {
 }
 
 class AddressFormScreen extends StatefulWidget {
-  final AddressItem? item; // null = alamat baru
+  final AddressItem? item;
 
   const AddressFormScreen({super.key, this.item});
 
@@ -2331,6 +2122,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     'Dusun Lor',
   ];
 
+  static const String _noRekening = 'BUMD-SKR-9921';
+
   final ImagePicker _picker = ImagePicker();
   File? _photo;
   late String _gender;
@@ -2431,57 +2224,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Future<void> _showDropPointPicker() async {
-    final picked = await showModalBottomSheet<DropPoint>(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Pilih Drop-Point',
-                style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: _textDark),
-              ),
-              const SizedBox(height: 12),
-              for (final o in DropPoint.options)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    o.name == _dropPoint.name
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_off,
-                    color: o.name == _dropPoint.name ? _green : _textGrey,
-                  ),
-                  title: Text(
-                    o.name,
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w800),
-                  ),
-                  subtitle: Text(
-                    o.hours,
-                    style: const TextStyle(fontSize: 12, color: _greenDark),
-                  ),
-                  onTap: () => Navigator.pop(ctx, o),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (picked != null && mounted) setState(() => _dropPoint = picked);
-  }
-
   Widget _photoOption(IconData icon, String title, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
@@ -2506,6 +2248,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
       ),
     );
+  }
+
+  void _copyRekening() {
+    Clipboard.setData(const ClipboardData(text: _noRekening));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Nomor rekening disalin')));
   }
 
   void _save() {
@@ -2558,28 +2307,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     _addressCard(),
                     const SizedBox(height: 16),
                     _sectionCard(
-                      title: 'Koperasi & Akun Desa',
+                      title: 'Akun Desa',
                       icon: Icons.account_balance_outlined,
                       child: Column(
                         children: [
-                          _accountInfo('Status Keanggotaan', 'Anggota Aktif',
-                              Icons.verified),
+                          _accountInfo('Status Keanggotaan', 'Anggota Aktif'),
                           const SizedBox(height: 10),
-                          _accountInfo('No. Rekening Kas/BUMDes',
-                              'BUMD-SKR-9921', Icons.copy_outlined),
+                          _accountInfo(
+                            'Nomor Rekening',
+                            _noRekening,
+                            icon: Icons.copy_outlined,
+                            onIconTap: _copyRekening,
+                          ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 22),
                     _primaryButton('Simpan Perubahan', Icons.check, _save),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Perubahan data warga akan diverifikasi secara otomatis '
-                      'dengan sistem administrasi BUMDes Sukorejo.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: 12, color: _textGrey, height: 1.4),
-                    ),
                   ],
                 ),
               ),
@@ -2630,28 +2374,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: _greenLight,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.verified, size: 15, color: _green),
-              SizedBox(width: 5),
-              Text(
-                'Data Terverifikasi BUMDes',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: _greenDark,
-                    fontWeight: FontWeight.w800),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 6),
         Text(
           'ID: ${widget.data.wargaId}',
           style: const TextStyle(fontSize: 12, color: _textGrey),
@@ -2667,25 +2389,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Column(
         children: [
           _label('Nama Lengkap Sesuai KTP'),
-          _field(_name, suffix: Icons.edit_outlined),
+          _field(_name),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Nomor Induk Kependudukan (NIK)',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: _textDark,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              _tinyBadge('Terverifikasi-KTP'),
+          _label('Nomor Induk Kependudukan (NIK)'),
+          _field(
+            _nik,
+            readOnly: true,
+            type: TextInputType.number,
+            formatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(16),
             ],
           ),
-          const SizedBox(height: 6),
-          _field(_nik, suffix: Icons.verified_user_outlined, readOnly: true),
           const SizedBox(height: 4),
           const Align(
             alignment: Alignment.centerLeft,
@@ -2700,10 +2415,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
           const SizedBox(height: 12),
           _label('Nomor WhatsApp Aktif'),
-          _field(_phone,
-              suffix: Icons.verified,
-              type: TextInputType.phone,
-              verified: true),
+          _field(_phone, type: TextInputType.phone),
           const SizedBox(height: 12),
           _label('Alamat Email (Opsional)'),
           _field(_email, type: TextInputType.emailAddress),
@@ -2780,86 +2492,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           const SizedBox(height: 12),
           _label('Detail Patokan Rumah'),
           _field(_landmark, maxLines: 2),
-          const SizedBox(height: 12),
-          _label('Titik Ambil / Drop-Point Langganan'),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _greenLight,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFBCE8CA)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.storefront_outlined,
-                      size: 18, color: _green),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _dropPoint.name,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          color: _textDark,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _dropPoint.hours,
-                        style:
-                            const TextStyle(fontSize: 11.5, color: _textGrey),
-                      ),
-                    ],
-                  ),
-                ),
-                InkWell(
-                  onTap: _showDropPointPicker,
-                  child: const Padding(
-                    padding: EdgeInsets.all(6),
-                    child: Text(
-                      'Ubah',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: _green,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _tinyBadge(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-      decoration: BoxDecoration(
-          color: _greenLight, borderRadius: BorderRadius.circular(8)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.verified, size: 12, color: _green),
-          const SizedBox(width: 3),
-          Text(
-            text,
-            style: const TextStyle(
-                fontSize: 10.5, color: _greenDark, fontWeight: FontWeight.w800),
-          ),
         ],
       ),
     );
@@ -2895,7 +2527,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _accountInfo(String title, String value, IconData icon) {
+  Widget _accountInfo(
+    String title,
+    String value, {
+    IconData? icon,
+    VoidCallback? onIconTap,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
@@ -2921,13 +2558,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ],
             ),
           ),
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(8)),
-            child: Icon(icon, size: 17, color: _green),
-          ),
+          if (icon != null)
+            InkWell(
+              onTap: onIconTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8)),
+                child: Icon(icon, size: 17, color: _green),
+              ),
+            ),
         ],
       ),
     );

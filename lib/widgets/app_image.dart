@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Pengganti `Image.asset` yang juga bisa memuat foto dari server.
-/// Nilai `src` berupa alamat http(s) -> Image.network, selain itu -> aset
-/// lokal. Argumen sengaja sama dengan yang dipakai di layar-layar lama.
 Widget smartImage(
   String src, {
   double? width,

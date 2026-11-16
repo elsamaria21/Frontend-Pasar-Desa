@@ -75,7 +75,10 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } else {
       setState(() {
-        errorMessage = authProvider.errorMessage ?? 'Email atau password salah';
+        final msg = authProvider.errorMessage;
+        errorMessage = (msg == null || msg.trim().isEmpty)
+            ? 'Email atau kata sandi salah'
+            : msg;
       });
     }
   }
@@ -421,7 +424,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             )
                           : const Text(
-                              'Masuk Sekarang   →',
+                              'Masuk Sekarang',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
@@ -505,26 +508,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: AppColors.green,
                         fontWeight: FontWeight.w800,
                       ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.verified_user_outlined,
-                    size: 16,
-                    color: AppColors.green,
-                  ),
-                  SizedBox(width: 5),
-                  Text(
-                    'Aman & Terpercaya untuk Warga Desa',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.green,
-                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
@@ -999,26 +982,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
         centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Center(
-              child: Container(
-                width: 30,
-                height: 30,
-                decoration: const BoxDecoration(
-                  color: AppColors.green,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.person,
-                  size: 18,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -1329,7 +1292,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   child: const Text(
-                    'DAFTAR AKUN SEKARANG   →',
+                    'DAFTAR AKUN SEKARANG',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
@@ -1357,26 +1320,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         color: AppColors.green,
                         fontWeight: FontWeight.w900,
                       ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.verified_user_outlined,
-                    size: 15,
-                    color: AppColors.green,
-                  ),
-                  SizedBox(width: 5),
-                  Text(
-                    'Aman & Terpercaya untuk Warga Desa',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.green,
-                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],

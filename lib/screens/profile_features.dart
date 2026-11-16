@@ -448,7 +448,6 @@ class SaldoScreen extends StatelessWidget {
   const SaldoScreen({super.key});
 
   static const _rek = 'BUMD-SKR-9921';
-  static const int _simpananWajib = 100000;
 
   @override
   Widget build(BuildContext context) {
@@ -485,31 +484,9 @@ class SaldoScreen extends StatelessWidget {
     return _page(
       context,
       [
-        _box(
-          color: _gl,
-          pad: 12,
-          child: Row(children: [
-            const Icon(Icons.account_circle, color: _g, size: 26),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Elsa Maria',
-                        style: TextStyle(
-                            fontSize: 13.5, fontWeight: FontWeight.w900)),
-                    Text('#WRG-3507-0089 • RW 02 Krajan',
-                        style: TextStyle(fontSize: 10.5, color: _tg)),
-                  ]),
-            ),
-            _pill('Kas Aktif', Colors.white, _gd),
-          ]),
-        ),
-        const SizedBox(height: 14),
         ValueListenableBuilder<int>(
           valueListenable: WalletBalance.balance,
           builder: (context, saldo, _) {
-            final belanja = saldo > _simpananWajib ? saldo - _simpananWajib : 0;
             return Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -522,10 +499,7 @@ class SaldoScreen extends StatelessWidget {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('SALDO DOMPET & KAS DESA',
-                        style:
-                            TextStyle(fontSize: 10.5, color: Colors.white70)),
-                    const Text('Tabungan Koperasi & Kembalian Belanja',
+                    const Text('Saldo Saya',
                         style: TextStyle(
                             fontSize: 13,
                             color: Colors.white,
@@ -536,7 +510,7 @@ class SaldoScreen extends StatelessWidget {
                             fontSize: 32,
                             color: Colors.white,
                             fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 8),
@@ -544,7 +518,7 @@ class SaldoScreen extends StatelessWidget {
                           color: Colors.white24,
                           borderRadius: BorderRadius.circular(10)),
                       child: Row(children: [
-                        const Text('Rek. BUMDes:  ',
+                        const Text('Rekening:  ',
                             style:
                                 TextStyle(fontSize: 11, color: Colors.white70)),
                         const Expanded(
@@ -562,18 +536,6 @@ class SaldoScreen extends StatelessWidget {
                         ),
                       ]),
                     ),
-                    const SizedBox(height: 10),
-                    Row(children: [
-                      Expanded(
-                          child: _sub('Saldo Belanja', formatRupiahId(belanja),
-                              'Siap Belanja Lapak')),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: _sub(
-                              'Simpanan Wajib',
-                              formatRupiahId(_simpananWajib),
-                              'Koperasi Sukorejo')),
-                    ]),
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
@@ -650,22 +612,6 @@ class SaldoScreen extends StatelessWidget {
       title: 'Saldo Dompet',
     );
   }
-
-  Widget _sub(String a, String b, String c) => Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-            color: Colors.white24, borderRadius: BorderRadius.circular(10)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(a,
-              style: const TextStyle(fontSize: 10.5, color: Colors.white70)),
-          Text(b,
-              style: const TextStyle(
-                  fontSize: 15,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900)),
-          Text(c, style: const TextStyle(fontSize: 10, color: Colors.white70)),
-        ]),
-      );
 }
 
 class BantuanScreen extends StatelessWidget {
