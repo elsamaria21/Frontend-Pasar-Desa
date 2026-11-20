@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
+import '../data/remote/api_service.dart' show ApiException;
 import '../providers/order_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/checkout_widgets.dart' show PasarDesaHeader;
@@ -541,6 +542,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
 
     if (ok != true || !mounted) return;
+
+    // Konfirmasi harus lebih dulu sampai ke server; kas penjual hanya cair dari sana.
+    try {
+      await orderStore.terimaPesanan(o.id);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Gagal mengonfirmasi penerimaan. Periksa koneksi lalu coba lagi.'),
+      ));
+      return;
+    }
+    if (!mounted) return;
 
     final m = orderMeta.metaOf(o.id);
     m.status = OrderStatus.selesai;

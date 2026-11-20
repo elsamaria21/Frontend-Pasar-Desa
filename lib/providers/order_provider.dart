@@ -66,6 +66,8 @@ class OrderProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> terimaPesanan(String kode) => _repository.receiveOnServer(kode);
+
   Future<void> batalkanPesanan(String kode) async {
     await _repository.cancelByCode(kode);
   }

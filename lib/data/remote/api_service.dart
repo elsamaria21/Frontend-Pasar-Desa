@@ -164,4 +164,10 @@ class ApiService {
   Future<void> cancelOrder(int id) async {
     await _send('PATCH', '/orders/$id/status', body: {'status': 'dibatalkan'});
   }
+
+  /// Pembeli mengonfirmasi pesanan diterima. [kode] = kode pesanan (PSD-...).
+  /// Server memindahkan status ke "selesai" dan mengkreditkan kas penjual.
+  Future<void> receiveOrder(String kode) async {
+    await _send('PATCH', '/orders/${Uri.encodeComponent(kode)}/receive');
+  }
 }

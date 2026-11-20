@@ -141,6 +141,15 @@ class OrderRepository {
 
   Future<void> cancelOnServer(int serverId) => _api.cancelOrder(serverId);
 
+  Future<void> receiveOnServer(String kode) async {
+    await _api.receiveOrder(kode);
+    try {
+      await syncFromServer();
+    } catch (_) {
+      // Konfirmasi sudah tersimpan di server; sinkron ulang bisa menyusul.
+    }
+  }
+
   Future<void> cancelByCode(String kode) async {
     final rows = await _api.fetchMyOrders();
     final match = rows.where((r) => '${r['order_code']}' == kode);
