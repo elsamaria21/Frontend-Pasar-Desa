@@ -47,6 +47,25 @@ class PasarDesaApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         title: 'PasarDesa UMKM Desa Sukorejo',
         theme: appTheme,
+        builder: (context, child) {
+          // Di layar lebar (Chrome/desktop), tampilkan app selebar HP di tengah.
+          const double phoneWidth = 430;
+          final mq = MediaQuery.of(context);
+          if (mq.size.width <= phoneWidth) return child!;
+
+          return ColoredBox(
+            color: const Color(0xFFE9EEEC),
+            child: Center(
+              child: SizedBox(
+                width: phoneWidth,
+                child: MediaQuery(
+                  data: mq.copyWith(size: Size(phoneWidth, mq.size.height)),
+                  child: ClipRect(child: child!),
+                ),
+              ),
+            ),
+          );
+        },
         home: const AppEntryGate(),
       ),
     );
