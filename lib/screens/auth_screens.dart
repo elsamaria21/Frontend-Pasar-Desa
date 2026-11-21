@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
@@ -318,10 +319,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       });
                     },
                     splashRadius: 20,
+                    tooltip: obscurePassword
+                        ? 'Tampilkan kata sandi'
+                        : 'Sembunyikan kata sandi',
                     icon: Icon(
                       obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
                       size: 21,
                       color: const Color(0xFF69716C),
                     ),
@@ -528,20 +532,55 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  final TextEditingController emailController = TextEditingController();
-
-  bool submitted = false;
+  final TextEditingController phoneController = TextEditingController();
+  bool _submitting = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
-    emailController.dispose();
+    phoneController.dispose();
     super.dispose();
   }
 
-  void submit() {
+  Future<void> _submit() async {
+    if (_submitting) return;
+
+    final phone = phoneController.text.trim();
+    if (phone.isEmpty || phone.replaceAll(RegExp(r'\D'), '').length < 9) {
+      setState(() {
+        _errorMessage = 'Masukkan nomor WhatsApp yang valid.';
+      });
+      return;
+    }
+
     setState(() {
-      submitted = true;
+      _submitting = true;
+      _errorMessage = null;
     });
+
+    try {
+      await context.read<AuthProvider>().requestPasswordResetOtp(
+            phone: phone,
+          );
+
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VerifyOtpScreen(phone: phone),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
   }
 
   @override
@@ -567,33 +606,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 18),
-              const Center(
-                child: BrandMark(size: 64),
-              ),
+              const Center(child: BrandMark(size: 64)),
               const SizedBox(height: 18),
-              RichText(
-                textAlign: TextAlign.center,
-                text: const TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Pasar',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.green,
-                      ),
-                    ),
-                    TextSpan(
-                      text: 'Desa',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _recoveryBrandName(),
               const SizedBox(height: 20),
               const Text(
                 'Lupa Password?',
@@ -601,12 +616,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
+                  color: AppColors.text,
                 ),
               ),
               const SizedBox(height: 8),
               const Text(
-                'Masukkan email yang terdaftar.\n'
-                'Kami akan membantu proses pemulihan akun.',
+                'Masukkan nomor WhatsApp yang terdaftar.\n'
+                'Kami akan mengirimkan kode OTP untuk pemulihan akun.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
@@ -616,36 +632,47 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ),
               const SizedBox(height: 26),
               TextField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.done,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(15),
+                ],
+                onSubmitted: (_) => _submit(),
                 style: const TextStyle(fontSize: 15),
                 decoration: _simpleDecoration(
-                  hint: 'Masukkan email',
-                  icon: Icons.email_outlined,
+                  hint: 'Masukkan nomor WhatsApp',
+                  icon: Icons.phone_android_outlined,
                 ),
               ),
-              const SizedBox(height: 16),
-              if (submitted)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.greenLight,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'Instruksi pemulihan password akan dikirim '
-                    'ke email yang terdaftar.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.green,
-                      fontWeight: FontWeight.w700,
-                    ),
+              const SizedBox(height: 12),
+              if (_errorMessage != null) ...[
+                _recoveryMessageBox(_errorMessage!, isError: true),
+                const SizedBox(height: 12),
+              ],
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.greenLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Kode OTP berlaku selama 5 menit. Pastikan nomor WhatsApp '
+                  'yang dimasukkan masih aktif.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.green,
+                    fontWeight: FontWeight.w600,
+                    height: 1.45,
                   ),
                 ),
-              GreenButton(
-                text: 'Kirim Instruksi  →',
-                onTap: submit,
+              ),
+              const SizedBox(height: 18),
+              _recoveryButton(
+                text: 'Kirim Kode OTP  →',
+                loading: _submitting,
+                onPressed: _submit,
               ),
             ],
           ),
@@ -653,6 +680,544 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ),
     );
   }
+}
+
+class VerifyOtpScreen extends StatefulWidget {
+  final String phone;
+
+  const VerifyOtpScreen({
+    super.key,
+    required this.phone,
+  });
+
+  @override
+  State<VerifyOtpScreen> createState() => _VerifyOtpScreenState();
+}
+
+class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
+  final TextEditingController otpController = TextEditingController();
+  bool _submitting = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    otpController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _verify() async {
+    if (_submitting) return;
+
+    final otp = otpController.text.trim();
+    if (!RegExp(r'^\d{6}$').hasMatch(otp)) {
+      setState(() {
+        _errorMessage = 'Masukkan kode OTP 6 digit.';
+      });
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final resetToken =
+          await context.read<AuthProvider>().verifyPasswordResetOtp(
+                phone: widget.phone,
+                otp: otp,
+              );
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ResetPasswordScreen(resetToken: resetToken),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        foregroundColor: AppColors.text,
+        title: const Text(
+          'Verifikasi OTP',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 18),
+              const Center(child: BrandMark(size: 64)),
+              const SizedBox(height: 18),
+              _recoveryBrandName(),
+              const SizedBox(height: 20),
+              const Text(
+                'Verifikasi WhatsApp',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.text,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Masukkan kode OTP 6 digit yang dikirim ke nomor WhatsApp '
+                'yang kamu daftarkan.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.muted,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 28),
+              TextField(
+                controller: otpController,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                textAlign: TextAlign.center,
+                maxLength: 6,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
+                onSubmitted: (_) => _verify(),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 9,
+                ),
+                decoration: _simpleDecoration(
+                  hint: '••••••',
+                  icon: Icons.lock_outline,
+                ).copyWith(
+                  counterText: '',
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_errorMessage != null) ...[
+                _recoveryMessageBox(_errorMessage!, isError: true),
+                const SizedBox(height: 12),
+              ],
+              _recoveryButton(
+                text: 'Verifikasi OTP  →',
+                loading: _submitting,
+                onPressed: _verify,
+              ),
+              const SizedBox(height: 14),
+              TextButton(
+                onPressed: _submitting ? null : () => Navigator.pop(context),
+                child: const Text(
+                  'Ganti nomor WhatsApp',
+                  style: TextStyle(
+                    color: AppColors.green,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Kode berlaku selama 5 menit. Jika kode kedaluwarsa, '
+                'kembali dan minta kode baru.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.muted,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ResetPasswordScreen extends StatefulWidget {
+  final String resetToken;
+
+  const ResetPasswordScreen({
+    super.key,
+    required this.resetToken,
+  });
+
+  @override
+  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+}
+
+class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
+
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+  bool _submitting = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _savePassword() async {
+    if (_submitting) return;
+
+    final password = passwordController.text;
+    final confirmation = confirmPasswordController.text;
+
+    if (password.length < 8) {
+      setState(() {
+        _errorMessage = 'Password baru minimal 8 karakter.';
+      });
+      return;
+    }
+
+    if (password != confirmation) {
+      setState(() {
+        _errorMessage = 'Konfirmasi password tidak sama.';
+      });
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await context.read<AuthProvider>().resetPassword(
+            resetToken: widget.resetToken,
+            newPassword: password,
+          );
+
+      if (!mounted) return;
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.check_circle,
+                color: AppColors.green,
+                size: 56,
+              ),
+              SizedBox(height: 14),
+              Text(
+                'Password Berhasil Diubah',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.text,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Silakan masuk menggunakan password baru kamu.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.muted,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.green,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                ),
+                child: const Text(
+                  'Kembali ke Login',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        foregroundColor: AppColors.text,
+        title: const Text(
+          'Password Baru',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 18),
+              const Center(child: BrandMark(size: 64)),
+              const SizedBox(height: 18),
+              _recoveryBrandName(),
+              const SizedBox(height: 20),
+              const Text(
+                'Buat Password Baru',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.text,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Buat password baru untuk akun PasarDesa kamu. '
+                'Gunakan minimal 8 karakter.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.muted,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 26),
+              TextField(
+                controller: passwordController,
+                obscureText: _obscurePassword,
+                textInputAction: TextInputAction.next,
+                decoration: _simpleDecoration(
+                  hint: 'Password baru',
+                  icon: Icons.lock_outline,
+                ).copyWith(
+                  suffixIcon: IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: confirmPasswordController,
+                obscureText: _obscureConfirmPassword,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _savePassword(),
+                decoration: _simpleDecoration(
+                  hint: 'Konfirmasi password baru',
+                  icon: Icons.lock_outline,
+                ).copyWith(
+                  suffixIcon: IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _obscureConfirmPassword = !_obscureConfirmPassword;
+                      });
+                    },
+                    icon: Icon(
+                      _obscureConfirmPassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_errorMessage != null) ...[
+                _recoveryMessageBox(_errorMessage!, isError: true),
+                const SizedBox(height: 12),
+              ],
+              const SizedBox(height: 4),
+              _recoveryButton(
+                text: 'Simpan Password  →',
+                loading: _submitting,
+                onPressed: _savePassword,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Widget _recoveryBrandName() {
+  return RichText(
+    textAlign: TextAlign.center,
+    text: const TextSpan(
+      children: [
+        TextSpan(
+          text: 'Pasar',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+            color: AppColors.green,
+          ),
+        ),
+        TextSpan(
+          text: 'Desa',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+            color: Colors.black,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _recoveryButton({
+  required String text,
+  required bool loading,
+  required Future<void> Function() onPressed,
+}) {
+  return SizedBox(
+    height: 52,
+    child: ElevatedButton(
+      onPressed: loading ? null : onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.green,
+        disabledBackgroundColor: AppColors.green.withValues(alpha: 0.65),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      child: loading
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: Colors.white,
+              ),
+            )
+          : Text(
+              text,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+    ),
+  );
+}
+
+Widget _recoveryMessageBox(
+  String message, {
+  bool isError = false,
+}) {
+  final color = isError ? const Color(0xFFE53935) : AppColors.green;
+  final background = isError ? const Color(0xFFFFF1F2) : AppColors.greenLight;
+
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: background,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(
+        color: isError ? const Color(0xFFFFC5CA) : AppColors.greenLight,
+      ),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          isError ? Icons.error_outline : Icons.check_circle_outline,
+          size: 18,
+          color: color,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            message,
+            style: TextStyle(
+              fontSize: 13,
+              color: color,
+              fontWeight: FontWeight.w600,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class RegisterScreen extends StatefulWidget {
@@ -712,7 +1277,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // Aturan yang sama dengan backend (authController.register).
     if (password.length < 8) {
       setState(() {
         registerFailed = true;
@@ -936,8 +1500,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return IconButton(
       onPressed: onTap,
       splashRadius: 20,
+      tooltip: obscure ? 'Tampilkan kata sandi' : 'Sembunyikan kata sandi',
       icon: Icon(
-        obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+        obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
         size: 20,
         color: const Color(0xFF68716B),
       ),

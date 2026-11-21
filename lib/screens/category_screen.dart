@@ -1,29 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../models/product.dart';
-import '../providers/cart_provider.dart';
 import '../theme/app_theme.dart';
-import '../widgets/common.dart';
-import 'cart_screen.dart';
 import 'dashboard_screen.dart'
     show
-        NotificationCenter,
-        AppNotification,
         VillageCategory,
         mainCategories,
         moreCategories,
-        showNotificationSheet,
         showImageSearchSheet,
         openCategoryPage,
         CategoryProductCard,
         ListSort;
-
-const List<String> _originOptions = [
-  'Blok Sawah & UMKM Sukorejo',
-  'Blok Sawah Utara Sukorejo',
-  'Blok Sawah Selatan Sukorejo',
-  'UMKM Desa Sukorejo',
-];
 
 class CategoryScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -49,7 +35,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
   VillageCategory? _tab;
   ListSort _sort = ListSort.rating;
-  String _origin = _originOptions.first;
 
   @override
   void initState() {
@@ -120,113 +105,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
     });
   }
 
-  void _openCart() {
-    if (widget.onGoCart != null) {
-      widget.onGoCart!();
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const CartScreen()),
-      );
-    }
-  }
-
-  Widget _sheetHandle() {
-    return Center(
-      child: Container(
-        width: 42,
-        height: 4,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(20),
-        ),
-      ),
-    );
-  }
-
-  void _showOriginSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _sheetHandle(),
-                const SizedBox(height: 18),
-                const Text(
-                  'Asal Panen Komoditas',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 10),
-                for (final o in _originOptions)
-                  _sheetOption(
-                    icon: Icons.location_on_outlined,
-                    title: o,
-                    selected: _origin == o,
-                    onTap: () {
-                      setState(() => _origin = o);
-                      Navigator.pop(sheetContext);
-                    },
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _sheetOption({
-    required IconData icon,
-    required String title,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-          decoration: BoxDecoration(
-            color: selected ? const Color(0xFFEAF7EF) : const Color(0xFFF7FAF8),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? AppColors.green : Colors.transparent,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: AppColors.green, size: 22),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-              if (selected)
-                const Icon(Icons.check_circle_rounded,
-                    color: AppColors.green, size: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final visible = _visibleProducts;
@@ -240,13 +118,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildBrandHeader(),
-                const SizedBox(height: 16),
                 _buildTitleRow(),
                 const SizedBox(height: 14),
                 _buildSearchRow(),
-                const SizedBox(height: 14),
-                _buildOriginRow(),
                 const SizedBox(height: 18),
                 const Text(
                   'Kategori Hasil Desa',
@@ -294,75 +168,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
     );
   }
 
-  Widget _buildBrandHeader() {
-    return Row(
-      children: [
-        const BrandMark(size: 29),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RichText(
-                text: const TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Pasar',
-                      style: TextStyle(
-                        color: AppColors.green,
-                        fontSize: 21,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    TextSpan(
-                      text: 'Desa',
-                      style: TextStyle(
-                        color: Colors.black87,
-                        fontSize: 21,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 1),
-              const Text(
-                'UMKM DESA SUKOREJO',
-                style: TextStyle(
-                  color: AppColors.green,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.35,
-                ),
-              ),
-            ],
-          ),
-        ),
-        ValueListenableBuilder<List<AppNotification>>(
-          valueListenable: NotificationCenter.items,
-          builder: (context, _, __) {
-            return _TopIcon(
-              icon: Icons.notifications_none_rounded,
-              badge: NotificationCenter.unread,
-              onTap: () => showNotificationSheet(context),
-            );
-          },
-        ),
-        const SizedBox(width: 7),
-        Consumer<CartProvider>(
-          builder: (context, cart, _) {
-            return _TopIcon(
-              icon: Icons.shopping_cart_outlined,
-              badge: cart.count,
-              onTap: _openCart,
-            );
-          },
-        ),
-      ],
-    );
-  }
-
   Widget _buildTitleRow() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -383,23 +188,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
           const SizedBox(width: 4),
         ],
         const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Kategori Produk',
-                style: TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF10231B),
-                ),
-              ),
-              SizedBox(height: 1),
-              Text(
-                'PasarDesa Sukorejo',
-                style: TextStyle(fontSize: 11, color: AppColors.muted),
-              ),
-            ],
+          child: Text(
+            'Kategori Produk',
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF10231B),
+            ),
           ),
         ),
       ],
@@ -489,53 +284,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
             ),
             child: const Icon(Icons.photo_camera_rounded,
                 color: Colors.white, size: 22),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOriginRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const Icon(Icons.location_on_outlined, size: 20, color: AppColors.text),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Asal Panen Komoditas',
-                style: TextStyle(fontSize: 11, color: AppColors.muted),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                _origin,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.text,
-                ),
-              ),
-            ],
-          ),
-        ),
-        InkWell(
-          onTap: _showOriginSheet,
-          borderRadius: BorderRadius.circular(8),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-            child: Text(
-              'Ubah',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.green,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
           ),
         ),
       ],
@@ -671,59 +419,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _TopIcon extends StatelessWidget {
-  final IconData icon;
-  final int badge;
-  final VoidCallback onTap;
-
-  const _TopIcon({
-    required this.icon,
-    required this.badge,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          SizedBox(
-            width: 36,
-            height: 36,
-            child: Icon(icon, color: const Color(0xFF25332D), size: 24),
-          ),
-          if (badge > 0)
-            Positioned(
-              right: 0,
-              top: 0,
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE53935),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                child: Text(
-                  badge > 99 ? '99+' : '$badge',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );

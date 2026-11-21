@@ -129,6 +129,62 @@ class ApiService {
     return Map<String, dynamic>.from(data as Map);
   }
 
+  Future<void> requestPasswordResetOtp({
+    required String phone,
+  }) async {
+    await _send(
+      'POST',
+      '/auth/forgot-password',
+      body: {'phone': phone},
+      auth: false,
+    );
+  }
+
+  Future<String> verifyPasswordResetOtp({
+    required String phone,
+    required String otp,
+  }) async {
+    final data = await _send(
+      'POST',
+      '/auth/verify-otp',
+      body: {
+        'phone': phone,
+        'otp': otp,
+      },
+      auth: false,
+    );
+
+    if (data is! Map || data['resetToken'] is! String) {
+      throw const ApiException(
+        'Respons verifikasi OTP tidak valid. Silakan ulangi proses.',
+      );
+    }
+
+    final resetToken = (data['resetToken'] as String).trim();
+    if (resetToken.isEmpty) {
+      throw const ApiException(
+        'Token pemulihan tidak diterima. Silakan minta OTP baru.',
+      );
+    }
+
+    return resetToken;
+  }
+
+  Future<void> resetPassword({
+    required String resetToken,
+    required String newPassword,
+  }) async {
+    await _send(
+      'POST',
+      '/auth/reset-password',
+      body: {
+        'resetToken': resetToken,
+        'newPassword': newPassword,
+      },
+      auth: false,
+    );
+  }
+
   Future<void> updateProfile({
     required String name,
     String? phone,
@@ -165,8 +221,6 @@ class ApiService {
     await _send('PATCH', '/orders/$id/status', body: {'status': 'dibatalkan'});
   }
 
-  /// Pembeli mengonfirmasi pesanan diterima. [kode] = kode pesanan (PSD-...).
-  /// Server memindahkan status ke "selesai" dan mengkreditkan kas penjual.
   Future<void> receiveOrder(String kode) async {
     await _send('PATCH', '/orders/${Uri.encodeComponent(kode)}/receive');
   }

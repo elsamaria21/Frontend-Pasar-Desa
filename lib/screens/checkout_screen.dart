@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
+import '../data/address_book.dart';
 import '../data/repositories/order_repository.dart'
     show OrderItemInput, ServerOrder;
 import '../providers/order_provider.dart';
@@ -47,18 +48,87 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   static const int _maxAddresses = 4;
 
-  List<AddressData> _addresses = [
-    const AddressData(
-      'Elsa Maria',
-      '0812-3456-7890',
-      'Dusun Krajan RT 02 / RW 01 (Pos Drop-point BUMDes Depan Balai Desa Sukorejo)',
-      label: 'Rumah',
-      isMain: true,
-      dusun: 'Dusun Krajan RT 02 / RW 01',
-      detail: 'Pos Drop-point BUMDes Depan Balai Desa Sukorejo',
-    ),
-  ];
+  late List<AddressData> _addresses;
   int _selectedAddress = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSharedAddresses();
+    AddressBook.addresses.addListener(_onSharedAddressesChanged);
+  }
+
+  void _loadSharedAddresses({String? preserveId}) {
+    _addresses = AddressBook.snapshot().map(_toCheckoutAddress).toList();
+
+    final preservedIndex = preserveId == null
+        ? -1
+        : _addresses.indexWhere((address) => address.id == preserveId);
+    final mainIndex = _addresses.indexWhere((address) => address.isMain);
+
+    if (preservedIndex >= 0) {
+      _selectedAddress = preservedIndex;
+    } else if (mainIndex >= 0) {
+      _selectedAddress = mainIndex;
+    } else {
+      _selectedAddress = 0;
+    }
+  }
+
+  AddressData _toCheckoutAddress(AddressItem address) {
+    final wilayah = address.wilayah;
+    return AddressData(
+      address.recipient,
+      address.phone,
+      '$wilayah (${address.detail})',
+      id: address.id,
+      label: address.label,
+      isMain: address.isPrimary,
+      dusun: wilayah,
+      detail: address.detail,
+      courierNote: address.note,
+      pickupPoint: address.pickupPoint,
+    );
+  }
+
+  List<AddressItem> _toSharedAddresses(List<AddressData> list) {
+    return List.generate(list.length, (index) {
+      final address = list[index];
+      final wilayah = address.dusun.isNotEmpty
+          ? address.dusun
+          : address.address.split(' (').first;
+      final match = RegExp(
+        r'^(.*?),?\s*RT\s*(\d+)\s*/\s*RW\s*(\d+)',
+        caseSensitive: false,
+      ).firstMatch(wilayah);
+
+      return AddressItem(
+        id: address.id.isNotEmpty
+            ? address.id
+            : 'shared-address-${DateTime.now().microsecondsSinceEpoch}-$index',
+        recipient: address.name,
+        phone: address.phone,
+        dusun: match?.group(1)?.trim() ?? 'Dusun Krajan Kulon',
+        rt: match?.group(2) ?? '02',
+        rw: match?.group(3) ?? '03',
+        detail: address.detail.isNotEmpty ? address.detail : address.address,
+        note: address.courierNote,
+        label: address.label,
+        pickupPoint: address.pickupPoint,
+        isPrimary: address.isMain,
+      );
+    });
+  }
+
+  void _onSharedAddressesChanged() {
+    if (!mounted) return;
+    final preserveId = _addresses.isNotEmpty &&
+            _selectedAddress >= 0 &&
+            _selectedAddress < _addresses.length
+        ? _addresses[_selectedAddress].id
+        : null;
+    setState(() => _loadSharedAddresses(preserveId: preserveId));
+  }
 
   AddressData get _currentAddress => _addresses[_selectedAddress];
   String get _name => _currentAddress.name;
@@ -67,6 +137,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   void dispose() {
+    AddressBook.addresses.removeListener(_onSharedAddressesChanged);
     _noteC.dispose();
     _voucherC.dispose();
     super.dispose();
@@ -138,9 +209,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         onChanged: (list, selected) {
           if (!mounted) return;
           setState(() {
-            _addresses = list;
+            _addresses = List<AddressData>.of(list);
             _selectedAddress = selected;
           });
+          AddressBook.replace(_toSharedAddresses(list));
         },
       ),
     );
@@ -1335,6 +1407,7 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class AddressData {
+  final String id;
   final String name;
   final String phone;
 
@@ -1345,19 +1418,23 @@ class AddressData {
   final String dusun;
   final String detail;
   final String courierNote;
+  final String? pickupPoint;
 
   const AddressData(
     this.name,
     this.phone,
     this.address, {
+    this.id = '',
     this.label = 'Rumah',
     this.isMain = false,
     this.dusun = '',
     this.detail = '',
     this.courierNote = '',
+    this.pickupPoint,
   });
 
   AddressData copyWith({
+    String? id,
     String? name,
     String? phone,
     String? address,
@@ -1366,16 +1443,19 @@ class AddressData {
     String? dusun,
     String? detail,
     String? courierNote,
+    String? pickupPoint,
   }) {
     return AddressData(
       name ?? this.name,
       phone ?? this.phone,
       address ?? this.address,
+      id: id ?? this.id,
       label: label ?? this.label,
       isMain: isMain ?? this.isMain,
       dusun: dusun ?? this.dusun,
       detail: detail ?? this.detail,
       courierNote: courierNote ?? this.courierNote,
+      pickupPoint: pickupPoint ?? this.pickupPoint,
     );
   }
 }
@@ -1652,23 +1732,7 @@ class _AddressListSheetState extends State<AddressListSheet> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Icon(
-                    Icons.location_on_outlined,
-                    size: 15,
-                    color: AppColors.green,
-                  ),
-                  const SizedBox(width: 4),
-                  const Expanded(
-                    child: Text(
-                      'Titik Peta Terverifikasi',
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.green,
-                      ),
-                    ),
-                  ),
+                  const Spacer(),
                   InkWell(
                     onTap: () => _edit(index),
                     borderRadius: BorderRadius.circular(6),
@@ -1677,12 +1741,6 @@ class _AddressListSheetState extends State<AddressListSheet> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.edit_outlined,
-                            size: 14,
-                            color: AppColors.green,
-                          ),
-                          SizedBox(width: 4),
                           Text(
                             'Ubah Alamat',
                             style: TextStyle(
@@ -1890,11 +1948,14 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
         name,
         '0$phone',
         '$_dusun ($detail)',
+        id: widget.initial?.id ??
+            'address-${DateTime.now().microsecondsSinceEpoch}',
         label: _label,
         isMain: _isMain,
         dusun: _dusun,
         detail: detail,
         courierNote: _noteC.text.trim(),
+        pickupPoint: widget.initial?.pickupPoint,
       ),
     );
   }
@@ -1962,29 +2023,6 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
     );
   }
 
-  Widget _hint(String text, {IconData icon = Icons.info_outline_rounded}) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 13, color: AppColors.green),
-          const SizedBox(width: 5),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 10,
-                color: AppColors.green,
-                height: 1.3,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final editingDetail = _detailFocus.hasFocus;
@@ -2031,30 +2069,7 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                               color: _kFormText,
                             ),
                           ),
-                          const Text(
-                            'Pastikan patokan rumah jelas untuk kurir BUMDes',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              color: AppColors.muted,
-                            ),
-                          ),
                         ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: const BoxDecoration(
-                        color: AppColors.green,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.person_outline_rounded,
-                        size: 20,
-                        color: Colors.white,
                       ),
                     ),
                   ],
@@ -2075,7 +2090,7 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                         textCapitalization: TextCapitalization.words,
                         style: const TextStyle(fontSize: 13),
                         decoration: _decoration(
-                          hint: 'Contoh: Elsa Maria',
+                          hint: '',
                           suffixIcon: const Padding(
                             padding: EdgeInsets.only(left: 8, right: 12),
                             child: Icon(
@@ -2086,13 +2101,13 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                           ),
                         ),
                       ),
-                      _fieldLabel('Nomor Telepon / WhatsApp', required: true),
+                      _fieldLabel('Nomor Telepon', required: true),
                       TextField(
                         controller: _phoneC,
                         keyboardType: TextInputType.phone,
                         style: const TextStyle(fontSize: 13),
                         decoration: _decoration(
-                          hint: '812-3456-7890',
+                          hint: '',
                           prefixIcon: const Padding(
                             padding: EdgeInsets.only(left: 12, right: 10),
                             child: Text(
@@ -2149,7 +2164,7 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                         },
                       ),
                       _fieldLabel(
-                        'Alamat Lengkap & Patokan Rumah',
+                        'Alamat Lengkap',
                         required: true,
                         trailing: editingDetail
                             ? const Text(
@@ -2204,11 +2219,7 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                           ),
                         ],
                       ),
-                      _hint(
-                        'Patokan detail memudahkan kurir menemukan lokasi '
-                        'tanpa tersesat',
-                      ),
-                      _fieldLabel('Catatan untuk Kurir BUMDes (Opsional)'),
+                      _fieldLabel('Catatan untuk Kurir'),
                       TextField(
                         controller: _noteC,
                         style: const TextStyle(fontSize: 13),
@@ -2224,7 +2235,7 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                           ),
                         ),
                       ),
-                      _fieldLabel('Titik Peta Lokasi Rumah'),
+                      _fieldLabel('Peta Lokasi'),
                       _mapCard(),
                       _fieldLabel('Pilihan Label Alamat'),
                       Wrap(

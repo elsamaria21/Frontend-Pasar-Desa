@@ -4,10 +4,12 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../data/address_book.dart';
 import 'auth_screens.dart';
 import '../providers/order_provider.dart';
 import 'profile_features.dart';
 import 'order_history_screen.dart';
+import 'checkout_screen.dart' show AddressData, AddressListSheet;
 
 const Color _green = Color(0xFF0A9B4A);
 const Color _greenDark = Color(0xFF087B3B);
@@ -131,50 +133,6 @@ class DropPoint {
   ];
 }
 
-class AddressItem {
-  String id;
-  String recipient;
-  String phone;
-  String dusun;
-  String rt;
-  String rw;
-  String detail;
-  String note;
-  String label; // 'Rumah' | 'Toko / Lapak' | 'Kantor Desa'
-  String? pickupPoint;
-  bool isPrimary;
-
-  AddressItem({
-    required this.id,
-    required this.recipient,
-    required this.phone,
-    required this.dusun,
-    required this.rt,
-    required this.rw,
-    required this.detail,
-    this.note = '',
-    this.label = 'Rumah',
-    this.pickupPoint,
-    this.isPrimary = false,
-  });
-
-  String get wilayah => '$dusun, RT $rt / RW $rw';
-
-  AddressItem copy() => AddressItem(
-        id: id,
-        recipient: recipient,
-        phone: phone,
-        dusun: dusun,
-        rt: rt,
-        rw: rw,
-        detail: detail,
-        note: note,
-        label: label,
-        pickupPoint: pickupPoint,
-        isPrimary: isPrimary,
-      );
-}
-
 class ProfileData {
   String name;
   String nik;
@@ -219,33 +177,7 @@ class ProfileData {
             'Desa Sukorejo (Depan Pos Ronda Barat)',
         wargaId: '#WRG-3507-0089',
         dropPoint: DropPoint.options.first,
-        addresses: [
-          AddressItem(
-            id: 'a1',
-            recipient: 'Lutfia',
-            phone: '0812-3456-7890',
-            dusun: 'Dusun Krajan Kulon',
-            rt: '02',
-            rw: '03',
-            detail: 'Jl. Melati No. 14, RT 02 / RW 03, Dusun Krajan Kulon, '
-                'Desa Sukorejo (Depan Pos Ronda Barat)',
-            note: 'Titipkan ke Pak RT bila rumah kosong',
-            label: 'Rumah',
-            isPrimary: true,
-          ),
-          AddressItem(
-            id: 'a2',
-            recipient: 'Belqis',
-            phone: '0821-9876-5432',
-            dusun: 'Dusun Krajan Kulon',
-            rt: '05',
-            rw: '01',
-            detail: 'Kompleks Kios Pasar Desa Blok B No. 05, RT 01, '
-                'Desa Sukorejo',
-            label: 'Toko / Lapak',
-            pickupPoint: 'Pasar Pagi Sukorejo',
-          ),
-        ],
+        addresses: AddressBook.snapshot(),
       );
 
   ProfileData copy() => ProfileData(
@@ -436,6 +368,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ..name = name.isEmpty ? 'Warga' : name
       ..email = user['email'] ?? ''
       ..phone = user['phone'] ?? '';
+    AddressBook.addresses.addListener(_onSharedAddressesChanged);
+  }
+
+  void _onSharedAddressesChanged() {
+    if (!mounted) return;
+    setState(() => _data.addresses = AddressBook.snapshot());
+  }
+
+  @override
+  void dispose() {
+    AddressBook.addresses.removeListener(_onSharedAddressesChanged);
+    super.dispose();
   }
 
   void _push(Widget page) =>
@@ -453,13 +397,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _openAddress() async {
-    final result = await Navigator.push<ProfileData>(
-      context,
-      MaterialPageRoute(builder: (_) => AddressScreen(data: _data)),
+    // Gunakan model dan bottom sheet yang sama persis dengan Checkout.
+    final profileAddresses = AddressBook.snapshot();
+    final checkoutAddresses = profileAddresses.map((a) {
+      final wilayah = '${a.dusun}, RT ${a.rt} / RW ${a.rw}';
+      return AddressData(
+        a.recipient,
+        a.phone,
+        '$wilayah (${a.detail})',
+        id: a.id,
+        label: a.label,
+        isMain: a.isPrimary,
+        dusun: wilayah,
+        detail: a.detail,
+        courierNote: a.note,
+        pickupPoint: a.pickupPoint,
+      );
+    }).toList();
+
+    // Pastikan selalu ada satu alamat agar sheet Checkout dapat dibuka.
+    if (checkoutAddresses.isEmpty) {
+      checkoutAddresses.add(
+        AddressData(
+          _data.name,
+          _data.phone,
+          '${_data.dusun}, RT ${_data.rt} / RW ${_data.rw} (${_data.landmark})',
+          id: 'profile-fallback-address',
+          label: 'Rumah',
+          isMain: true,
+          dusun: '${_data.dusun}, RT ${_data.rt} / RW ${_data.rw}',
+          detail: _data.landmark,
+        ),
+      );
+    }
+
+    final selectedIndex = checkoutAddresses.indexWhere((a) => a.isMain);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => AddressListSheet(
+        addresses: checkoutAddresses,
+        selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+        maxAddresses: 4,
+        onChanged: (updated, selected) {
+          if (!mounted) return;
+          final converted = <AddressItem>[];
+          for (var i = 0; i < updated.length; i++) {
+            final a = updated[i];
+            final wilayah =
+                a.dusun.isNotEmpty ? a.dusun : a.address.split(' (').first;
+            final match = RegExp(
+              r'^(.*?),?\s*RT\s*(\d+)\s*/\s*RW\s*(\d+)',
+              caseSensitive: false,
+            ).firstMatch(wilayah);
+            final dusun = match?.group(1)?.trim() ?? _data.dusun;
+            final rt = match?.group(2) ?? _data.rt;
+            final rw = match?.group(3) ?? _data.rw;
+
+            converted.add(
+              AddressItem(
+                id: a.id.isNotEmpty
+                    ? a.id
+                    : (i < profileAddresses.length
+                        ? profileAddresses[i].id
+                        : 'profile-address-${DateTime.now().microsecondsSinceEpoch}-$i'),
+                recipient: a.name,
+                phone: a.phone,
+                dusun: dusun,
+                rt: rt,
+                rw: rw,
+                detail: a.detail.isNotEmpty ? a.detail : a.address,
+                note: a.courierNote,
+                label: a.label,
+                pickupPoint: a.pickupPoint,
+                isPrimary: i == selected,
+              ),
+            );
+          }
+
+          // Simpan ke sumber data bersama agar perubahan dari Profil
+          // langsung tersedia juga di halaman Checkout.
+          AddressBook.replace(converted);
+        },
+      ),
     );
-    if (result != null && mounted) {
-      setState(() => _data = result);
-      _toast('Alamat & drop-point berhasil disimpan');
+    if (mounted) {
+      _toast('Alamat berhasil diperbarui');
     }
   }
 
@@ -741,19 +768,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   height: 1.45,
                 ),
               ),
-              const SizedBox(height: 10),
-              const Row(
-                children: [
-                  Icon(Icons.check_circle_outline, color: _green, size: 18),
-                  SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Titik jangkauan bebas ongkir Kurir Desa Sukorejo',
-                      style: TextStyle(fontSize: 12.5, color: _textGrey),
-                    ),
-                  ),
-                ],
-              ),
               const SizedBox(height: 14),
               Material(
                 color: _greenLight,
@@ -774,7 +788,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Icon(Icons.add, size: 18, color: _greenDark),
                         SizedBox(width: 6),
                         Text(
-                          'Atur Alamat & Drop-Point Pengantaran',
+                          'Atur Alamat',
                           style: TextStyle(
                             fontSize: 13.5,
                             color: _greenDark,
@@ -999,7 +1013,7 @@ class _AddressScreenState extends State<AddressScreen> {
   @override
   void initState() {
     super.initState();
-    _data = widget.data.copy();
+    _data = widget.data.copy()..addresses = AddressBook.snapshot();
     _ensurePrimary();
   }
 
@@ -1029,6 +1043,7 @@ class _AddressScreenState extends State<AddressScreen> {
 
   void _close() {
     _syncToProfile();
+    AddressBook.replace(_data.addresses);
     Navigator.pop(context, _data);
   }
 

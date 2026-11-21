@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/product.dart';
@@ -16,16 +18,228 @@ import 'topup_screen.dart';
 import 'order_history_screen.dart' show OrderHistoryScreen;
 import '../widgets/app_image.dart';
 
+class TopCartToast {
+  static OverlayEntry? _entry;
+
+  static void show(
+    BuildContext context,
+    String productName, {
+    required VoidCallback onTap,
+  }) {
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay == null) return;
+
+    _entry?.remove();
+    _entry = null;
+
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => _TopCartToast(
+        productName: productName,
+        onTap: onTap,
+        onDismiss: () {
+          if (identical(_entry, entry)) {
+            entry.remove();
+            _entry = null;
+          }
+        },
+      ),
+    );
+
+    _entry = entry;
+    overlay.insert(entry);
+  }
+}
+
+class _TopCartToast extends StatefulWidget {
+  final String productName;
+  final VoidCallback onTap;
+  final VoidCallback onDismiss;
+
+  const _TopCartToast({
+    required this.productName,
+    required this.onTap,
+    required this.onDismiss,
+  });
+
+  @override
+  State<_TopCartToast> createState() => _TopCartToastState();
+}
+
+class _TopCartToastState extends State<_TopCartToast> {
+  bool _visible = false;
+  bool _isClosing = false;
+  Timer? _dismissTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _dismissTimer = Timer(const Duration(milliseconds: 3500), _hide);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _visible = true);
+    });
+  }
+
+  void _hide() {
+    if (!mounted || _isClosing) return;
+    _isClosing = true;
+    setState(() => _visible = false);
+    Future.delayed(const Duration(milliseconds: 240), () {
+      if (mounted) widget.onDismiss();
+    });
+  }
+
+  void _openCart() {
+    if (_isClosing) return;
+    _dismissTimer?.cancel();
+    _hide();
+    widget.onTap();
+  }
+
+  @override
+  void dispose() {
+    _dismissTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final topInset = MediaQuery.of(context).padding.top;
+    final radius = BorderRadius.circular(16);
+
+    return Positioned(
+      top: topInset + 10,
+      left: 14,
+      right: 14,
+      child: Material(
+        color: Colors.transparent,
+        child: AnimatedSlide(
+          offset: _visible ? Offset.zero : const Offset(0, -0.28),
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          child: AnimatedOpacity(
+            opacity: _visible ? 1 : 0,
+            duration: const Duration(milliseconds: 220),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _openCart,
+                borderRadius: radius,
+                child: Ink(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 13,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: radius,
+                    border: Border.all(
+                      color: const Color(0xFFDDEBE1),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF173D2A).withValues(alpha: 0.12),
+                        blurRadius: 20,
+                        offset: const Offset(0, 7),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEAF6EE),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.check_rounded,
+                          color: Color(0xFF16834A),
+                          size: 23,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Berhasil ditambahkan',
+                              textAlign: TextAlign.left,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Color(0xFF183326),
+                                fontSize: 13.5,
+                                height: 1.2,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${widget.productName} masuk ke keranjang',
+                              textAlign: TextAlign.left,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF718078),
+                                fontSize: 11.5,
+                                height: 1.25,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Lihat',
+                            style: TextStyle(
+                              color: Color(0xFF16834A),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          SizedBox(width: 3),
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            color: Color(0xFF16834A),
+                            size: 16,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+enum NotificationTarget { none, cart, orders }
+
 class AppNotification {
   final String title;
   final String body;
   final DateTime time;
+  final NotificationTarget target;
   bool read;
 
   AppNotification({
     required this.title,
     required this.body,
     required this.time,
+    this.target = NotificationTarget.none,
     this.read = false,
   });
 }
@@ -36,9 +250,18 @@ class NotificationCenter {
 
   static int get unread => items.value.where((n) => !n.read).length;
 
-  static void add(String title, String body) {
+  static void add(
+    String title,
+    String body, {
+    NotificationTarget target = NotificationTarget.none,
+  }) {
     items.value = [
-      AppNotification(title: title, body: body, time: DateTime.now()),
+      AppNotification(
+        title: title,
+        body: body,
+        time: DateTime.now(),
+        target: target,
+      ),
       ...items.value,
     ];
   }
@@ -57,6 +280,150 @@ class DashboardNav {
   static void goTo(BuildContext context, int index) {
     Navigator.of(context).popUntil((route) => route.isFirst);
     tab.value = index;
+  }
+}
+
+class CartAwareBottomNav extends StatelessWidget {
+  final int current;
+  final ValueChanged<int> onTap;
+
+  const CartAwareBottomNav({
+    super.key,
+    required this.current,
+    required this.onTap,
+  });
+
+  static const List<_NavItemData> _items = [
+    _NavItemData(
+        'Beranda', Icons.storefront_outlined, Icons.storefront_rounded),
+    _NavItemData('Kategori', Icons.grid_view_rounded, Icons.grid_view_rounded),
+    _NavItemData(
+      'Keranjang',
+      Icons.shopping_cart_outlined,
+      Icons.shopping_cart_rounded,
+    ),
+    _NavItemData(
+      'Pesanan',
+      Icons.receipt_long_outlined,
+      Icons.receipt_long_rounded,
+    ),
+    _NavItemData('Profil', Icons.person_outline_rounded, Icons.person_rounded),
+  ];
+
+  static const int _cartIndex = 2;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xFFEEF2EF))),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 62,
+          child: Row(
+            children: [
+              for (int i = 0; i < _items.length; i++)
+                Expanded(
+                  child: _buildItem(context, i),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItem(BuildContext context, int index) {
+    final data = _items[index];
+    final selected = current == index;
+    final color = selected ? AppColors.green : const Color(0xFF25332D);
+
+    Widget icon = Icon(
+      selected ? data.activeIcon : data.icon,
+      color: color,
+      size: 24,
+    );
+
+    if (index == _cartIndex) {
+      icon = Consumer<CartProvider>(
+        builder: (context, cart, child) {
+          return _NavBadge(count: cart.count, child: child!);
+        },
+        child: icon,
+      );
+    }
+
+    return InkWell(
+      onTap: () => onTap(index),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          icon,
+          const SizedBox(height: 3),
+          Text(
+            data.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavItemData {
+  final String label;
+  final IconData icon;
+  final IconData activeIcon;
+
+  const _NavItemData(this.label, this.icon, this.activeIcon);
+}
+
+class _NavBadge extends StatelessWidget {
+  final int count;
+  final Widget child;
+
+  const _NavBadge({required this.count, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        if (count > 0)
+          Positioned(
+            right: -9,
+            top: -5,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE53935),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: Text(
+                count > 99 ? '99+' : '$count',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }
 
@@ -190,6 +557,8 @@ void showAddressSheet(BuildContext context) {
 }
 
 void showNotificationSheet(BuildContext context) {
+  final rootContext = context;
+
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.white,
@@ -270,51 +639,75 @@ void showNotificationSheet(BuildContext context) {
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, i) {
                           final n = list[i];
-                          return Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: n.read
-                                  ? Colors.white
-                                  : const Color(0xFFEAF7EF),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color:
-                                    n.read ? AppColors.border : AppColors.green,
+                          final tappable = n.target != NotificationTarget.none;
+
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: tappable
+                                ? () {
+                                    n.read = true;
+                                    Navigator.pop(sheetContext);
+                                    if (!rootContext.mounted) return;
+                                    final tab =
+                                        n.target == NotificationTarget.cart
+                                            ? 2
+                                            : 3;
+                                    DashboardNav.goTo(rootContext, tab);
+                                  }
+                                : null,
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: n.read
+                                    ? Colors.white
+                                    : const Color(0xFFEAF7EF),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: n.read
+                                      ? AppColors.border
+                                      : AppColors.green,
+                                ),
                               ),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.notifications_active_outlined,
-                                  color: AppColors.green,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        n.title,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        n.body,
-                                        style: const TextStyle(
-                                          color: AppColors.muted,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.notifications_active_outlined,
+                                    color: AppColors.green,
+                                    size: 22,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          n.title,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          n.body,
+                                          style: const TextStyle(
+                                            color: AppColors.muted,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (tappable)
+                                    const Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: AppColors.muted,
+                                      size: 20,
+                                    ),
+                                ],
+                              ),
                             ),
                           );
                         },
@@ -550,7 +943,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNav(
+      bottomNavigationBar: CartAwareBottomNav(
         current: current,
         onTap: changeTab,
       ),
@@ -922,12 +1315,6 @@ class _HomeBodyState extends State<_HomeBody> {
                                       fontWeight: FontWeight.w900,
                                       fontSize: 11,
                                     ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Icon(
-                                    Icons.arrow_forward_rounded,
-                                    color: AppColors.green,
-                                    size: 17,
                                   ),
                                 ],
                               ),
@@ -1343,7 +1730,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: BottomNav(
+      bottomNavigationBar: CartAwareBottomNav(
         current: 1,
         onTap: (index) => DashboardNav.goTo(context, index),
       ),
@@ -1490,21 +1877,20 @@ class CategoryProductCard extends StatelessWidget {
   }
 
   void _addToCart(BuildContext context) {
+    final productName = product.name;
     context.read<CartProvider>().add(product);
 
     NotificationCenter.add(
       'Keranjang diperbarui',
-      '${product.shortName} ditambahkan ke keranjang',
+      '$productName ditambahkan ke keranjang',
+      target: NotificationTarget.cart,
     );
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('${product.shortName} ditambahkan ke keranjang'),
-          duration: const Duration(milliseconds: 900),
-        ),
-      );
+    TopCartToast.show(
+      context,
+      productName,
+      onTap: () => DashboardNav.goTo(context, 2),
+    );
   }
 
   @override
@@ -1994,21 +2380,20 @@ class _FigmaProductCard extends StatelessWidget {
   }
 
   void _addToCart(BuildContext context) {
+    final productName = _title;
     context.read<CartProvider>().add(product);
 
     NotificationCenter.add(
       'Keranjang diperbarui',
-      '${product.shortName} ditambahkan ke keranjang',
+      '$productName ditambahkan ke keranjang',
+      target: NotificationTarget.cart,
     );
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('${product.shortName} ditambahkan ke keranjang'),
-          duration: const Duration(milliseconds: 900),
-        ),
-      );
+    TopCartToast.show(
+      context,
+      productName,
+      onTap: () => DashboardNav.goTo(context, 2),
+    );
   }
 
   @override
@@ -2414,7 +2799,7 @@ Future<void> showImageSearchSheet(BuildContext context) async {
               ),
               const SizedBox(height: 4),
               const Text(
-                'Foto atau pilih gambar produk untuk melihat produk yang serupa.',
+                'Ambil foto produk dengan kamera atau pilih foto dari perangkat.',
                 style: TextStyle(
                   color: AppColors.muted,
                   fontSize: 11.5,
@@ -2425,14 +2810,14 @@ Future<void> showImageSearchSheet(BuildContext context) async {
               _ImageSourceOption(
                 icon: Icons.photo_camera_outlined,
                 title: 'Scan dengan Kamera',
-                subtitle: 'Ambil foto produk langsung',
+                subtitle: 'Gunakan kamera belakang HP',
                 onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
               ),
               const SizedBox(height: 10),
               _ImageSourceOption(
                 icon: Icons.photo_library_outlined,
                 title: 'Pilih dari Galeri',
-                subtitle: 'Gunakan foto yang sudah ada',
+                subtitle: 'Pilih satu foto yang tersimpan di perangkat',
                 onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
               ),
             ],
@@ -2444,26 +2829,82 @@ Future<void> showImageSearchSheet(BuildContext context) async {
 
   if (source == null || !context.mounted) return;
 
+  final picker = ImagePicker();
+
   try {
-    final picked = await ImagePicker().pickImage(
+    final picked = await picker.pickImage(
       source: source,
-      maxWidth: 1280,
-      imageQuality: 85,
+      preferredCameraDevice: CameraDevice.rear,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 90,
     );
 
     if (picked == null || !context.mounted) return;
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => ImageSearchScreen(image: picked)),
-    );
-  } catch (_) {
+    final imageFile = File(picked.path);
+    if (!await imageFile.exists()) {
+      throw const FileSystemException('File foto tidak ditemukan.');
+    }
+
     if (!context.mounted) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ImageSearchScreen(image: picked),
+      ),
+    );
+  } on PlatformException catch (error) {
+    if (!context.mounted) return;
+
+    String message;
+    switch (error.code) {
+      case 'camera_access_denied':
+      case 'camera_access_denied_without_prompt':
+        message = 'Izin kamera belum diberikan. Aktifkan izin Kamera melalui '
+            'Pengaturan HP > Aplikasi > PasarDesa > Izin.';
+        break;
+      case 'photo_access_denied':
+      case 'photo_access_denied_without_prompt':
+        message =
+            'Akses foto ditolak. Izinkan akses foto melalui Pengaturan HP.';
+        break;
+      case 'no_available_camera':
+        message = 'Kamera tidak ditemukan. Coba gunakan HP fisik atau periksa '
+            'pengaturan kamera emulator.';
+        break;
+      default:
+        message = source == ImageSource.camera
+            ? 'Kamera gagal dibuka (${error.code}). Periksa izin kamera '
+                'dan pastikan perangkat memiliki kamera.'
+            : 'Galeri gagal dibuka (${error.code}). Coba pilih foto lagi.';
+    }
+
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
-          content: Text('Tidak bisa membuka kamera / galeri'),
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Mengerti',
+            onPressed: () {},
+          ),
+        ),
+      );
+  } catch (error) {
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            source == ImageSource.camera
+                ? 'Tidak dapat mengambil foto dari kamera: $error'
+                : 'Tidak dapat membaca foto dari galeri: $error',
+          ),
+          duration: const Duration(seconds: 5),
         ),
       );
   }
@@ -2764,7 +3205,7 @@ class _ImageSearchScreenState extends State<ImageSearchScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: BottomNav(
+      bottomNavigationBar: CartAwareBottomNav(
         current: 0,
         onTap: (index) => DashboardNav.goTo(context, index),
       ),

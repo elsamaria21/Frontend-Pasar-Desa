@@ -82,6 +82,29 @@ class AuthRepository {
     );
   }
 
+  Future<void> requestPasswordResetOtp({
+    required String phone,
+  }) async {
+    await _api.requestPasswordResetOtp(phone: phone);
+  }
+
+  Future<String> verifyPasswordResetOtp({
+    required String phone,
+    required String otp,
+  }) async {
+    return _api.verifyPasswordResetOtp(phone: phone, otp: otp);
+  }
+
+  Future<void> resetPassword({
+    required String resetToken,
+    required String newPassword,
+  }) async {
+    await _api.resetPassword(
+      resetToken: resetToken,
+      newPassword: newPassword,
+    );
+  }
+
   Future<void> logout() async {
     await _secureStorage.clearAuthSession();
   }
