@@ -686,7 +686,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                         color: AppColors.green,
                       ),
                       const Spacer(),
-                      _statusChip(st),
+                      _statusChip(st, pickup: o.isPickup),
                     ],
                   ),
                 ),
@@ -1141,8 +1141,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     );
   }
 
-  Widget _statusChip(OrderStatus s) {
-    final String label = stageLabel(s);
+  Widget _statusChip(OrderStatus s, {bool pickup = false}) {
+    final String label = stageLabel(s, pickup: pickup);
     late final Color fg;
     late final Color bg;
     IconData? icon;

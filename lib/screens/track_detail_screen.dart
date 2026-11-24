@@ -393,10 +393,15 @@ class _TrackDetailScreenState extends State<TrackDetailScreen> {
         subtitle = 'Petani menyiapkan dan mengemas hasil bumi pesanan Anda.';
         break;
       case OrderStatus.dikirim:
-        chip = 'Sedang Dikirim';
-        title = 'Estimasi Tiba hari ini, ${_clockAt(o, 120)}';
-        subtitle = 'Kurir BUMDes sedang mengantar pesanan Anda ke titik '
-            'pengantaran. Mohon siap menerima.';
+        chip = o.isPickup ? 'Siap Diambil' : 'Sedang Dikirim';
+        title = o.isPickup
+            ? 'Pesanan siap diambil di pos'
+            : 'Estimasi Tiba hari ini, ${_clockAt(o, 120)}';
+        subtitle = o.isPickup
+            ? (o.courierInfo ?? 'Ambil pesanan di pos BUMDes, lalu tekan '
+                '"Pesanan Diterima".')
+            : 'Kurir BUMDes sedang mengantar pesanan Anda ke titik '
+                'pengantaran. Mohon siap menerima.';
         break;
       default:
         chip = 'Pesanan Selesai';
@@ -1182,14 +1187,16 @@ class _TrackDetailScreenState extends State<TrackDetailScreen> {
                 color: _red,
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _bigButton(
-                'Hubungi Kurir',
-                onTap: _openChat,
-                icon: Icons.chat_bubble_outline_rounded,
+            if (!o.isPickup) ...[
+              const SizedBox(width: 10),
+              Expanded(
+                child: _bigButton(
+                  'Hubungi Kurir',
+                  onTap: _openChat,
+                  icon: Icons.chat_bubble_outline_rounded,
+                ),
               ),
-            ),
+            ],
           ],
         );
         break;

@@ -789,11 +789,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         subtitle = 'Petani menyiapkan dan mengemas hasil bumi pesanan Anda.';
         break;
       case OrderStatus.dikirim:
-        chip = 'Dikirim';
-        title = 'Pesanan dalam perjalanan';
+        chip = o.isPickup ? 'Siap Diambil' : 'Dikirim';
+        title = o.isPickup
+            ? 'Pesanan siap diambil di pos'
+            : 'Pesanan dalam perjalanan';
         subtitle = (o.courierInfo != null && o.courierInfo!.isNotEmpty)
             ? o.courierInfo!
-            : 'Kurir BUMDes mengantar langsung ke rumah Anda.';
+            : o.isPickup
+                ? 'Ambil pesanan di pos BUMDes, lalu tekan "Pesanan Diterima".'
+                : 'Kurir BUMDes mengantar langsung ke rumah Anda.';
         break;
       default:
         final m = orderMeta.metaOf(o.id);
@@ -1109,14 +1113,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 color: _kRed,
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _bigButton(
-                'Hubungi Kurir',
-                onTap: _openChat,
-                icon: Icons.chat_bubble_outline_rounded,
+            if (!o.isPickup) ...[
+              const SizedBox(width: 10),
+              Expanded(
+                child: _bigButton(
+                  'Hubungi Kurir',
+                  onTap: _openChat,
+                  icon: Icons.chat_bubble_outline_rounded,
+                ),
               ),
-            ),
+            ],
           ],
         );
 

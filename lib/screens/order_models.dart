@@ -1,5 +1,10 @@
 enum OrderStatus { diproses, dikirim, selesai, dibatalkan }
 
+/// Judul pengiriman untuk pesanan ambil mandiri. Dipakai checkout dan sinkron server
+/// supaya layar pesanan tahu pembeli mengambil sendiri (tanpa kurir).
+const String kJudulAmbilMandiri = 'Ambil Mandiri di Pos BUMDes';
+const String kJudulKurirDesa = 'Kurir Desa Sukorejo';
+
 class OrderLine {
   final String name;
   final String variant;
@@ -96,4 +101,7 @@ class OrderEntry {
   }
 
   int get itemCount => lines.fold(0, (s, l) => s + l.qty);
+
+  /// Pembeli mengambil sendiri di pos: tidak ada kurir, tidak ada pengantaran.
+  bool get isPickup => courierTitle == kJudulAmbilMandiri;
 }

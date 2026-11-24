@@ -1,5 +1,6 @@
 ﻿import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
 import '../data/address_book.dart';
@@ -11,8 +12,9 @@ import '../widgets/checkout_failed_dialog.dart';
 import '../widgets/common.dart';
 import 'dashboard_screen.dart';
 import 'order_models.dart';
+import 'map_picker_screen.dart';
 import 'order_success_screen.dart';
-import 'payment_screen.dart';
+import 'midtrans_payment_screen.dart';
 import 'topup_screen.dart';
 import '../widgets/app_image.dart';
 
@@ -88,6 +90,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       detail: address.detail,
       courierNote: address.note,
       pickupPoint: address.pickupPoint,
+      latitude: address.latitude,
+      longitude: address.longitude,
     );
   }
 
@@ -116,6 +120,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         label: address.label,
         pickupPoint: address.pickupPoint,
         isPrimary: address.isMain,
+        latitude: address.latitude,
+        longitude: address.longitude,
       );
     });
   }
@@ -130,7 +136,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _loadSharedAddresses(preserveId: preserveId));
   }
 
-  AddressData get _currentAddress => _addresses[_selectedAddress];
+  static const AddressData _noAddress = AddressData(
+    'Belum ada alamat',
+    '-',
+    'Ketuk "Ubah Titik" untuk menambah alamat pengiriman.',
+  );
+
+  AddressData get _currentAddress =>
+      _addresses.isEmpty ? _noAddress : _addresses[_selectedAddress];
   String get _name => _currentAddress.name;
   String get _phone => _currentAddress.phone;
   String get _address => _currentAddress.address;
@@ -153,7 +166,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String get _payLabel {
     switch (_pay) {
       case PayMethod.qris:
-        return 'QRIS Desa / Transfer BUMDes';
+        return 'QRIS, Virtual Account & E-Wallet';
       case PayMethod.cod:
         return 'Bayar di Tempat (COD)';
       case PayMethod.saldo:
@@ -218,24 +231,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Future<String?> _openQrisPayment(int total) async {
-    final now = DateTime.now();
-    final ref =
-        'PSD-${now.year}-${now.millisecondsSinceEpoch.toString().substring(7)}';
-
-    return Navigator.push<String>(
+  /// Membuka halaman bayar Midtrans (QRIS / Virtual Account / e-wallet).
+  /// `true` hanya bila server sudah mengonfirmasi lunas.
+  Future<bool> _openMidtransPayment(ServerOrder order, int total) async {
+    final paid = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => PaymentScreen(
-          total: total,
-          orderRef: ref,
-          cartCount: context.read<CartProvider>().items.length,
-        ),
+        builder: (_) => MidtransPaymentScreen(orderCode: order.kode, total: total),
       ),
     );
+    return paid == true;
   }
 
   Future<void> _submit(_OrderData o) async {
+    if (_addresses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tambahkan alamat pengiriman dulu')),
+      );
+      return;
+    }
+
     if (_pay == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Pilih metode pembayaran dulu')),
@@ -276,7 +291,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         delivery:
             _delivery == DeliveryOption.kurir ? 'kurir-desa' : 'ambil-mandiri',
         paymentMethod: _pay == PayMethod.qris
-            ? 'QRIS'
+            ? 'Midtrans'
             : _pay == PayMethod.saldo
                 ? 'Saldo PasarDesa'
                 : 'COD BUMDes',
@@ -287,17 +302,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       String paymentLabel;
 
       if (_pay == PayMethod.qris) {
-        final paidLabel = await _openQrisPayment(o.total);
+        final paid = await _openMidtransPayment(serverOrder, o.total);
         if (!mounted) return;
 
-        if (paidLabel == null) {
+        if (!paid) {
           await orderStore.batalkanDiServer(serverOrder.id);
           if (!mounted) return;
           setState(() => _loading = false);
           return;
         }
 
-        paymentLabel = paidLabel;
+        paymentLabel = 'Midtrans Lunas';
       } else if (_pay == PayMethod.saldo) {
         if (o.total > _saldo) {
           await orderStore.batalkanDiServer(serverOrder.id);
@@ -343,8 +358,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }).toList();
 
       final courierTitle = _delivery == DeliveryOption.kurir
-          ? 'Kurir Desa Sukorejo'
-          : 'Ambil Mandiri di Pos BUMDes';
+          ? kJudulKurirDesa
+          : kJudulAmbilMandiri;
 
       final courierInfo = _delivery == DeliveryOption.kurir
           ? 'Estimasi diantar sore ini (15:00 - 17:00 WIB)'
@@ -1041,8 +1056,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _payTile(
           value: PayMethod.qris,
           icon: Icons.qr_code_2,
-          title: 'QRIS Desa / Transfer BUMDes',
-          subtitle: 'QRIS, BCA, BRI, Mandiri, e-wallet',
+          title: 'QRIS, Virtual Account & E-Wallet',
+          subtitle: 'Dibayar aman lewat Midtrans',
         ),
         const SizedBox(height: 8),
         _payTile(
@@ -1420,6 +1435,10 @@ class AddressData {
   final String courierNote;
   final String? pickupPoint;
 
+  /// Titik antar di peta (null = belum dipilih).
+  final double? latitude;
+  final double? longitude;
+
   const AddressData(
     this.name,
     this.phone,
@@ -1431,7 +1450,11 @@ class AddressData {
     this.detail = '',
     this.courierNote = '',
     this.pickupPoint,
+    this.latitude,
+    this.longitude,
   });
+
+  bool get hasPin => latitude != null && longitude != null;
 
   AddressData copyWith({
     String? id,
@@ -1444,6 +1467,8 @@ class AddressData {
     String? detail,
     String? courierNote,
     String? pickupPoint,
+    double? latitude,
+    double? longitude,
   }) {
     return AddressData(
       name ?? this.name,
@@ -1456,6 +1481,8 @@ class AddressData {
       detail: detail ?? this.detail,
       courierNote: courierNote ?? this.courierNote,
       pickupPoint: pickupPoint ?? this.pickupPoint,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 }
@@ -1489,7 +1516,8 @@ class _AddressListSheetState extends State<AddressListSheet> {
   void initState() {
     super.initState();
     _list = List.of(widget.addresses);
-    _selected = widget.selectedIndex.clamp(0, _list.length - 1);
+    _selected =
+        _list.isEmpty ? 0 : widget.selectedIndex.clamp(0, _list.length - 1);
   }
 
   bool get _isFull => _list.length >= widget.maxAddresses;
@@ -1590,6 +1618,23 @@ class _AddressListSheetState extends State<AddressListSheet> {
                 style: TextStyle(fontSize: 11.5, color: AppColors.muted),
               ),
               const SizedBox(height: 14),
+              ValueListenableBuilder<String?>(
+                valueListenable: AddressBook.syncError,
+                builder: (context, error, _) {
+                  if (error == null) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      error,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        height: 1.35,
+                        color: AppColors.red,
+                      ),
+                    ),
+                  );
+                },
+              ),
               Flexible(
                 child: SingleChildScrollView(
                   child: Column(
@@ -1827,19 +1872,6 @@ const List<_LabelOpt> _kLabelOpts = [
   _LabelOpt('Kantor Desa', Icons.account_balance_outlined),
 ];
 
-class _PinSpot {
-  final Alignment align;
-  final String coord;
-
-  const _PinSpot(this.align, this.coord);
-}
-
-const List<_PinSpot> _kPinSpots = [
-  _PinSpot(Alignment(0, -0.1), '-7.5381, 110.8294'),
-  _PinSpot(Alignment(-0.35, 0.1), '-7.5384, 110.8290'),
-  _PinSpot(Alignment(0.35, -0.25), '-7.5379, 110.8298'),
-];
-
 class CheckoutAddressFormScreen extends StatefulWidget {
   final AddressData? initial;
 
@@ -1860,7 +1892,8 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
   late String _dusun;
   late String _label;
   late bool _isMain;
-  int _pin = 0;
+  double? _lat;
+  double? _lng;
 
   bool get _editing => widget.initial != null;
   bool get _lockMain => widget.initial?.isMain ?? false;
@@ -1896,6 +1929,8 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
         ? a!.label
         : _kLabelOpts.first.name;
     _isMain = a?.isMain ?? false;
+    _lat = a?.latitude;
+    _lng = a?.longitude;
 
     _detailFocus.addListener(() {
       if (mounted) setState(() {});
@@ -1956,6 +1991,8 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
         detail: detail,
         courierNote: _noteC.text.trim(),
         pickupPoint: widget.initial?.pickupPoint,
+        latitude: _lat,
+        longitude: _lng,
       ),
     );
   }
@@ -2235,7 +2272,7 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                           ),
                         ),
                       ),
-                      _fieldLabel('Peta Lokasi'),
+                      _fieldLabel('Titik Antar di Peta'),
                       _mapCard(),
                       _fieldLabel('Pilihan Label Alamat'),
                       Wrap(
@@ -2370,8 +2407,27 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
     );
   }
 
+  Future<void> _pickPin() async {
+    FocusScope.of(context).unfocus();
+
+    final result = await Navigator.push<LatLng>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapPickerScreen(
+          initial: (_lat != null && _lng != null) ? LatLng(_lat!, _lng!) : null,
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+    setState(() {
+      _lat = result.latitude;
+      _lng = result.longitude;
+    });
+  }
+
   Widget _mapCard() {
-    final spot = _kPinSpots[_pin];
+    final hasPin = _lat != null && _lng != null;
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -2384,77 +2440,72 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              height: 112,
-              width: double.infinity,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: CustomPaint(painter: _AddrMapPainter()),
-                  ),
-                  Align(
-                    alignment: spot.align,
-                    child: const Icon(
-                      Icons.location_on_rounded,
-                      color: AppColors.green,
-                      size: 34,
-                    ),
-                  ),
-                  Positioned(
-                    left: 8,
-                    bottom: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
+            child: GestureDetector(
+              onTap: _pickPin,
+              behavior: HitTestBehavior.opaque,
+              child: SizedBox(
+                height: 112,
+                width: double.infinity,
+                child: hasPin
+                    ? IgnorePointer(
+                        child: MapPinPreview(
+                          point: LatLng(_lat!, _lng!),
+                          height: 112,
+                        ),
+                      )
+                    : Stack(
                         children: [
-                          Icon(
-                            Icons.gps_fixed_rounded,
-                            size: 11,
-                            color: AppColors.green,
+                          Positioned.fill(
+                            child: CustomPaint(painter: _AddrMapPainter()),
                           ),
-                          SizedBox(width: 4),
-                          Text(
-                            'GPS Akurat (±3m)',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.muted,
+                          const Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.add_location_alt_outlined,
+                                  size: 30,
+                                  color: AppColors.green,
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Ketuk untuk menaruh titik antar',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: _kFormText,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
           const SizedBox(height: 10),
           Row(
             children: [
-              const Icon(
-                Icons.location_on_rounded,
+              Icon(
+                hasPin
+                    ? Icons.location_on_rounded
+                    : Icons.location_off_outlined,
                 size: 18,
-                color: AppColors.green,
+                color: hasPin ? AppColors.green : AppColors.muted,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Titik Lokasi Terpilih (RT 02 Sukorejo)',
+                    Text(
+                      hasPin
+                          ? 'Titik Antar Sudah Dipilih'
+                          : 'Titik Antar Belum Dipilih',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w900,
                         color: _kFormText,
@@ -2462,7 +2513,9 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Koordinat: ${spot.coord}',
+                      hasPin
+                          ? 'Koordinat: ${formatCoord(_lat!, _lng!)}'
+                          : 'Bantu kurir menemukan rumah Anda dengan tepat',
                       style: const TextStyle(
                         fontSize: 9.5,
                         color: AppColors.muted,
@@ -2473,9 +2526,7 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
               ),
               const SizedBox(width: 8),
               InkWell(
-                onTap: () {
-                  setState(() => _pin = (_pin + 1) % _kPinSpots.length);
-                },
+                onTap: _pickPin,
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -2487,18 +2538,18 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFFD5DBD7)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.map_outlined,
                         size: 14,
                         color: AppColors.green,
                       ),
-                      SizedBox(width: 5),
+                      const SizedBox(width: 5),
                       Text(
-                        'Ubah Pin Peta',
-                        style: TextStyle(
+                        hasPin ? 'Ubah Titik' : 'Pilih di Peta',
+                        style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w900,
                           color: AppColors.green,

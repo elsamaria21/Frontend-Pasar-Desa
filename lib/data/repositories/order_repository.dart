@@ -171,7 +171,15 @@ class OrderRepository {
     final items = <OrderItemsTableCompanion>[];
 
     for (final row in rows) {
+      // Pesanan yang masih menunggu pembayaran Midtrans belum jadi pesanan: tampil setelah lunas.
+      // (Bila tidak dibayar, server membatalkannya sendiri dan stok dikembalikan.)
+      if ('${row['status']}' == 'pending' &&
+          '${row['payment_status']}' == 'menunggu') {
+        continue;
+      }
+
       final kode = '${row['order_code']}';
+      final pengiriman = _pengirimanDariServer(row);
       final created = DateTime.tryParse('${row['created_at']}')?.toLocal() ??
           DateTime.now();
 
@@ -180,10 +188,10 @@ class OrderRepository {
         seller: 'PasarDesa Sukorejo',
         dateLabel: _dateLabel(created),
         status: statusFromServer('${row['status']}').name,
-        total: _int(row['total']),
+        total: _int(row['total_bayar'] ?? row['total']),
         paymentLabel: '${row['payment_method'] ?? '-'}',
-        courierTitle: null,
-        courierInfo: null,
+        courierTitle: pengiriman.judul,
+        courierInfo: pengiriman.info,
         receiverName: '${row['customer_name'] ?? ''}',
         receiverPhone: '${row['phone'] ?? ''}',
         deliveryAddress: '${row['address'] ?? ''}',
@@ -208,6 +216,37 @@ class OrderRepository {
   }
 
   Future<void> clearLocal() => _db.clearOrders();
+
+  /// Opsi pengiriman & keterangannya dari baris server. Tanpa ini data sinkron kehilangan
+  /// informasi "ambil mandiri" dan semua pesanan tampil seolah diantar kurir.
+  static ({String judul, String info}) _pengirimanDariServer(
+      Map<String, dynamic> row) {
+    final status = '${row['status']}';
+    final lokasi = '${row['drop_point'] ?? ''}'.trim();
+
+    if ('${row['opsi_pengiriman']}' == 'ambil-mandiri') {
+      return (
+        judul: kJudulAmbilMandiri,
+        info: switch (status) {
+          'tiba-di-pos' || 'komplain' =>
+            'Pesanan siap diambil${lokasi.isEmpty ? '' : ' di $lokasi'}. '
+                'Setelah menerima barang, tekan "Pesanan Diterima".',
+          'selesai' => 'Pesanan sudah Anda ambil.',
+          _ => 'Siap diambil setelah penjual mengonfirmasi',
+        },
+      );
+    }
+
+    return (
+      judul: kJudulKurirDesa,
+      info: switch (status) {
+        'diantar' => 'Kurir BUMDes sedang mengantar ke ${lokasi.isEmpty ? 'titik pengantaran' : lokasi}',
+        'tiba-di-pos' || 'komplain' =>
+          'Paket sudah tiba${lokasi.isEmpty ? '' : ' di $lokasi'}. Silakan ambil lalu tekan "Pesanan Diterima".',
+        _ => 'Estimasi diantar sore ini (15:00 - 17:00 WIB)',
+      },
+    );
+  }
 
   static OrderStatus statusFromServer(String status) {
     switch (status) {

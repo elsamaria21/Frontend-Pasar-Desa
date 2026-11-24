@@ -18,6 +18,10 @@ dependencies:
   drift_flutter: ^0.3.1
   shared_preferences: ^2.5.6
   flutter_secure_storage: ^11.2.0
+  webview_flutter: ^4.10.0
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.1
+  geolocator: ^14.0.2
 
 dev_dependencies:
   flutter_test:

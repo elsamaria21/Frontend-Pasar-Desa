@@ -4,12 +4,12 @@ import 'order_flow_screens.dart' show CourierChatScreen, orderMeta;
 import 'order_models.dart';
 import 'order_ui.dart';
 
-String stageLabel(OrderStatus s) {
+String stageLabel(OrderStatus s, {bool pickup = false}) {
   switch (s) {
     case OrderStatus.diproses:
       return 'Dikemas';
     case OrderStatus.dikirim:
-      return 'Dikirim';
+      return pickup ? 'Siap Diambil' : 'Dikirim';
     case OrderStatus.selesai:
       return 'Selesai';
     case OrderStatus.dibatalkan:
@@ -75,7 +75,7 @@ class OrderTrackingScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Pill(stageLabel(status)),
+              Pill(stageLabel(status, pickup: order.isPickup)),
             ],
           ),
           const SizedBox(height: 4),

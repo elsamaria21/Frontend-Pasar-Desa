@@ -412,24 +412,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         detail: a.detail,
         courierNote: a.note,
         pickupPoint: a.pickupPoint,
+        latitude: a.latitude,
+        longitude: a.longitude,
       );
     }).toList();
-
-    // Pastikan selalu ada satu alamat agar sheet Checkout dapat dibuka.
-    if (checkoutAddresses.isEmpty) {
-      checkoutAddresses.add(
-        AddressData(
-          _data.name,
-          _data.phone,
-          '${_data.dusun}, RT ${_data.rt} / RW ${_data.rw} (${_data.landmark})',
-          id: 'profile-fallback-address',
-          label: 'Rumah',
-          isMain: true,
-          dusun: '${_data.dusun}, RT ${_data.rt} / RW ${_data.rw}',
-          detail: _data.landmark,
-        ),
-      );
-    }
 
     final selectedIndex = checkoutAddresses.indexWhere((a) => a.isMain);
     await showModalBottomSheet<void>(
@@ -475,6 +461,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 label: a.label,
                 pickupPoint: a.pickupPoint,
                 isPrimary: i == selected,
+                latitude: a.latitude,
+                longitude: a.longitude,
               ),
             );
           }

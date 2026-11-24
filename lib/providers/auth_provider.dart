@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import '../data/address_book.dart';
 import '../data/remote/api_service.dart';
 import '../data/repositories/auth_repository.dart';
 import 'order_provider.dart';
@@ -42,6 +43,8 @@ class AuthProvider extends ChangeNotifier {
       if (valid) {
         _isAuthenticated = true;
         _currentUser = await _repository.getCurrentUserSession();
+        orderStore.startAutoSync();
+        unawaited(AddressBook.load());
       } else {
         _isAuthenticated = false;
         _currentUser = {};
@@ -75,7 +78,8 @@ class AuthProvider extends ChangeNotifier {
         _rememberEmail = rememberEmail;
         _savedEmail = rememberEmail ? email : '';
         _currentUser = await _repository.getCurrentUserSession();
-        unawaited(orderStore.syncFromServer());
+        orderStore.startAutoSync();
+        unawaited(AddressBook.load());
       }
       return success;
     } catch (e) {
@@ -136,8 +140,10 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    orderStore.stopAutoSync();
     await _repository.logout();
     await orderStore.clearLocal();
+    AddressBook.clear();
     _isAuthenticated = false;
     _currentUser = {};
     _isLoading = false;

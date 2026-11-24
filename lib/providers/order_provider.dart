@@ -6,6 +6,10 @@ import '../screens/order_models.dart';
 class OrderProvider extends ChangeNotifier {
   final OrderRepository _repository;
   StreamSubscription<List<OrderEntry>>? _subscription;
+  Timer? _autoSync;
+  bool _syncing = false;
+
+  static const Duration _autoSyncInterval = Duration(seconds: 20);
 
   List<OrderEntry> _orders = [];
 
@@ -73,11 +77,29 @@ class OrderProvider extends ChangeNotifier {
   }
 
   Future<void> syncFromServer() async {
+    if (_syncing) return;
+    _syncing = true;
     try {
       await _repository.syncFromServer();
     } catch (e) {
       debugPrint('Gagal sinkron pesanan: $e');
+    } finally {
+      _syncing = false;
     }
+  }
+
+  /// Menyegarkan pesanan dari server secara berkala selama pembeli login, supaya perubahan dari
+  /// dashboard penjual (dikemas, siap diambil, dll.) dan hasil pembayaran Midtrans tampil sendiri.
+  /// Aman dipanggil berulang.
+  void startAutoSync() {
+    if (_autoSync != null) return;
+    unawaited(syncFromServer());
+    _autoSync = Timer.periodic(_autoSyncInterval, (_) => syncFromServer());
+  }
+
+  void stopAutoSync() {
+    _autoSync?.cancel();
+    _autoSync = null;
   }
 
   Future<void> clearLocal() async {
@@ -93,6 +115,7 @@ class OrderProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    stopAutoSync();
     _subscription?.cancel();
     super.dispose();
   }

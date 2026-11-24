@@ -1088,7 +1088,7 @@ class SyaratScreen extends StatelessWidget {
       Icons.spa_outlined,
       [
         'Seluruh komoditas wajib segar, layak konsumsi, dan sesuai deskripsi produk.',
-        'Produk yang tidak sesuai dapat diajukan melalui Pusat Bantuan maksimal 1×24 jam.',
+        'Produk yang tidak sesuai dapat diajukan melalui Pusat Bantuan maksimal 2×24 jam sejak paket tiba di pos.',
       ]
     ],
     [

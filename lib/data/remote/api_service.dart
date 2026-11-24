@@ -221,7 +221,48 @@ class ApiService {
     await _send('PATCH', '/orders/$id/status', body: {'status': 'dibatalkan'});
   }
 
+  /// Membuat (atau mengambil yang sudah ada) tagihan Midtrans Snap untuk pesanan [kode].
+  /// Mengembalikan `redirectUrl` untuk dibuka di WebView.
+  Future<Map<String, dynamic>> createMidtransSnap(String kode) async {
+    final data = await _send('POST', '/payments/midtrans/snap',
+        body: {'orderCode': kode});
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  /// Status pembayaran terbaru; server menyinkronkannya dengan Midtrans lebih dulu.
+  /// `paymentStatus`: menunggu | lunas | gagal | kedaluwarsa | dikembalikan.
+  Future<Map<String, dynamic>> fetchPaymentStatus(String kode) async {
+    final data = await _send(
+        'GET', '/payments/midtrans/status/${Uri.encodeComponent(kode)}');
+    return Map<String, dynamic>.from(data as Map);
+  }
+
   Future<void> receiveOrder(String kode) async {
     await _send('PATCH', '/orders/${Uri.encodeComponent(kode)}/receive');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Alamat pengguna (termasuk titik antar: latitude & longitude)
+  // ---------------------------------------------------------------------------
+
+  Future<List<Map<String, dynamic>>> fetchAddresses() async {
+    final data = await _send('GET', '/addresses');
+    return (data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  /// Mengembalikan id alamat baru di server.
+  Future<int> createAddress(Map<String, dynamic> body) async {
+    final data = await _send('POST', '/addresses', body: body);
+    return int.parse('${(data as Map)['id']}');
+  }
+
+  Future<void> updateAddress(int id, Map<String, dynamic> body) async {
+    await _send('PUT', '/addresses/$id', body: body);
+  }
+
+  Future<void> setPrimaryAddress(int id) async {
+    await _send('PATCH', '/addresses/$id/primary');
   }
 }
