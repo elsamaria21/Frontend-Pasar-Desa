@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
-import '../widgets/common.dart';
 import 'dashboard_screen.dart';
 import '../widgets/app_image.dart';
 
@@ -59,18 +58,18 @@ class OrderSuccessScreen extends StatelessWidget {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAF8),
+        backgroundColor: const Color(0xFFF4F8F5),
         body: SafeArea(
           child: Column(
             children: [
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 28, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(18, 22, 18, 28),
                   child: Column(
                     children: [
                       _hero(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 22),
                       _orderIdCard(context),
                       const SizedBox(height: 12),
                       _addressCard(),
@@ -87,9 +86,26 @@ class OrderSuccessScreen extends StatelessWidget {
                       const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,
-                        child: GreenButton(
-                          text: 'Lihat Status Pesanan',
-                          onTap: () => _openHistory(context),
+                        child: SizedBox(
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: () => _openHistory(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.green,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: const Text(
+                              'Lihat Status Pesanan',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -99,15 +115,17 @@ class OrderSuccessScreen extends StatelessWidget {
                         child: OutlinedButton(
                           onPressed: () => _goHome(context),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.border),
+                            side: const BorderSide(color: Color(0xFFDCE8DF)),
+                            backgroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(50),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(15),
                             ),
                           ),
                           child: const Text(
                             'Kembali ke Beranda',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 13,
                               fontWeight: FontWeight.w800,
                               color: AppColors.text,
                             ),
@@ -128,77 +146,72 @@ class OrderSuccessScreen extends StatelessWidget {
   Widget _hero() {
     return Column(
       children: [
+        const Text(
+          'Pesanan Berhasil Dibuat!',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 21,
+            letterSpacing: -.35,
+            fontWeight: FontWeight.w900,
+            color: AppColors.text,
+          ),
+        ),
+        const SizedBox(height: 15),
         Container(
-          width: 84,
-          height: 84,
+          width: 86,
+          height: 86,
           decoration: const BoxDecoration(
-            color: AppColors.greenLight,
+            color: Color(0xFFE3F5E9),
             shape: BoxShape.circle,
           ),
           child: Center(
             child: Container(
-              width: 56,
-              height: 56,
+              width: 62,
+              height: 62,
               decoration: const BoxDecoration(
                 color: AppColors.green,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_rounded,
-                  color: Colors.white, size: 34),
+              child: const Icon(
+                Icons.check_rounded,
+                color: Colors.white,
+                size: 36,
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          decoration: BoxDecoration(
-            color: AppColors.greenLight,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFBFE5CB)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.verified, size: 13, color: AppColors.green),
-              const SizedBox(width: 5),
-              Text(
-                isPaid ? 'LUNAS & TERVERIFIKASI' : 'TERVERIFIKASI',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.6,
-                  color: AppColors.green,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        const Text(
-          'Pesanan Berhasil Dibuat!',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 13),
         const Text(
           'Pesanan Anda sudah diteruskan ke penjual melalui BUMDes '
           'Sukorejo. Mohon tunggu konfirmasi dan pengantaran.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 11, height: 1.5, color: AppColors.muted),
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.55,
+            color: AppColors.muted,
+          ),
         ),
       ],
     );
   }
 
   Widget _orderIdCard(BuildContext context) {
-    const double borderWidth = 1.5;
-    const double outerRadius = 12;
+    const double borderWidth = 1.2;
+    const double outerRadius = 19;
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: AppColors.green, width: borderWidth),
+        border: Border.all(color: const Color(0xFFB8E1C5), width: borderWidth),
         borderRadius: BorderRadius.circular(outerRadius),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D123D25),
+            blurRadius: 20,
+            offset: Offset(0, 7),
+          ),
+        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(outerRadius - borderWidth),
@@ -207,7 +220,7 @@ class OrderSuccessScreen extends StatelessWidget {
             Container(
               width: double.infinity,
               color: AppColors.green,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 15),
               child: Row(
                 children: [
                   Expanded(
@@ -217,15 +230,15 @@ class OrderSuccessScreen extends StatelessWidget {
                         Text(
                           'Nomor Pesanan',
                           style: TextStyle(
-                            fontSize: 9.5,
-                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 10.5,
+                            color: Colors.white.withValues(alpha: 0.88),
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           orderId,
                           style: const TextStyle(
-                            fontSize: 15,
+                            fontSize: 16,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
                           ),
@@ -245,7 +258,7 @@ class OrderSuccessScreen extends StatelessWidget {
                       padding: const EdgeInsets.all(7),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(11),
                       ),
                       child: const Icon(Icons.copy_rounded,
                           size: 16, color: Colors.white),
@@ -257,7 +270,7 @@ class OrderSuccessScreen extends StatelessWidget {
             Container(
               width: double.infinity,
               color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 14),
               child: Row(
                 children: [
                   Expanded(
@@ -308,29 +321,32 @@ class OrderSuccessScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
               color: AppColors.greenLight,
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(13),
             ),
             child: const Icon(Icons.location_on_outlined,
-                size: 18, color: AppColors.green),
+                size: 21, color: AppColors.green),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 13),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Titik Pengantaran Desa',
-                    style: TextStyle(fontSize: 9.5, color: AppColors.muted)),
+                    style: TextStyle(
+                        fontSize: 10.5,
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w600)),
                 const SizedBox(height: 3),
                 Text.rich(
                   TextSpan(children: [
                     TextSpan(
                       text: '$receiverName ',
                       style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w900),
+                          fontSize: 13, fontWeight: FontWeight.w900),
                     ),
                     TextSpan(
                       text: '($receiverPhone)',
@@ -343,7 +359,7 @@ class OrderSuccessScreen extends StatelessWidget {
                 Text(
                   address,
                   style: const TextStyle(
-                      fontSize: 10.5, height: 1.4, color: AppColors.muted),
+                      fontSize: 11.5, height: 1.45, color: AppColors.muted),
                 ),
               ],
             ),
@@ -356,25 +372,37 @@ class OrderSuccessScreen extends StatelessWidget {
   Widget _courierCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1FBF4),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF0FBF3), Color(0xFFE8F7ED)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         border: Border.all(color: const Color(0xFFCDEBD6)),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Icon(Icons.two_wheeler_outlined,
-              size: 20, color: AppColors.green),
-          const SizedBox(width: 10),
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .85),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.two_wheeler_outlined,
+                size: 20, color: AppColors.green),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Text.rich(
               TextSpan(children: [
                 TextSpan(
                   text: '$deliveryTitle: ',
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w900,
                     color: AppColors.green,
                   ),
@@ -382,8 +410,8 @@ class OrderSuccessScreen extends StatelessWidget {
                 TextSpan(
                   text: deliveryInfo,
                   style: const TextStyle(
-                    fontSize: 11,
-                    height: 1.4,
+                    fontSize: 11.5,
+                    height: 1.45,
                     color: AppColors.text,
                   ),
                 ),
@@ -425,7 +453,7 @@ class OrderSuccessScreen extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+            padding: const EdgeInsets.fromLTRB(15, 14, 15, 10),
             child: Row(
               children: [
                 const Icon(Icons.agriculture_outlined,
@@ -433,7 +461,7 @@ class OrderSuccessScreen extends StatelessWidget {
                 const SizedBox(width: 6),
                 const Text('Poktan Krajan Makmur',
                     style:
-                        TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
                 const SizedBox(width: 4),
                 const Icon(Icons.verified, size: 14, color: AppColors.green),
                 const Spacer(),
@@ -458,19 +486,19 @@ class OrderSuccessScreen extends StatelessWidget {
             final p = line.product;
 
             return Padding(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                     child: smartImage(
                       p.image,
-                      width: 56,
-                      height: 56,
+                      width: 66,
+                      height: 66,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
-                        width: 56,
-                        height: 56,
+                        width: 66,
+                        height: 66,
                         color: AppColors.greenLight,
                         child: const Icon(Icons.image_outlined,
                             color: AppColors.green),
@@ -486,7 +514,7 @@ class OrderSuccessScreen extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w900)),
+                                fontSize: 13, fontWeight: FontWeight.w900)),
                         const SizedBox(height: 4),
                         Text(_rp(p.price),
                             style: const TextStyle(
@@ -517,7 +545,7 @@ class OrderSuccessScreen extends StatelessWidget {
               const Expanded(
                 child: Text('Rincian Pembayaran',
                     style:
-                        TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
               ),
               Text(_rp(total),
                   style: const TextStyle(
@@ -526,7 +554,7 @@ class OrderSuccessScreen extends StatelessWidget {
                       color: AppColors.green)),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           _row('Subtotal Produk', _rp(subtotal)),
           const SizedBox(height: 6),
           _row('Ongkos Kirim', _rp(deliveryFee)),
@@ -551,7 +579,7 @@ class OrderSuccessScreen extends StatelessWidget {
               ),
               Text(_rp(total),
                   style: const TextStyle(
-                      fontSize: 20,
+                      fontSize: 21,
                       fontWeight: FontWeight.w900,
                       color: AppColors.green)),
             ],
@@ -566,11 +594,11 @@ class OrderSuccessScreen extends StatelessWidget {
       children: [
         Expanded(
           child: Text(t,
-              style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
+              style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
         ),
         Text(v,
             style: TextStyle(
-              fontSize: 10.5,
+              fontSize: 11.5,
               fontWeight: FontWeight.w700,
               color: green ? AppColors.green : AppColors.text,
             )),
@@ -580,15 +608,22 @@ class OrderSuccessScreen extends StatelessWidget {
 
   Widget _card({
     required Widget child,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(12),
+    EdgeInsetsGeometry padding = const EdgeInsets.all(15),
   }) {
     return Container(
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE3ECE5)),
+        borderRadius: BorderRadius.circular(17),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080D2818),
+            blurRadius: 16,
+            offset: Offset(0, 5),
+          ),
+        ],
       ),
       child: child,
     );

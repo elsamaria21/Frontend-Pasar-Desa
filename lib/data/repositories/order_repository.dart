@@ -34,39 +34,45 @@ class OrderRepository {
   Stream<List<OrderEntry>> watchOrders() {
     return _db.watchOrders().asyncMap((dbOrders) async {
       final List<OrderEntry> result = [];
-      for (final o in dbOrders) {
-        final items = await _db.getItemsForOrder(o.id);
+
+      for (final order in dbOrders) {
+        final items = await _db.getItemsForOrder(order.id);
         final lines = items
-            .map((i) => OrderLine(
-                  name: i.name,
-                  variant: i.variant,
-                  price: i.price,
-                  qty: i.qty,
-                  image: i.image,
-                ))
+            .map(
+              (item) => OrderLine(
+                name: item.name,
+                variant: item.variant,
+                price: item.price,
+                qty: item.qty,
+                image: item.image,
+              ),
+            )
             .toList();
 
         final status = OrderStatus.values.firstWhere(
-          (s) => s.name.toLowerCase() == o.status.toLowerCase(),
+          (value) => value.name.toLowerCase() == order.status.toLowerCase(),
           orElse: () => OrderStatus.diproses,
         );
 
-        result.add(OrderEntry(
-          id: o.id,
-          seller: o.seller,
-          dateLabel: o.dateLabel,
-          status: status,
-          lines: lines,
-          total: o.total,
-          paymentLabel: o.paymentLabel,
-          courierTitle: o.courierTitle,
-          courierInfo: o.courierInfo,
-          receiverName: o.receiverName,
-          receiverPhone: o.receiverPhone,
-          deliveryAddress: o.deliveryAddress,
-          deliveryNote: o.deliveryNote,
-        ));
+        result.add(
+          OrderEntry(
+            id: order.id,
+            seller: order.seller,
+            dateLabel: order.dateLabel,
+            status: status,
+            lines: lines,
+            total: order.total,
+            paymentLabel: order.paymentLabel,
+            courierTitle: order.courierTitle,
+            courierInfo: order.courierInfo,
+            receiverName: order.receiverName,
+            receiverPhone: order.receiverPhone,
+            deliveryAddress: order.deliveryAddress,
+            deliveryNote: order.deliveryNote,
+          ),
+        );
       }
+
       return result;
     });
   }
@@ -88,14 +94,14 @@ class OrderRepository {
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
 
-    final itemCompanions = order.lines.map((l) {
+    final itemCompanions = order.lines.map((line) {
       return OrderItemsTableCompanion.insert(
         orderId: order.id,
-        name: l.name,
-        variant: l.variant,
-        price: l.price,
-        qty: l.qty,
-        image: l.image,
+        name: line.name,
+        variant: line.variant,
+        price: line.price,
+        qty: line.qty,
+        image: line.image,
       );
     }).toList();
 
@@ -110,32 +116,49 @@ class OrderRepository {
     required String receiverName,
     required String receiverPhone,
     required String address,
-    required String delivery, // 'kurir-desa' | 'ambil-mandiri'
+    required String delivery,
     required String paymentMethod,
     String landmark = '',
     String note = '',
+    String voucherCode = '',
   }) async {
     final data = await _api.createOrder({
-      'pembeli': receiverName,
-      'telepon': receiverPhone,
-      'alamat': address,
-      'opsiPengiriman': delivery,
-      'metodeBayar': paymentMethod,
-      if (landmark.isNotEmpty) 'patokan': landmark,
-      if (note.isNotEmpty) 'catatan': note,
       'items': items
-          .map((i) => {
-                'productId': int.tryParse(i.productId) ?? i.productId,
-                'jumlah': i.quantity,
-              })
+          .map(
+            (item) => {
+              'product_id': int.tryParse(item.productId) ?? item.productId,
+              'quantity': item.quantity,
+            },
+          )
           .toList(),
+      'address': address,
+      'payment_method': paymentMethod,
+      'receiver_name': receiverName,
+      'receiver_phone': receiverPhone,
+      'delivery_option': delivery,
+      if (landmark.trim().isNotEmpty) 'landmark': landmark.trim(),
+      if (note.trim().isNotEmpty) 'note': note.trim(),
+      if (voucherCode.trim().isNotEmpty)
+        'voucher_code': voucherCode.trim().toUpperCase(),
     });
 
+    final id = _int(data['id'] ?? data['order_id']);
+    if (id <= 0) {
+      throw const ApiException(
+        'Pesanan belum mendapatkan nomor dari server. Silakan periksa riwayat pesanan sebelum mencoba lagi.',
+      );
+    }
+
+    final kode = _text(
+      data['kode'] ?? data['order_code'],
+      _makeOrderCode(id),
+    );
+
     return ServerOrder(
-      id: _int(data['id']),
-      kode: '${data['kode']}',
+      id: id,
+      kode: kode,
       total: _int(data['total']),
-      status: '${data['status']}',
+      status: _text(data['status'], 'pending'),
     );
   }
 
@@ -143,20 +166,37 @@ class OrderRepository {
 
   Future<void> receiveOnServer(String kode) async {
     await _api.receiveOrder(kode);
-    try {
-      await syncFromServer();
-    } catch (_) {
-      // Konfirmasi sudah tersimpan di server; sinkron ulang bisa menyusul.
-    }
+    await syncFromServer();
   }
 
   Future<void> cancelByCode(String kode) async {
     final rows = await _api.fetchMyOrders();
-    final match = rows.where((r) => '${r['order_code']}' == kode);
-    if (match.isEmpty) {
+    final target = kode.trim();
+
+    Map<String, dynamic>? matched;
+    for (final row in rows) {
+      final id = _int(row['id'] ?? row['order_id']);
+      final rowCode = _text(
+        row['order_code'] ?? row['kode'],
+        id > 0 ? _makeOrderCode(id) : '',
+      );
+
+      if (rowCode == target) {
+        matched = row;
+        break;
+      }
+    }
+
+    if (matched == null) {
       throw const ApiException('Pesanan tidak ditemukan di server.');
     }
-    await _api.cancelOrder(_int(match.first['id']));
+
+    final id = _int(matched['id'] ?? matched['order_id']);
+    if (id <= 0) {
+      throw const ApiException('ID pesanan dari server tidak valid.');
+    }
+
+    await _api.cancelOrder(id);
     await syncFromServer();
   }
 
@@ -164,53 +204,95 @@ class OrderRepository {
     final rows = await _api.fetchMyOrders();
 
     final catalog = {
-      for (final p in await _db.getAllProducts()) p.id: p.image,
+      for (final product in await _db.getAllProducts())
+        product.id.toString(): product.image,
     };
 
     final orders = <DbOrder>[];
     final items = <OrderItemsTableCompanion>[];
 
     for (final row in rows) {
-      final kode = '${row['order_code']}';
-      final created = DateTime.tryParse('${row['created_at']}')?.toLocal() ??
-          DateTime.now();
+      final serverId = _int(row['id'] ?? row['order_id']);
+      final kode = _text(
+        row['order_code'] ?? row['kode'],
+        serverId > 0 ? _makeOrderCode(serverId) : '',
+      );
 
-      orders.add(DbOrder(
-        id: kode,
-        seller: 'PasarDesa Sukorejo',
-        dateLabel: _dateLabel(created),
-        status: statusFromServer('${row['status']}').name,
-        total: _int(row['total']),
-        paymentLabel: '${row['payment_method'] ?? '-'}',
-        courierTitle: null,
-        courierInfo: null,
-        receiverName: '${row['customer_name'] ?? ''}',
-        receiverPhone: '${row['phone'] ?? ''}',
-        deliveryAddress: '${row['address'] ?? ''}',
-        deliveryNote: '${row['notes'] ?? ''}',
-        createdAt: created.millisecondsSinceEpoch,
-      ));
+      if (kode.isEmpty) continue;
 
-      for (final item in (row['items'] as List? ?? const [])) {
-        final m = Map<String, dynamic>.from(item as Map);
-        items.add(OrderItemsTableCompanion.insert(
-          orderId: kode,
-          name: '${m['product_name']}',
-          variant: '',
-          price: _int(m['price']),
-          qty: _int(m['quantity']),
-          image: catalog['${m['product_id']}'] ?? '',
-        ));
+      final createdRaw = _text(
+        row['created_at'] ?? row['createdAt'],
+        '',
+      );
+      final created =
+          DateTime.tryParse(createdRaw)?.toLocal() ?? DateTime.now();
+
+      final rawItems = row['items'] ?? row['details'];
+      final serverItems = rawItems is List ? rawItems : const <dynamic>[];
+
+      orders.add(
+        DbOrder(
+          id: kode,
+          seller: 'PasarDesa Sukorejo',
+          dateLabel: _dateLabel(created),
+          status: statusFromServer(_text(row['status'], 'pending')).name,
+          total: _int(row['total']),
+          paymentLabel: _text(row['payment_method'], '-'),
+          courierTitle: _courierTitle(
+            _text(row['delivery_option'] ?? row['delivery'], ''),
+          ),
+          courierInfo: null,
+          receiverName: _text(
+            row['customer_name'] ?? row['receiver_name'] ?? row['pembeli'],
+            '',
+          ),
+          receiverPhone: _text(
+            row['phone'] ?? row['receiver_phone'] ?? row['telepon'],
+            '',
+          ),
+          deliveryAddress: _text(row['address'] ?? row['alamat'], ''),
+          deliveryNote: _text(
+            row['notes'] ?? row['note'] ?? row['catatan'],
+            '',
+          ),
+          createdAt: created.millisecondsSinceEpoch,
+        ),
+      );
+
+      for (final rawItem in serverItems) {
+        if (rawItem is! Map) continue;
+        final item = Map<String, dynamic>.from(rawItem);
+        final productId = _text(item['product_id'] ?? item['productId'], '');
+
+        items.add(
+          OrderItemsTableCompanion.insert(
+            orderId: kode,
+            name: _text(
+              item['product_name'] ?? item['name'],
+              'Produk',
+            ),
+            variant: _text(item['variant'], ''),
+            price: _int(item['price']),
+            qty: _int(item['quantity'] ?? item['jumlah']),
+            image: _text(
+              item['image'],
+              catalog[productId] ?? '',
+            ),
+          ),
+        );
       }
     }
 
-    await _db.replaceOrdersAtomic(orders: orders, items: items);
+    await _db.replaceOrdersAtomic(
+      orders: orders,
+      items: items,
+    );
   }
 
   Future<void> clearLocal() => _db.clearOrders();
 
   static OrderStatus statusFromServer(String status) {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'selesai':
         return OrderStatus.selesai;
       case 'dibatalkan':
@@ -220,18 +302,39 @@ class OrderRepository {
       case 'tiba-di-pos':
       case 'komplain':
         return OrderStatus.dikirim;
-      default: // pending, perlu-dikemas, diproses, sedang-dikemas, siap-jemput
+      default:
         return OrderStatus.diproses;
     }
   }
 
-  static int _int(dynamic v) {
-    if (v is num) return v.round();
-    return double.tryParse('${v ?? ''}')?.round() ?? 0;
+  static int _int(dynamic value) {
+    if (value is num) return value.round();
+    return int.tryParse('${value ?? ''}') ??
+        double.tryParse('${value ?? ''}')?.round() ??
+        0;
   }
 
-  static String _dateLabel(DateTime d) {
-    const bulan = [
+  static String _text(dynamic value, [String fallback = '']) {
+    if (value == null) return fallback;
+    final text = value.toString().trim();
+    return text.isEmpty ? fallback : text;
+  }
+
+  static String _makeOrderCode(int id) => 'PD-${id.toString().padLeft(6, '0')}';
+
+  static String? _courierTitle(String delivery) {
+    switch (delivery) {
+      case 'kurir-desa':
+        return 'Kurir Desa Sukorejo';
+      case 'ambil-mandiri':
+        return 'Ambil Mandiri di Pos BUMDes';
+      default:
+        return null;
+    }
+  }
+
+  static String _dateLabel(DateTime date) {
+    const months = [
       'Jan',
       'Feb',
       'Mar',
@@ -245,7 +348,10 @@ class OrderRepository {
       'Nov',
       'Des',
     ];
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${d.day} ${bulan[d.month - 1]} ${d.year} • ${two(d.hour)}:${two(d.minute)} WIB';
+
+    String two(int value) => value.toString().padLeft(2, '0');
+
+    return '${date.day} ${months[date.month - 1]} ${date.year} • '
+        '${two(date.hour)}:${two(date.minute)} WIB';
   }
 }

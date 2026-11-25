@@ -361,7 +361,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    // Isi nama, email, dan HP dari akun yang sedang login.
     final user = context.read<AuthProvider>().currentUser;
     final name = (user['name'] ?? '').trim();
     _data = ProfileData.initial()
@@ -397,7 +396,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _openAddress() async {
-    // Gunakan model dan bottom sheet yang sama persis dengan Checkout.
     final profileAddresses = AddressBook.snapshot();
     final checkoutAddresses = profileAddresses.map((a) {
       final wilayah = '${a.dusun}, RT ${a.rt} / RW ${a.rw}';
@@ -415,7 +413,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }).toList();
 
-    // Pastikan selalu ada satu alamat agar sheet Checkout dapat dibuka.
     if (checkoutAddresses.isEmpty) {
       checkoutAddresses.add(
         AddressData(
@@ -479,8 +476,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             );
           }
 
-          // Simpan ke sumber data bersama agar perubahan dari Profil
-          // langsung tersedia juga di halaman Checkout.
           AddressBook.replace(converted);
         },
       ),
@@ -2006,7 +2001,6 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
               const SizedBox(width: 6),
               InkWell(
                 onTap: () {
-                  // Catatan: buka halaman peta untuk memindahkan pin.
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Fitur peta segera hadir.')),
                   );

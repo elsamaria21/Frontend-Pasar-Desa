@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'topup_screen.dart' show WalletBalance, formatRupiahId, TopUpScreen;
+import '../data/wallet_history.dart';
+import 'topup_screen.dart' show WalletBalanceCard, formatRupiahId, TopUpScreen;
 
 const Color _g = Color(0xFF0A9B4A);
 const Color _gd = Color(0xFF087B3B);
@@ -444,170 +444,168 @@ class _VoucherScreenState extends State<VoucherScreen> {
       );
 }
 
+const List<String> _bulan = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'Mei',
+  'Jun',
+  'Jul',
+  'Agu',
+  'Sep',
+  'Okt',
+  'Nov',
+  'Des',
+];
+
+String _tanggal(DateTime d) =>
+    '${d.day.toString().padLeft(2, '0')} ${_bulan[d.month - 1]} ${d.year}';
+
+String _tanggalJam(DateTime d) =>
+    '${_tanggal(d)} • ${d.hour.toString().padLeft(2, '0')}.'
+    '${d.minute.toString().padLeft(2, '0')} WIB';
+
+Widget _mutasiCard({
+  required String title,
+  required String subtitle,
+  required String dateText,
+  required String amountText,
+  required String channel,
+  required bool isIncome,
+  bool success = true,
+}) {
+  final color = !success ? _tg : (isIncome ? _gd : _red);
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFFE6EEE8)),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF10231B).withValues(alpha: 0.045),
+          blurRadius: 20,
+          offset: const Offset(0, 8),
+        ),
+      ],
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w900,
+                  color: success ? _t : _red,
+                  letterSpacing: -0.1,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                subtitle,
+                style: const TextStyle(fontSize: 11, color: _tg, height: 1.3),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                dateText,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  color: Color(0xFF9AA39E),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              amountText,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.3,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(channel, style: const TextStyle(fontSize: 10.5, color: _tg)),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
 class SaldoScreen extends StatelessWidget {
   const SaldoScreen({super.key});
 
-  static const _rek = 'BUMD-SKR-9921';
-
   @override
   Widget build(BuildContext context) {
-    const mutasi = [
-      [
-        'Pengembalian Refund',
-        '#RFD-20231024-0019 • Dari Kas Desa',
-        '+Rp 91.000',
-        'Kas Belanja',
-        'in'
-      ],
-      [
-        'Belanja Jagung & Beras',
-        'Lapak Bu Warsini • 22 Okt 2023',
-        '-Rp 68.000',
-        'Potong Dompet',
-        'out'
-      ],
-      [
-        'Top Up Kasir BUMDes',
-        'Petugas: Mas Bagus • 18 Okt',
-        '+Rp 100.000',
-        'Tunai Konter',
-        'in'
-      ],
-      [
-        'Bagi Hasil Usaha Koperasi',
-        'Koperasi BUMDes • 01 Okt 2023',
-        '+Rp 127.000',
-        'SHU Koperasi',
-        'in'
-      ],
-    ];
     return _page(
       context,
       [
-        ValueListenableBuilder<int>(
-          valueListenable: WalletBalance.balance,
-          builder: (context, saldo, _) {
-            return Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [Color(0xFF0A9B4A), Color(0xFF066B32)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Saldo Saya',
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 10),
-                    Text(formatRupiahId(saldo),
-                        style: const TextStyle(
-                            fontSize: 32,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(10)),
-                      child: Row(children: [
-                        const Text('Rekening:  ',
-                            style:
-                                TextStyle(fontSize: 11, color: Colors.white70)),
-                        const Expanded(
-                            child: Text(_rek,
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900))),
-                        InkWell(
-                          onTap: () {
-                            Clipboard.setData(const ClipboardData(text: _rek));
-                            _snack(context, 'Nomor rekening disalin');
-                          },
-                          child: _pill('Salin', Colors.white, _gd),
-                        ),
-                      ]),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: ElevatedButton.icon(
-                        onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const TopUpScreen())),
-                        icon: const Icon(Icons.add_circle, size: 18),
-                        label: const Text('Isi Saldo',
-                            style: TextStyle(fontWeight: FontWeight.w800)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: _gd,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                  ]),
-            );
-          },
+        WalletBalanceCard(
+          onTopUp: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const TopUpScreen()),
+          ),
         ),
         const SizedBox(height: 18),
         const Text('Riwayat Mutasi',
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
         const SizedBox(height: 10),
-        for (final m in mutasi) ...[
-          _box(
-            pad: 12,
-            child: Row(children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                    color: m[4] == 'in' ? _gl : const Color(0xFFFFEDE3),
-                    borderRadius: BorderRadius.circular(10)),
-                child: Icon(
-                    m[4] == 'in'
-                        ? Icons.south_west
-                        : Icons.shopping_cart_outlined,
-                    size: 20,
-                    color: m[4] == 'in' ? _g : _orange),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(m[0],
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w900)),
-                      Text(m[1],
-                          style: const TextStyle(fontSize: 10, color: _tg)),
-                      const SizedBox(height: 3),
-                      _pill('Sukses', _gl, _gd, size: 9),
-                    ]),
-              ),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(m[2],
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        color: m[4] == 'in' ? _gd : _red)),
-                Text(m[3], style: const TextStyle(fontSize: 10, color: _tg)),
-              ]),
-            ]),
-          ),
-          const SizedBox(height: 8),
-        ],
+        ValueListenableBuilder<List<WalletTx>>(
+          valueListenable: WalletHistory.items,
+          builder: (context, list, _) {
+            if (list.isEmpty) {
+              return _box(
+                pad: 24,
+                child: const Column(
+                  children: [
+                    Icon(Icons.receipt_long_outlined, size: 36, color: _tg),
+                    SizedBox(height: 8),
+                    Text('Belum ada riwayat mutasi',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w900)),
+                    SizedBox(height: 2),
+                    Text('Transaksi saldo akan muncul di sini otomatis.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 11, color: _tg)),
+                  ],
+                ),
+              );
+            }
+            return Column(
+              children: [
+                for (final tx in list) ...[
+                  _mutasiCard(
+                    title: tx.title,
+                    subtitle: tx.subtitle,
+                    dateText: _tanggalJam(tx.time),
+                    amountText: !tx.success
+                        ? formatRupiahId(tx.amount.abs())
+                        : tx.isIncome
+                            ? '+${formatRupiahId(tx.amount)}'
+                            : '-${formatRupiahId(tx.amount.abs())}',
+                    channel: tx.channel,
+                    isIncome: tx.isIncome,
+                    success: tx.success,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ],
+            );
+          },
+        ),
       ],
       title: 'Saldo Dompet',
     );

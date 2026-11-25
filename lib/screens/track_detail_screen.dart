@@ -140,7 +140,6 @@ class _TrackDetailScreenState extends State<TrackDetailScreen> {
 
     if (ok != true || !mounted) return;
 
-    // Konfirmasi harus lebih dulu sampai ke server; kas penjual hanya cair dari sana.
     try {
       await orderStore.terimaPesanan(o.id);
     } on ApiException catch (e) {
@@ -151,7 +150,8 @@ class _TrackDetailScreenState extends State<TrackDetailScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Gagal mengonfirmasi penerimaan. Periksa koneksi lalu coba lagi.'),
+        content: Text(
+            'Gagal mengonfirmasi penerimaan. Periksa koneksi lalu coba lagi.'),
       ));
       return;
     }

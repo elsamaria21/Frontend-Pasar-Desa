@@ -24,7 +24,7 @@ class OrderHistoryScreen extends StatefulWidget {
 
 class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   static const _filters = [
-    'SEMUA',
+    'Semua',
     'Dikemas',
     'Dikirim',
     'Selesai',
@@ -267,95 +267,6 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     );
   }
 
-  void _showFilterSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'Filter Pesanan',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 10),
-                for (int i = 0; i < _filters.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: InkWell(
-                      onTap: () {
-                        setState(() {
-                          _filter = i;
-                          _sub = 0;
-                        });
-                        Navigator.pop(sheetContext);
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 13,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _filter == i
-                              ? const Color(0xFFEAF7EF)
-                              : const Color(0xFFF7FAF8),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: _filter == i
-                                ? AppColors.green
-                                : Colors.transparent,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                i == 0 ? 'Semua Pesanan' : _filters[i],
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                            if (_filter == i)
-                              const Icon(
-                                Icons.check_circle_rounded,
-                                color: AppColors.green,
-                                size: 20,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Future<void> _pickFilter(int i, BuildContext chipContext) async {
     final subs = _subLabels[i];
 
@@ -383,21 +294,22 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       context: chipContext,
       position: position,
       color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       items: [
         for (int s = 0; s < subs.length; s++)
           PopupMenuItem<int>(
             value: s,
-            height: 40,
+            height: 46,
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     subs[s],
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 14,
                       fontWeight: (_filter == i && _sub == s)
-                          ? FontWeight.w900
+                          ? FontWeight.w800
                           : FontWeight.w600,
                       color: (_filter == i && _sub == s)
                           ? AppColors.green
@@ -407,7 +319,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                 ),
                 if (_filter == i && _sub == s)
                   const Icon(Icons.check_rounded,
-                      size: 16, color: AppColors.green),
+                      size: 18, color: AppColors.green),
               ],
             ),
           ),
@@ -432,69 +344,30 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         Expanded(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Riwayat Pemesanan',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Pantau transaksi hasil bumi & UMKM Sukorejo',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (hasAny)
-                      InkWell(
-                        onTap: _showFilterSheet,
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Row(
-                            children: [
-                              Icon(Icons.tune,
-                                  size: 16, color: AppColors.green),
-                              SizedBox(width: 4),
-                              Text(
-                                'Filter',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.green,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
+                const Text(
+                  'Riwayat Pemesanan',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.3,
+                    color: AppColors.text,
+                  ),
                 ),
                 if (!hasAny) _emptyState(),
                 if (hasAny) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
                     child: Row(
                       children: List.generate(_filters.length, _chip),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 18),
                   if (orders.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 60),
@@ -502,7 +375,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                         child: Text(
                           'Belum ada pesanan di kategori ini.',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 14,
                             color: AppColors.muted,
                           ),
                         ),
@@ -523,7 +396,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAF8),
+      backgroundColor: const Color(0xFFF6F8F6),
       body: SafeArea(child: content),
     );
   }
@@ -534,52 +407,52 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       child: Column(
         children: [
           Container(
-            width: 70,
-            height: 70,
+            width: 84,
+            height: 84,
             decoration: const BoxDecoration(
               color: AppColors.greenLight,
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.receipt_long_outlined,
-              size: 34,
+              size: 40,
               color: AppColors.green,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           const Text(
             'Belum Ada Riwayat Pemesanan',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           const Text(
             'Riwayat akan muncul setelah Anda menyelesaikan '
             'checkout pesanan pertama.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 13,
               color: AppColors.muted,
-              height: 1.4,
+              height: 1.45,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           SizedBox(
-            height: 44,
+            height: 48,
             child: ElevatedButton(
               onPressed: () => DashboardNav.goTo(context, 0),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.green,
                 foregroundColor: Colors.white,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 26),
+                padding: const EdgeInsets.symmetric(horizontal: 30),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
               child: const Text(
                 'Mulai Belanja',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
               ),
             ),
           ),
@@ -602,14 +475,24 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         builder: (chipContext) {
           return GestureDetector(
             onTap: () => _pickFilter(i, chipContext),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: selected ? AppColors.green : Colors.white,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: selected ? AppColors.green : AppColors.border,
                 ),
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                          color: AppColors.green.withValues(alpha: 0.28),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -617,16 +500,16 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                   Text(
                     label,
                     style: TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w800,
                       color: selected ? Colors.white : AppColors.text,
                     ),
                   ),
                   if (hasArrow) ...[
-                    const SizedBox(width: 3),
+                    const SizedBox(width: 4),
                     Icon(
                       Icons.keyboard_arrow_down,
-                      size: 14,
+                      size: 18,
                       color: selected ? Colors.white : AppColors.muted,
                     ),
                   ],
@@ -644,14 +527,21 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     final refund = orderMeta.metaOf(o.id).refundAmount;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE9EEEA)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -659,77 +549,116 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                  child: Row(
+                Container(
+                  color: const Color(0xFFF4FAF6),
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.storefront_outlined,
-                        size: 17,
-                        color: AppColors.green,
-                      ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          o.seller,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w900,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AppColors.greenLight,
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                            child: const Icon(
+                              Icons.storefront_outlined,
+                              size: 18,
+                              color: AppColors.green,
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: o.seller,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                        height: 1.25,
+                                      ),
+                                    ),
+                                    const WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: Padding(
+                                        padding: EdgeInsets.only(left: 5),
+                                        child: Icon(
+                                          Icons.verified,
+                                          size: 16,
+                                          color: AppColors.green,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.verified,
-                        size: 13,
-                        color: AppColors.green,
+                      const SizedBox(height: 8),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  o.dateLabel,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '#${o.id}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _statusChip(st),
+                        ],
                       ),
-                      const Spacer(),
-                      _statusChip(st),
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          o.dateLabel,
-                          style: const TextStyle(
-                            fontSize: 9,
-                            color: AppColors.muted,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '#${o.id}',
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: AppColors.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, color: Color(0xFFE5E9E6)),
                 ...o.lines.map(_lineRow),
                 if (o.courierTitle != null &&
                     (st == OrderStatus.dikirim || st == OrderStatus.diproses))
                   InkWell(
                     onTap: () => _openTrack(o),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF4FAF6),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Icon(
                             Icons.two_wheeler_outlined,
-                            size: 18,
+                            size: 22,
                             color: AppColors.green,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text.rich(
                               TextSpan(
@@ -737,7 +666,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                                   TextSpan(
                                     text: '${o.courierTitle}: ',
                                     style: const TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w900,
                                       color: AppColors.green,
                                     ),
@@ -745,8 +674,9 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                                   TextSpan(
                                     text: o.courierInfo ?? '',
                                     style: const TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 13,
                                       color: AppColors.text,
+                                      height: 1.35,
                                     ),
                                   ),
                                 ],
@@ -755,7 +685,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                           ),
                           const Icon(
                             Icons.chevron_right_rounded,
-                            size: 16,
+                            size: 20,
                             color: AppColors.muted,
                           ),
                         ],
@@ -763,23 +693,29 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                     ),
                   ),
                 if (st == OrderStatus.dibatalkan && refund > 0)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
                           Icons.account_balance_wallet_outlined,
-                          size: 16,
+                          size: 20,
                           color: Colors.red.shade400,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             'Dana ${_rp(refund)} dikembalikan ke Saldo '
                             'Tabungan Koperasi',
                             style: const TextStyle(
-                              fontSize: 10,
+                              fontSize: 13,
+                              height: 1.35,
                               color: AppColors.text,
                             ),
                           ),
@@ -787,59 +723,62 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                       ],
                     ),
                   ),
-                const Divider(height: 1, color: Color(0xFFE5E9E6)),
                 Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        flex: 4,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'TOTAL BELANJA (${o.itemCount} ITEM)',
-                              style: const TextStyle(
-                                fontSize: 8,
-                                letterSpacing: 0.3,
-                                color: AppColors.muted,
-                              ),
+                      const Divider(height: 1, color: Color(0xFFEEF1EF)),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'TOTAL PEMBAYARAN (${o.itemCount} ITEM)',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    letterSpacing: 0.4,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  _rp(o.total),
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  o.paymentLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _rp(o.total),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            const SizedBox(height: 1),
-                            Text(
-                              o.paymentLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 8.5,
-                                color: AppColors.muted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 5,
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Wrap(
-                            alignment: WrapAlignment.end,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: _actions(o),
                           ),
-                        ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          for (int i = 0; i < _actions(o).length; i++) ...[
+                            if (i > 0) const SizedBox(width: 10),
+                            Expanded(child: _actions(o)[i]),
+                          ],
+                        ],
                       ),
                     ],
                   ),
@@ -915,7 +854,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
       case OrderStatus.dibatalkan:
         return [
-          _btn('Rincian Pembatalan', () => _openDetail(o), plain: true),
+          _btn('Rincian', () => _openDetail(o), plain: true),
           _btn(
             'Pesan Ulang',
             () => orderBuyAgain(context, o),
@@ -954,25 +893,25 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                 const SizedBox(height: 18),
                 const Text(
                   'Detail Solusi',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '#${o.id} • ${o.seller}',
-                  style: const TextStyle(fontSize: 10, color: AppColors.muted),
+                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
                 const SizedBox(height: 14),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEAF7EF),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.autorenew_rounded,
-                          size: 18, color: AppColors.green),
+                          size: 22, color: AppColors.green),
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -980,7 +919,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                           'Barang pengganti disiapkan penjual dan diantar '
                           'kurir Desa Sukorejo. Pantau prosesnya di Rincian '
                           'Retur.',
-                          style: TextStyle(fontSize: 11, height: 1.4),
+                          style: TextStyle(fontSize: 13.5, height: 1.45),
                         ),
                       ),
                     ],
@@ -989,7 +928,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
-                  height: 44,
+                  height: 48,
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.pop(sheetContext);
@@ -1005,13 +944,13 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                     child: const Text(
                       'Lihat Rincian Retur',
                       style:
-                          TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                          TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
                     ),
                   ),
                 ),
@@ -1037,32 +976,46 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        height: 44,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           color: filled ? AppColors.green : Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: plain
-              ? null
-              : Border.all(
-                  color: filled
-                      ? AppColors.green
-                      : (green ? AppColors.green : AppColors.border),
-                ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: filled
+                ? AppColors.green
+                : (green ? AppColors.green : AppColors.border),
+          ),
+          boxShadow: filled
+              ? [
+                  BoxShadow(
+                    color: AppColors.green.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              text,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                color: plain ? AppColors.muted : fg,
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: plain ? AppColors.text : fg,
+                ),
               ),
             ),
             if (icon != null) ...[
-              const SizedBox(width: 4),
-              Icon(icon, size: 13, color: fg),
+              const SizedBox(width: 6),
+              Icon(icon, size: 17, color: fg),
             ],
           ],
         ),
@@ -1072,56 +1025,58 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
   Widget _lineRow(OrderLine l) {
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       child: Row(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(14),
             child: smartImage(
               l.image,
-              width: 56,
-              height: 56,
+              width: 72,
+              height: 72,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Container(
-                width: 56,
-                height: 56,
+                width: 72,
+                height: 72,
                 color: AppColors.greenLight,
                 child: const Icon(
                   Icons.image_outlined,
+                  size: 28,
                   color: AppColors.green,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   l.name,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 15,
                     fontWeight: FontWeight.w900,
+                    height: 1.25,
                   ),
                 ),
                 if (l.variant.isNotEmpty) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     l.variant,
                     style: const TextStyle(
-                      fontSize: 9,
+                      fontSize: 12,
                       color: AppColors.muted,
                     ),
                   ),
                 ],
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   _rp(l.price),
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 15,
                     fontWeight: FontWeight.w900,
                     color: AppColors.green,
                   ),
@@ -1129,11 +1084,20 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
               ],
             ),
           ),
-          Text(
-            'X ${l.qty}',
-            style: const TextStyle(
-              fontSize: 9.5,
-              color: AppColors.muted,
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F4F2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              'x${l.qty}',
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: AppColors.muted,
+              ),
             ),
           ),
         ],
@@ -1168,7 +1132,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(20),
@@ -1177,21 +1141,21 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null)
-            Icon(icon, size: 11, color: fg)
+            Icon(icon, size: 14, color: fg)
           else
             Container(
-              width: 5,
-              height: 5,
+              width: 7,
+              height: 7,
               decoration: BoxDecoration(
                 color: fg,
                 shape: BoxShape.circle,
               ),
             ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 5),
           Text(
             label,
             style: TextStyle(
-              fontSize: 9,
+              fontSize: 12,
               fontWeight: FontWeight.w800,
               color: fg,
             ),

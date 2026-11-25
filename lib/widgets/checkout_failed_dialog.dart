@@ -2,10 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../data/remote/api_service.dart';
 
-const Color _green = Color(0xFF1B7F3C);
-const Color _ink = Color(0xFF14201A);
-const Color _red = Color(0xFFD92D2D);
-const Color _line = Color(0xFFE3E8E5);
+const Color _redCard = Color(0xFFC62828);
 
 enum CheckoutFailAction { retry, changeMethod }
 
@@ -20,7 +17,9 @@ class CheckoutFailure implements Exception {
 String describeCheckoutError(Object e) {
   if (e is CheckoutFailure) return e.reason;
   if (e is ApiException) return e.message;
-  
+
+  if (e is StateError) return e.message;
+
   if (e is TimeoutException) {
     return 'Server BUMDes terlalu lama merespons (waktu habis). '
         'Sinyal Anda mungkin lemah atau sedang tidak stabil.';
@@ -61,136 +60,154 @@ Future<CheckoutFailAction> showCheckoutFailedDialog(
 }
 
 class _CheckoutFailedDialog extends StatelessWidget {
-  final String reason;
   const _CheckoutFailedDialog({required this.reason});
+
+  final String reason;
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: _redCard,
       surfaceTintColor: Colors.transparent,
+      elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(26),
+      ),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+        padding: const EdgeInsets.fromLTRB(22, 25, 22, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFDECEC),
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFF6C9C9), width: 1.5),
-              ),
-              child: const Icon(Icons.error_outline_rounded,
-                  size: 34, color: _red),
-            ),
-            const SizedBox(height: 16),
             const Text(
               'Pembayaran Belum Berhasil',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: 17, fontWeight: FontWeight.w900, color: _ink),
+                fontSize: 18,
+                height: 1.25,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.35,
+                color: Colors.white,
+              ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Koneksi ke sistem BUMDes terputus atau bank sedang gangguan. '
-              'Dana pembayaran Anda belum terpotong.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, color: _ink, height: 1.45),
-            ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 20),
             Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              width: 76,
+              height: 76,
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF4F4),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFF3CFCF)),
+                color: Colors.white.withValues(alpha: .14),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: .35),
+                  width: 1.2,
+                ),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 1),
-                    child:
-                        Icon(Icons.info_outline_rounded, size: 17, color: _red),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Penyebab kegagalan',
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              color: _red),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          reason,
-                          style: const TextStyle(
-                              fontSize: 12.5, color: _ink, height: 1.45),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: () =>
-                    Navigator.pop(context, CheckoutFailAction.retry),
-                icon: const Icon(Icons.refresh_rounded, size: 19),
-                label: const Text('Coba Bayar Lagi'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _green,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  textStyle: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w900),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+              alignment: Alignment.center,
+              child: Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .22),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.close_rounded,
+                  size: 34,
+                  color: Colors.white,
                 ),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 17),
+            const Text(
+              'Koneksi ke sistem BUMDes terputus atau bank sedang mengalami '
+              'gangguan. Dana pembayaran Anda belum terpotong.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFFFFE9E9),
+                height: 1.55,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              height: 49,
+              child: ElevatedButton(
+                onPressed: () =>
+                    Navigator.pop(context, CheckoutFailAction.retry),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: _redCard,
+                  elevation: 0,
+                  textStyle: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text('Coba Bayar Lagi'),
+              ),
+            ),
+            const SizedBox(height: 3),
             TextButton(
               onPressed: () =>
                   Navigator.pop(context, CheckoutFailAction.changeMethod),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 11,
+                ),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               child: const Text(
                 'Ganti Metode Pembayaran',
                 style: TextStyle(
-                    fontSize: 13.5, fontWeight: FontWeight.w900, color: _ink),
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            const Divider(height: 1, color: _line),
-            const SizedBox(height: 12),
+            const SizedBox(height: 2),
+            Divider(
+              height: 1,
+              color: Colors.white.withValues(alpha: .28),
+            ),
+            const SizedBox(height: 10),
             const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.headset_mic_outlined, size: 15, color: _green),
-                SizedBox(width: 6),
-                Text.rich(
-                  TextSpan(
-                    style: TextStyle(fontSize: 11.5, color: _ink),
-                    children: [
-                      TextSpan(text: 'Bantuan '),
-                      TextSpan(
-                        text: 'BUMDes Sukorejo',
-                        style: TextStyle(fontWeight: FontWeight.w900),
+                Icon(
+                  Icons.headset_mic_outlined,
+                  size: 15,
+                  color: Colors.white,
+                ),
+                SizedBox(width: 7),
+                Flexible(
+                  child: Text.rich(
+                    TextSpan(
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFFFFE9E9),
                       ),
-                      TextSpan(text: ' siap sedia 24/7'),
-                    ],
+                      children: [
+                        TextSpan(text: 'Bantuan '),
+                        TextSpan(
+                          text: 'BUMDes Sukorejo',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        TextSpan(text: ' siap sedia 24/7'),
+                      ],
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],

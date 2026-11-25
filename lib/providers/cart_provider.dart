@@ -150,7 +150,6 @@ class CartProvider extends ChangeNotifier {
       CartLine(
         product: product,
         quantity: 1,
-        // FIX: tidak otomatis tercentang.
         selected: false,
       ),
     );

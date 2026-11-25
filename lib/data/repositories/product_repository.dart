@@ -74,7 +74,6 @@ class ProductRepository {
       price: _angka(row['price']).round(),
       unit: _teks(row['ukuran'], unit),
       image: ApiConfig.resolveMediaUrl(row['image'] as String?),
-      // Backend belum menyimpan rating produk.
       rating: 0,
       stock: _angka(row['stock']).floor(),
       lastFetched: fetchedAt,

@@ -80,7 +80,11 @@ class ApiService {
     final ok = response.statusCode >= 200 && response.statusCode < 300;
 
     if (ok && json != null && json['success'] != false) {
-      return json['data'];
+      return json.containsKey('data') ? json['data'] : json;
+    }
+
+    if (ok && response.bodyBytes.isEmpty) {
+      return null;
     }
 
     if (response.statusCode == 401 && usedToken != null && auth) {
