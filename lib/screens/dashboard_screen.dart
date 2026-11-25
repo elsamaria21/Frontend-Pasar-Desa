@@ -14,9 +14,11 @@ import 'detail_screen.dart';
 import 'category_screen.dart';
 import 'cart_screen.dart';
 import 'profile_screen.dart';
+import 'profile_features.dart' show SaldoScreen;
 import 'topup_screen.dart';
 import 'order_history_screen.dart' show OrderHistoryScreen;
 import '../widgets/app_image.dart';
+import 'camera_search_screen.dart';
 
 class TopCartToast {
   static OverlayEntry? _entry;
@@ -25,6 +27,10 @@ class TopCartToast {
     BuildContext context,
     String productName, {
     required VoidCallback onTap,
+    String title = 'Berhasil ditambahkan',
+    String suffix = ' masuk keranjang',
+    String actionLabel = 'Lihat',
+    IconData actionIcon = Icons.shopping_cart_rounded,
   }) {
     final overlay = Overlay.maybeOf(context, rootOverlay: true);
     if (overlay == null) return;
@@ -36,6 +42,10 @@ class TopCartToast {
     entry = OverlayEntry(
       builder: (_) => _TopCartToast(
         productName: productName,
+        title: title,
+        suffix: suffix,
+        actionLabel: actionLabel,
+        actionIcon: actionIcon,
         onTap: onTap,
         onDismiss: () {
           if (identical(_entry, entry)) {
@@ -53,11 +63,19 @@ class TopCartToast {
 
 class _TopCartToast extends StatefulWidget {
   final String productName;
+  final String title;
+  final String suffix;
+  final String actionLabel;
+  final IconData actionIcon;
   final VoidCallback onTap;
   final VoidCallback onDismiss;
 
   const _TopCartToast({
     required this.productName,
+    required this.title,
+    required this.suffix,
+    required this.actionLabel,
+    required this.actionIcon,
     required this.onTap,
     required this.onDismiss,
   });
@@ -74,6 +92,7 @@ class _TopCartToastState extends State<_TopCartToast> {
   @override
   void initState() {
     super.initState();
+    HapticFeedback.lightImpact();
     _dismissTimer = Timer(const Duration(milliseconds: 3500), _hide);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() => _visible = true);
@@ -105,7 +124,7 @@ class _TopCartToastState extends State<_TopCartToast> {
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.of(context).padding.top;
-    final radius = BorderRadius.circular(16);
+    final radius = BorderRadius.circular(20);
 
     return Positioned(
       top: topInset + 10,
@@ -114,105 +133,139 @@ class _TopCartToastState extends State<_TopCartToast> {
       child: Material(
         color: Colors.transparent,
         child: AnimatedSlide(
-          offset: _visible ? Offset.zero : const Offset(0, -0.28),
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOutCubic,
+          offset: _visible ? Offset.zero : const Offset(0, -0.4),
+          duration: const Duration(milliseconds: 380),
+          curve: Curves.easeOutBack,
           child: AnimatedOpacity(
             opacity: _visible ? 1 : 0,
             duration: const Duration(milliseconds: 220),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
+            child: Dismissible(
+              key: const ValueKey('top_cart_toast'),
+              direction: DismissDirection.up,
+              onDismissed: (_) {
+                _isClosing = true;
+                _dismissTimer?.cancel();
+                widget.onDismiss();
+              },
+              child: GestureDetector(
                 onTap: _openCart,
-                borderRadius: radius,
-                child: Ink(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 13,
-                  ),
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
-                    color: Colors.white,
                     borderRadius: radius,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF14382A), Color(0xFF0C2419)],
+                    ),
                     border: Border.all(
-                      color: const Color(0xFFDDEBE1),
+                      color: Colors.white.withValues(alpha: 0.10),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF173D2A).withValues(alpha: 0.12),
-                        blurRadius: 20,
-                        offset: const Offset(0, 7),
+                        color: Colors.black.withValues(alpha: 0.28),
+                        blurRadius: 24,
+                        offset: const Offset(0, 10),
                       ),
                     ],
                   ),
-                  child: Row(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEAF6EE),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.check_rounded,
-                          color: Color(0xFF16834A),
-                          size: 23,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 14, 12, 12),
+                        child: Row(
                           children: [
-                            const Text(
-                              'Berhasil ditambahkan',
-                              textAlign: TextAlign.left,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Color(0xFF183326),
-                                fontSize: 13.5,
-                                height: 1.2,
-                                fontWeight: FontWeight.w800,
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    widget.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      height: 1.2,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: widget.productName,
+                                          style: const TextStyle(
+                                            color: Color(0xFF8FE3B0),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: widget.suffix,
+                                        ),
+                                      ],
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.72),
+                                      fontSize: 11.5,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${widget.productName} masuk ke keranjang',
-                              textAlign: TextAlign.left,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFF718078),
-                                fontSize: 11.5,
-                                height: 1.25,
-                                fontWeight: FontWeight.w500,
+                            const SizedBox(width: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    widget.actionIcon,
+                                    color: const Color(0xFF16834A),
+                                    size: 14,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    widget.actionLabel,
+                                    style: const TextStyle(
+                                      color: Color(0xFF16834A),
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Lihat',
-                            style: TextStyle(
-                              color: Color(0xFF16834A),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 1.0, end: 0.0),
+                        duration: const Duration(milliseconds: 3500),
+                        builder: (context, value, _) => Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: value,
+                            child: Container(
+                              height: 3,
+                              color: const Color(0xFF34D17C),
                             ),
                           ),
-                          SizedBox(width: 3),
-                          Icon(
-                            Icons.arrow_forward_rounded,
-                            color: Color(0xFF16834A),
-                            size: 16,
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -226,7 +279,7 @@ class _TopCartToastState extends State<_TopCartToast> {
   }
 }
 
-enum NotificationTarget { none, cart, orders }
+enum NotificationTarget { none, cart, orders, wallet }
 
 class AppNotification {
   final String title;
@@ -250,17 +303,28 @@ class NotificationCenter {
 
   static int get unread => items.value.where((n) => !n.read).length;
 
+  static NotificationTarget _inferTarget(String title) {
+    final t = title.toLowerCase();
+    if (t.contains('pesanan')) return NotificationTarget.orders;
+    if (t.contains('saldo')) return NotificationTarget.wallet;
+    if (t.contains('keranjang')) return NotificationTarget.cart;
+    return NotificationTarget.none;
+  }
+
   static void add(
     String title,
     String body, {
     NotificationTarget target = NotificationTarget.none,
   }) {
+    final resolved =
+        target != NotificationTarget.none ? target : _inferTarget(title);
+
     items.value = [
       AppNotification(
         title: title,
         body: body,
         time: DateTime.now(),
-        target: target,
+        target: resolved,
       ),
       ...items.value,
     ];
@@ -473,7 +537,7 @@ class SearchField extends StatelessWidget {
               decoration: InputDecoration.collapsed(
                 hintText: hint,
                 hintStyle: const TextStyle(
-                  color: AppColors.muted,
+                  color: Color(0xFF5F6F66),
                   fontSize: 12,
                 ),
               ),
@@ -648,11 +712,23 @@ void showNotificationSheet(BuildContext context) {
                                     n.read = true;
                                     Navigator.pop(sheetContext);
                                     if (!rootContext.mounted) return;
-                                    final tab =
-                                        n.target == NotificationTarget.cart
-                                            ? 2
-                                            : 3;
-                                    DashboardNav.goTo(rootContext, tab);
+                                    switch (n.target) {
+                                      case NotificationTarget.cart:
+                                        DashboardNav.goTo(rootContext, 2);
+                                        break;
+                                      case NotificationTarget.orders:
+                                        DashboardNav.goTo(rootContext, 3);
+                                        break;
+                                      case NotificationTarget.wallet:
+                                        Navigator.of(rootContext).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => const SaldoScreen(),
+                                          ),
+                                        );
+                                        break;
+                                      case NotificationTarget.none:
+                                        break;
+                                    }
                                   }
                                 : null,
                             child: Container(
@@ -738,6 +814,7 @@ class VillageCategory {
   final String subtitle;
   final String badge;
   final List<String> keywords;
+  final Widget Function(Color color, double size)? iconBuilder;
 
   const VillageCategory({
     required this.title,
@@ -746,7 +823,109 @@ class VillageCategory {
     required this.keywords,
     this.subtitle = 'Produk Desa',
     this.badge = 'Produk Desa',
+    this.iconBuilder,
   });
+}
+
+Widget fishIconBuilder(Color color, double size) {
+  return CustomPaint(
+    size: Size(size, size),
+    painter: _FishIconPainter(color),
+  );
+}
+
+Widget fruitIconBuilder(Color color, double size) {
+  return CustomPaint(
+    size: Size(size, size),
+    painter: _FruitIconPainter(color),
+  );
+}
+
+class _FishIconPainter extends CustomPainter {
+  final Color color;
+
+  const _FishIconPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.scale(size.width / 24);
+
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.9
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final fill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final body = Path()
+      ..moveTo(2.5, 12)
+      ..cubicTo(6, 6, 13, 6, 17, 12)
+      ..cubicTo(13, 18, 6, 18, 2.5, 12)
+      ..close();
+    canvas.drawPath(body, stroke);
+
+    final tail = Path()
+      ..moveTo(17, 12)
+      ..lineTo(21.5, 7.5)
+      ..lineTo(21.5, 16.5)
+      ..close();
+    canvas.drawPath(tail, stroke);
+
+    final gill = Path()
+      ..moveTo(10.5, 9.4)
+      ..quadraticBezierTo(12.3, 12, 10.5, 14.6);
+    canvas.drawPath(gill, stroke);
+
+    canvas.drawCircle(const Offset(6.6, 11), 1.1, fill);
+  }
+
+  @override
+  bool shouldRepaint(covariant _FishIconPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _FruitIconPainter extends CustomPainter {
+  final Color color;
+
+  const _FruitIconPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.scale(size.width / 24);
+
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.9
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    canvas.drawCircle(const Offset(11.5, 14), 7.5, stroke);
+
+    final stem = Path()
+      ..moveTo(11.5, 6.5)
+      ..quadraticBezierTo(11.5, 4.5, 12.8, 3);
+    canvas.drawPath(stem, stroke);
+
+    final leaf = Path()
+      ..moveTo(12.6, 5.6)
+      ..cubicTo(14, 2.6, 17.6, 2.4, 19.5, 3.8)
+      ..cubicTo(18.6, 6.6, 15.4, 7.6, 12.6, 5.6)
+      ..close();
+    canvas.drawPath(leaf, stroke);
+
+    final shine = Path()
+      ..moveTo(7.6, 14)
+      ..quadraticBezierTo(7.8, 11.6, 9.8, 10.6);
+    canvas.drawPath(shine, stroke);
+  }
+
+  @override
+  bool shouldRepaint(covariant _FruitIconPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 const List<VillageCategory> mainCategories = [
@@ -768,7 +947,8 @@ const List<VillageCategory> mainCategories = [
   ),
   VillageCategory(
     title: 'Ternak Ikan',
-    icon: Icons.egg_outlined,
+    icon: Icons.set_meal_outlined,
+    iconBuilder: fishIconBuilder,
     background: Color(0xFFFFEFC4),
     subtitle: 'Produk Ternak',
     badge: 'Segar Hari Ini',
@@ -804,6 +984,7 @@ const List<VillageCategory> moreCategories = [
   VillageCategory(
     title: 'Buah Desa',
     icon: Icons.local_florist_outlined,
+    iconBuilder: fruitIconBuilder,
     background: Color(0xFFFFE2CF),
     subtitle: 'Buah Segar',
     badge: 'Buah Musim Ini',
@@ -967,7 +1148,6 @@ class _HomeBody extends StatefulWidget {
 class _HomeBodyState extends State<_HomeBody> {
   final TextEditingController searchController = TextEditingController();
   String searchText = '';
-  bool showAllCategories = false;
 
   @override
   void dispose() {
@@ -1007,29 +1187,22 @@ class _HomeBodyState extends State<_HomeBody> {
         const itemWidth = 72.0;
         final spacing = (constraints.maxWidth - itemWidth * 4) / 3;
 
-        final all = [
-          ...mainCategories,
-          if (showAllCategories) ...moreCategories,
-        ];
+        const all = mainCategories;
 
-        return AnimatedSize(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOut,
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: double.infinity,
-            child: Wrap(
-              alignment: WrapAlignment.center,
-              spacing: spacing < 0 ? 0 : spacing,
-              runSpacing: 16,
-              children: [
-                for (final c in all)
-                  _HomeCategory(
-                    category: c,
-                    onTap: () => openCategoryPage(context, c),
-                  ),
-              ],
-            ),
+        return SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: spacing < 0 ? 0 : spacing,
+            runSpacing: 16,
+            children: [
+              for (int i = 0; i < all.length; i++)
+                _HomeCategory(
+                  category: all[i],
+                  rowIndex: i ~/ 4,
+                  onTap: () => openCategoryPage(context, all[i]),
+                ),
+            ],
           ),
         );
       },
@@ -1054,7 +1227,10 @@ class _HomeBodyState extends State<_HomeBody> {
           children: [
             Row(
               children: [
-                const BrandMark(size: 29),
+                Transform.translate(
+                  offset: const Offset(0, 5),
+                  child: const BrandMark(size: 29),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -1118,32 +1294,58 @@ class _HomeBodyState extends State<_HomeBody> {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 22),
             Consumer<AuthProvider>(
               builder: (context, auth, _) {
                 final name = (auth.currentUser['name'] ?? '').trim();
-                return Text(
-                  'Halo, ${name.isEmpty ? 'Warga' : name} 👋',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF10231B),
-                  ),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Halo, ${name.isEmpty ? 'Warga' : name} 👋',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        letterSpacing: -0.4,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF10231B),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    const Text(
+                      'Mau belanja apa hari ini?',
+                      style: TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 18),
             Row(
               children: [
                 Expanded(
                   child: Container(
-                    height: 48,
+                    height: 52,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.border),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: const Color(0xFF16834A).withValues(alpha: 0.35),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              const Color(0xFF16834A).withValues(alpha: 0.18),
+                          blurRadius: 22,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
                     child: SearchField(
                       controller: searchController,
@@ -1156,16 +1358,27 @@ class _HomeBodyState extends State<_HomeBody> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 InkWell(
                   onTap: () => showImageSearchSheet(context),
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(18),
                   child: Container(
-                    width: 48,
-                    height: 48,
+                    width: 52,
+                    height: 52,
                     decoration: BoxDecoration(
-                      color: AppColors.green,
-                      borderRadius: BorderRadius.circular(13),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF1FA05C), Color(0xFF127A43)],
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.green.withValues(alpha: 0.32),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
                     child: const Icon(
                       Icons.photo_camera_rounded,
@@ -1176,59 +1389,70 @@ class _HomeBodyState extends State<_HomeBody> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             _WalletRow(onTap: openTopUp),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Container(
               width: double.infinity,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                color: AppColors.green,
-                borderRadius: BorderRadius.circular(16),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF1FA05C), Color(0xFF0F6E3C)],
+                ),
+                borderRadius: BorderRadius.circular(26),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.green.withValues(alpha: 0.30),
+                    blurRadius: 26,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
               ),
               child: Stack(
                 children: [
                   Positioned(
-                    right: -44,
-                    bottom: -56,
+                    right: -50,
+                    bottom: -60,
                     child: IgnorePointer(
                       child: Container(
-                        width: 180,
-                        height: 180,
+                        width: 190,
+                        height: 190,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
+                          color: Colors.white.withValues(alpha: 0.09),
                           shape: BoxShape.circle,
                         ),
                       ),
                     ),
                   ),
                   Positioned(
-                    right: -14,
-                    top: -34,
+                    right: -16,
+                    top: -36,
                     child: IgnorePointer(
                       child: Container(
-                        width: 90,
-                        height: 90,
+                        width: 96,
+                        height: 96,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
+                          color: Colors.white.withValues(alpha: 0.09),
                           shape: BoxShape.circle,
                         ),
                       ),
                     ),
                   ),
                   Positioned(
-                    right: 20,
-                    bottom: 18,
+                    right: 22,
+                    bottom: 20,
                     child: IgnorePointer(
                       child: Icon(
                         Icons.grass_rounded,
-                        color: Colors.white.withValues(alpha: 0.28),
-                        size: 72,
+                        color: Colors.white.withValues(alpha: 0.30),
+                        size: 76,
                       ),
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1238,7 +1462,7 @@ class _HomeBodyState extends State<_HomeBody> {
                             vertical: 5,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
+                            color: Colors.white.withValues(alpha: 0.20),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Row(
@@ -1263,13 +1487,14 @@ class _HomeBodyState extends State<_HomeBody> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 9),
+                        const SizedBox(height: 10),
                         const Text(
                           'Panen Raya Sukorejo',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 22,
-                            height: 1.2,
+                            fontSize: 23,
+                            height: 1.15,
+                            letterSpacing: -0.3,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
@@ -1277,34 +1502,32 @@ class _HomeBodyState extends State<_HomeBody> {
                         const Text(
                           'Diskon s/d 20%',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Color(0xFFBFF5D4),
                             fontSize: 17,
                             height: 1.2,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
-                        const SizedBox(height: 5),
+                        const SizedBox(height: 6),
                         const Text(
                           'Langsung dari kebun tanpa tengkulak.\n'
                           'Sukorejo. Bebas ongkir se-Desa.',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
-                            height: 1.35,
+                            fontSize: 10.5,
+                            height: 1.4,
                           ),
                         ),
-                        const SizedBox(height: 11),
+                        const SizedBox(height: 14),
                         Material(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(30),
                           child: InkWell(
                             onTap: widget.onGoCategory,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(30),
                             child: const Padding(
                               padding: EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 9,
-                              ),
+                                  horizontal: 18, vertical: 9),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -1313,7 +1536,7 @@ class _HomeBodyState extends State<_HomeBody> {
                                     style: TextStyle(
                                       color: AppColors.green,
                                       fontWeight: FontWeight.w900,
-                                      fontSize: 11,
+                                      fontSize: 11.5,
                                     ),
                                   ),
                                 ],
@@ -1327,26 +1550,34 @@ class _HomeBodyState extends State<_HomeBody> {
                 ],
               ),
             ),
-            const SizedBox(height: 21),
+            const SizedBox(height: 24),
             Row(
               children: [
                 const Expanded(
                   child: Text(
                     'Kategori Hasil Desa',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                    style: TextStyle(
+                      fontSize: 18,
+                      letterSpacing: -0.2,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
                 InkWell(
-                  onTap: () {
-                    setState(() {
-                      showAllCategories = !showAllCategories;
-                    });
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Text(
-                      showAllCategories ? 'Tutup' : 'Semua',
-                      style: const TextStyle(
+                  onTap: widget.onGoCategory,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE1F5E9),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'Semua',
+                      style: TextStyle(
                         color: AppColors.green,
                         fontSize: 12,
                         fontWeight: FontWeight.w900,
@@ -1356,15 +1587,19 @@ class _HomeBodyState extends State<_HomeBody> {
                 ),
               ],
             ),
-            const SizedBox(height: 13),
+            const SizedBox(height: 14),
             _buildCategories(),
-            const SizedBox(height: 22),
+            const SizedBox(height: 24),
             const Row(
               children: [
                 Expanded(
                   child: Text(
                     'Produk Unggulan Warga',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                    style: TextStyle(
+                      fontSize: 18,
+                      letterSpacing: -0.2,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
                 Text(
@@ -1377,7 +1612,7 @@ class _HomeBodyState extends State<_HomeBody> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             if (productList.isEmpty)
               const _EmptyProducts()
             else
@@ -1624,11 +1859,23 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                 children: [
                   Expanded(
                     child: Container(
-                      height: 48,
+                      height: 52,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.border),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color:
+                              const Color(0xFF16834A).withValues(alpha: 0.35),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFF16834A).withValues(alpha: 0.18),
+                            blurRadius: 22,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                       ),
                       child: SearchField(
                         controller: _searchController,
@@ -1648,16 +1895,27 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   InkWell(
                     onTap: _showSortSheet,
-                    borderRadius: BorderRadius.circular(13),
+                    borderRadius: BorderRadius.circular(18),
                     child: Container(
-                      width: 48,
-                      height: 48,
+                      width: 52,
+                      height: 52,
                       decoration: BoxDecoration(
-                        color: AppColors.green,
-                        borderRadius: BorderRadius.circular(13),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF1FA05C), Color(0xFF127A43)],
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.green.withValues(alpha: 0.32),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
                       child: const Icon(
                         Icons.tune_rounded,
@@ -1678,23 +1936,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE1F5E9),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      category.badge,
-                      style: const TextStyle(
-                        color: AppColors.green,
-                        fontSize: 9.5,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -1895,7 +2136,7 @@ class CategoryProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cartColor = _soldOut ? const Color(0xFF9AA39E) : AppColors.green;
+    final cartColor = _soldOut ? const Color(0xFF9AA39E) : Colors.white;
 
     return InkWell(
       onTap: () {
@@ -1906,19 +2147,25 @@ class CategoryProductCard extends StatelessWidget {
           ),
         );
       },
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(22),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFEEF2EF)),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF10231B).withValues(alpha: 0.07),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(16),
               child: SizedBox(
                 height: 146,
                 width: double.infinity,
@@ -1943,20 +2190,27 @@ class CategoryProductCard extends StatelessWidget {
                       top: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
+                          horizontal: 8,
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: _tagColor,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _tagColor.withValues(alpha: 0.35),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                         ),
                         child: Text(
                           _tagText,
                           style: TextStyle(
                             color: _tagTextColor,
-                            fontSize: 9,
+                            fontSize: 8.5,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: 0.2,
+                            letterSpacing: 0.3,
                           ),
                         ),
                       ),
@@ -1988,6 +2242,7 @@ class CategoryProductCard extends StatelessWidget {
                   color: Color(0xFF13231C),
                   fontSize: 14,
                   height: 1.2,
+                  letterSpacing: -0.1,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -2007,6 +2262,7 @@ class CategoryProductCard extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.green,
                         fontSize: 16,
+                        letterSpacing: -0.2,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -2017,46 +2273,19 @@ class CategoryProductCard extends StatelessWidget {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerRight,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.star_rounded,
-                          color: Color(0xFFFFB800),
-                          size: 17,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          product.rating.toStringAsFixed(1),
-                          style: const TextStyle(
-                            color: Color(0xFF17231D),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          '($_buyers)',
-                          style: const TextStyle(
-                            color: AppColors.muted,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                    child:
+                        _RatingBadge(rating: product.rating, buyers: _buyers),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Material(
-              color:
-                  _soldOut ? const Color(0xFFE7EAE8) : const Color(0xFFE8F5ED),
-              borderRadius: BorderRadius.circular(10),
+              color: _soldOut ? const Color(0xFFE7EAE8) : AppColors.green,
+              borderRadius: BorderRadius.circular(14),
               child: InkWell(
                 onTap: _soldOut ? null : () => _addToCart(context),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(14),
                 child: SizedBox(
                   width: double.infinity,
                   height: 30,
@@ -2064,16 +2293,16 @@ class CategoryProductCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.shopping_cart_outlined,
+                        Icons.add_shopping_cart_rounded,
                         color: cartColor,
-                        size: 16,
+                        size: 15,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 7),
                       Text(
-                        _soldOut ? 'Stok Habis' : '+ Keranjang',
+                        _soldOut ? 'Stok Habis' : 'Keranjang',
                         style: TextStyle(
                           color: cartColor,
-                          fontSize: 12.5,
+                          fontSize: 12,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -2096,73 +2325,105 @@ class _WalletRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.account_balance_wallet_outlined,
-            color: AppColors.green,
-            size: 30,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1FA05C), Color(0xFF0F6E3C)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.green.withValues(alpha: 0.30),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'SALDO DOMPET',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.15,
-                  ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const SizedBox(height: 3),
-                ValueListenableBuilder<int>(
-                  valueListenable: WalletBalance.balance,
-                  builder: (context, balance, _) {
-                    return Text(
-                      formatRupiahId(balance),
-                      style: const TextStyle(
-                        color: Color(0xFF14251D),
-                        fontSize: 16,
+                child: const Icon(
+                  Icons.account_balance_wallet_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'SALDO DOMPET',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    ValueListenableBuilder<int>(
+                      valueListenable: WalletBalance.balance,
+                      builder: (context, balance, _) {
+                        return Text(
+                          formatRupiahId(balance),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            letterSpacing: -0.2,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add_rounded, color: AppColors.green, size: 16),
+                    SizedBox(width: 3),
+                    Text(
+                      'Isi Saldo',
+                      style: TextStyle(
+                        color: AppColors.green,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.w900,
                       ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.add_circle_outline_rounded,
-                color: AppColors.green,
-                size: 22,
-              ),
-              SizedBox(width: 5),
-              Text(
-                'Top Up /\nBayar',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.green,
-                  fontSize: 10,
-                  height: 1.15,
-                  fontWeight: FontWeight.w900,
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -2351,7 +2612,7 @@ class _FigmaProductCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2399,7 +2660,7 @@ class _FigmaProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final red = _lowStock;
-    final cartColor = _soldOut ? const Color(0xFF9AA39E) : AppColors.green;
+    final cartColor = _soldOut ? const Color(0xFF9AA39E) : Colors.white;
 
     return InkWell(
       onTap: () {
@@ -2410,19 +2671,25 @@ class _FigmaProductCard extends StatelessWidget {
           ),
         );
       },
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(22),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFEEF2EF)),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF10231B).withValues(alpha: 0.07),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(16),
               child: SizedBox(
                 height: 146,
                 width: double.infinity,
@@ -2447,20 +2714,27 @@ class _FigmaProductCard extends StatelessWidget {
                       top: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
+                          horizontal: 8,
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: _tagColor,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _tagColor.withValues(alpha: 0.35),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                         ),
                         child: Text(
                           _tagText,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 9,
+                            fontSize: 8.5,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: 0.2,
+                            letterSpacing: 0.3,
                           ),
                         ),
                       ),
@@ -2492,6 +2766,7 @@ class _FigmaProductCard extends StatelessWidget {
                   color: Color(0xFF13231C),
                   fontSize: 14,
                   height: 1.2,
+                  letterSpacing: -0.1,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -2525,6 +2800,7 @@ class _FigmaProductCard extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.green,
                         fontSize: 16,
+                        letterSpacing: -0.2,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -2535,60 +2811,32 @@ class _FigmaProductCard extends StatelessWidget {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerRight,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.star_rounded,
-                          color: Color(0xFFFFB800),
-                          size: 17,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          _rating.toStringAsFixed(1),
-                          style: const TextStyle(
-                            color: Color(0xFF17231D),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          '($_buyers)',
-                          style: const TextStyle(
-                            color: AppColors.muted,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: _RatingBadge(rating: _rating, buyers: _buyers),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Material(
-              color:
-                  _soldOut ? const Color(0xFFE7EAE8) : const Color(0xFFE8F5ED),
-              borderRadius: BorderRadius.circular(10),
+              color: _soldOut ? const Color(0xFFE7EAE8) : AppColors.green,
+              borderRadius: BorderRadius.circular(14),
               child: InkWell(
                 onTap: _soldOut ? null : () => _addToCart(context),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(14),
                 child: SizedBox(
                   width: double.infinity,
-                  height: 28,
+                  height: 30,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.shopping_cart_outlined,
+                        Icons.add_shopping_cart_rounded,
                         color: cartColor,
                         size: 15,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 7),
                       Text(
-                        _soldOut ? 'Stok Habis' : '+ Keranjang',
+                        _soldOut ? 'Stok Habis' : 'Keranjang',
                         style: TextStyle(
                           color: cartColor,
                           fontSize: 12,
@@ -2603,6 +2851,63 @@ class _FigmaProductCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _RatingBadge extends StatelessWidget {
+  final num rating;
+  final String buyers;
+
+  const _RatingBadge({required this.rating, required this.buyers});
+
+  @override
+  Widget build(BuildContext context) {
+    if (rating <= 0) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE1F5E9),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text(
+          'Baru',
+          style: TextStyle(
+            color: AppColors.green,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.star_rounded,
+          color: Color(0xFFFFB800),
+          size: 17,
+        ),
+        const SizedBox(width: 2),
+        Text(
+          rating.toStringAsFixed(1),
+          style: const TextStyle(
+            color: Color(0xFF17231D),
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(width: 3),
+        Text(
+          '($buyers)',
+          style: const TextStyle(
+            color: AppColors.muted,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2660,38 +2965,97 @@ class _HeaderIconButton extends StatelessWidget {
   }
 }
 
+class _CategoryTone {
+  final Color light;
+  final Color strong;
+  final Color edge;
+  final Color icon;
+
+  const _CategoryTone(this.light, this.strong, this.edge, this.icon);
+}
+
 class _HomeCategory extends StatelessWidget {
   final VillageCategory category;
   final VoidCallback onTap;
+  final int rowIndex;
 
-  const _HomeCategory({required this.category, required this.onTap});
+  const _HomeCategory({
+    required this.category,
+    required this.onTap,
+    this.rowIndex = 0,
+  });
+
+  static const List<_CategoryTone> _tones = [
+    _CategoryTone(
+      Color(0xFFE6F7EB),
+      Color(0xFFB4E6C6),
+      Color(0xFF4DB87A),
+      Color(0xFF0F6E3C),
+    ),
+    _CategoryTone(
+      Color(0xFFE5F1FE),
+      Color(0xFFB4D6F7),
+      Color(0xFF4F98E0),
+      Color(0xFF1A5FA8),
+    ),
+    _CategoryTone(
+      Color(0xFFFFF6D8),
+      Color(0xFFFFE490),
+      Color(0xFFE5B400),
+      Color(0xFF8A6200),
+    ),
+    _CategoryTone(
+      Color(0xFFFFEADA),
+      Color(0xFFFFC795),
+      Color(0xFFF08A3C),
+      Color(0xFFB04A0A),
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
+    final tone = _tones[rowIndex % _tones.length];
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(17),
+      borderRadius: BorderRadius.circular(20),
       child: SizedBox(
         width: 72,
         child: Column(
           children: [
             Container(
-              width: 58,
-              height: 58,
+              width: 62,
+              height: 62,
               decoration: BoxDecoration(
-                color: category.background,
-                borderRadius: BorderRadius.circular(17),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [tone.light, tone.strong],
+                ),
+                borderRadius: BorderRadius.circular(21),
+                border: Border.all(color: tone.edge.withValues(alpha: 0.5)),
+                boxShadow: [
+                  BoxShadow(
+                    color: tone.edge.withValues(alpha: 0.28),
+                    blurRadius: 12,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
-              child: Icon(category.icon, color: AppColors.green, size: 30),
+              child: category.iconBuilder != null
+                  ? Center(child: category.iconBuilder!(tone.icon, 30))
+                  : Icon(category.icon, color: tone.icon, size: 30),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 7),
             Text(
               category.title,
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 9,
+                fontSize: 10,
+                height: 1.2,
+                color: Color(0xFF1A2B23),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -2777,67 +3141,14 @@ class _HistoryBody extends StatelessWidget {
 }
 
 Future<void> showImageSearchSheet(BuildContext context) async {
-  final source = await showModalBottomSheet<ImageSource>(
-    context: context,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (sheetContext) {
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 25),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _sheetHandleBar(),
-              const SizedBox(height: 20),
-              const Text(
-                'Cari dengan Foto',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Ambil foto produk dengan kamera atau pilih foto dari perangkat.',
-                style: TextStyle(
-                  color: AppColors.muted,
-                  fontSize: 11.5,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _ImageSourceOption(
-                icon: Icons.photo_camera_outlined,
-                title: 'Scan dengan Kamera',
-                subtitle: 'Gunakan kamera belakang HP',
-                onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
-              ),
-              const SizedBox(height: 10),
-              _ImageSourceOption(
-                icon: Icons.photo_library_outlined,
-                title: 'Pilih dari Galeri',
-                subtitle: 'Pilih satu foto yang tersimpan di perangkat',
-                onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-
-  if (source == null || !context.mounted) return;
-
-  final picker = ImagePicker();
+  if (!context.mounted) return;
 
   try {
-    final picked = await picker.pickImage(
-      source: source,
-      preferredCameraDevice: CameraDevice.rear,
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 90,
+    final XFile? picked = await Navigator.of(context).push<XFile>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const CameraSearchScreen(),
+      ),
     );
 
     if (picked == null || !context.mounted) return;
@@ -2849,49 +3160,11 @@ Future<void> showImageSearchSheet(BuildContext context) async {
 
     if (!context.mounted) return;
 
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ImageSearchScreen(image: picked),
       ),
     );
-  } on PlatformException catch (error) {
-    if (!context.mounted) return;
-
-    String message;
-    switch (error.code) {
-      case 'camera_access_denied':
-      case 'camera_access_denied_without_prompt':
-        message = 'Izin kamera belum diberikan. Aktifkan izin Kamera melalui '
-            'Pengaturan HP > Aplikasi > PasarDesa > Izin.';
-        break;
-      case 'photo_access_denied':
-      case 'photo_access_denied_without_prompt':
-        message =
-            'Akses foto ditolak. Izinkan akses foto melalui Pengaturan HP.';
-        break;
-      case 'no_available_camera':
-        message = 'Kamera tidak ditemukan. Coba gunakan HP fisik atau periksa '
-            'pengaturan kamera emulator.';
-        break;
-      default:
-        message = source == ImageSource.camera
-            ? 'Kamera gagal dibuka (${error.code}). Periksa izin kamera '
-                'dan pastikan perangkat memiliki kamera.'
-            : 'Galeri gagal dibuka (${error.code}). Coba pilih foto lagi.';
-    }
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'Mengerti',
-            onPressed: () {},
-          ),
-        ),
-      );
   } catch (error) {
     if (!context.mounted) return;
 
@@ -2899,11 +3172,7 @@ Future<void> showImageSearchSheet(BuildContext context) async {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(
-            source == ImageSource.camera
-                ? 'Tidak dapat mengambil foto dari kamera: $error'
-                : 'Tidak dapat membaca foto dari galeri: $error',
-          ),
+          content: Text('Tidak dapat membuka kamera atau foto: $error'),
           duration: const Duration(seconds: 5),
         ),
       );
@@ -2916,76 +3185,6 @@ Future<List<Product>> searchSimilarProducts(
 ) async {
   await Future.delayed(const Duration(milliseconds: 1400));
   return catalog.take(6).toList();
-}
-
-class _ImageSourceOption extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _ImageSourceOption({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE1F5E9),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(icon, color: AppColors.green, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 10.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.muted,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class ImageSearchScreen extends StatefulWidget {

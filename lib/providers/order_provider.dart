@@ -6,10 +6,6 @@ import '../screens/order_models.dart';
 class OrderProvider extends ChangeNotifier {
   final OrderRepository _repository;
   StreamSubscription<List<OrderEntry>>? _subscription;
-  Timer? _autoSync;
-  bool _syncing = false;
-
-  static const Duration _autoSyncInterval = Duration(seconds: 20);
 
   List<OrderEntry> _orders = [];
 
@@ -21,22 +17,27 @@ class OrderProvider extends ChangeNotifier {
   List<OrderEntry> get orders => List<OrderEntry>.unmodifiable(_orders);
 
   void _init() {
-    _subscription = _repository.watchOrders().listen((dbOrders) {
-      _orders = dbOrders;
-      notifyListeners();
-    });
+    _subscription = _repository.watchOrders().listen(
+      (dbOrders) {
+        _orders = dbOrders;
+        notifyListeners();
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint('Gagal memuat riwayat pesanan lokal: $error');
+      },
+    );
   }
 
   Future<void> addOrder(OrderEntry order) async {
-    if (!_orders.any((o) => o.id == order.id)) {
+    if (!_orders.any((existing) => existing.id == order.id)) {
       _orders.insert(0, order);
       notifyListeners();
     }
 
     try {
       await _repository.saveOrder(order);
-    } catch (e) {
-      debugPrint('Gagal menyimpan pesanan ke database: $e');
+    } catch (error) {
+      debugPrint('Gagal menyimpan pesanan ke database: $error');
     }
   }
 
@@ -49,6 +50,7 @@ class OrderProvider extends ChangeNotifier {
     required String paymentMethod,
     String landmark = '',
     String note = '',
+    String voucherCode = '',
   }) {
     return _repository.createOnServer(
       items: items,
@@ -59,15 +61,12 @@ class OrderProvider extends ChangeNotifier {
       paymentMethod: paymentMethod,
       landmark: landmark,
       note: note,
+      voucherCode: voucherCode,
     );
   }
 
-  Future<void> batalkanDiServer(int serverId) async {
-    try {
-      await _repository.cancelOnServer(serverId);
-    } catch (e) {
-      debugPrint('Gagal membatalkan pesanan di server: $e');
-    }
+  Future<void> batalkanDiServer(int serverId) {
+    return _repository.cancelOnServer(serverId);
   }
 
   Future<void> terimaPesanan(String kode) => _repository.receiveOnServer(kode);
@@ -77,29 +76,11 @@ class OrderProvider extends ChangeNotifier {
   }
 
   Future<void> syncFromServer() async {
-    if (_syncing) return;
-    _syncing = true;
     try {
       await _repository.syncFromServer();
-    } catch (e) {
-      debugPrint('Gagal sinkron pesanan: $e');
-    } finally {
-      _syncing = false;
+    } catch (error) {
+      debugPrint('Gagal sinkron pesanan: $error');
     }
-  }
-
-  /// Menyegarkan pesanan dari server secara berkala selama pembeli login, supaya perubahan dari
-  /// dashboard penjual (dikemas, siap diambil, dll.) dan hasil pembayaran Midtrans tampil sendiri.
-  /// Aman dipanggil berulang.
-  void startAutoSync() {
-    if (_autoSync != null) return;
-    unawaited(syncFromServer());
-    _autoSync = Timer.periodic(_autoSyncInterval, (_) => syncFromServer());
-  }
-
-  void stopAutoSync() {
-    _autoSync?.cancel();
-    _autoSync = null;
   }
 
   Future<void> clearLocal() async {
@@ -115,7 +96,6 @@ class OrderProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    stopAutoSync();
     _subscription?.cancel();
     super.dispose();
   }

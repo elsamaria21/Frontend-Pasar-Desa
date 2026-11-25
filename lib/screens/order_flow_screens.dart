@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
 import '../data/remote/api_service.dart' show ApiException;
@@ -120,15 +121,64 @@ void orderBuyAgain(BuildContext context, OrderEntry o) {
   DashboardNav.goTo(context, 2);
 }
 
+const String _kCourierPhone = '0813-8821-4902';
+
+String _waNumber(String raw) {
+  var d = raw.replaceAll(RegExp(r'[^0-9]'), '');
+  if (d.startsWith('0')) {
+    d = '62${d.substring(1)}';
+  } else if (d.startsWith('8')) {
+    d = '62$d';
+  }
+  return d;
+}
+
+Future<void> openCourierWhatsApp(
+  BuildContext context,
+  OrderEntry o, {
+  String phone = _kCourierPhone,
+  String courierName = _kCourierName,
+}) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final who =
+      o.receiverName.trim().isNotEmpty ? o.receiverName.trim() : 'pembeli';
+  final text = 'Halo $courierName, saya $who. Saya ingin menanyakan '
+      'pesanan ${o.id} di PasarDesa Sukorejo.';
+  final uri = Uri.parse(
+    'https://wa.me/${_waNumber(phone)}?text=${Uri.encodeComponent(text)}',
+  );
+
+  var ok = false;
+  try {
+    ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    ok = false;
+  }
+
+  if (!ok) {
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text(
+            'WhatsApp tidak dapat dibuka. Pastikan WhatsApp sudah terpasang.',
+          ),
+        ),
+      );
+  }
+}
+
 class _FlowHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
   final bool showLogo;
+  final double titleSize;
 
   const _FlowHeader({
     required this.title,
     this.subtitle,
     this.showLogo = true,
+    this.titleSize = 16,
   });
 
   @override
@@ -142,9 +192,9 @@ class _FlowHeader extends StatelessWidget {
             onTap: () => Navigator.maybePop(context),
             borderRadius: BorderRadius.circular(20),
             child: const Padding(
-              padding: EdgeInsets.all(8),
-              child: Icon(Icons.arrow_back_rounded,
-                  size: 22, color: AppColors.text),
+              padding: EdgeInsets.all(10),
+              child: Icon(Icons.arrow_back_ios_new_rounded,
+                  size: 20, color: AppColors.text),
             ),
           ),
           if (showLogo) ...[
@@ -160,8 +210,8 @@ class _FlowHeader extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
+                  style: TextStyle(
+                    fontSize: titleSize,
                     fontWeight: FontWeight.w900,
                     color: AppColors.text,
                   ),
@@ -172,7 +222,7 @@ class _FlowHeader extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style:
-                        const TextStyle(fontSize: 10, color: AppColors.muted),
+                        const TextStyle(fontSize: 11, color: AppColors.muted),
                   ),
               ],
             ),
@@ -244,6 +294,7 @@ class _FlowPage extends StatelessWidget {
   final Widget? bottom;
   final bool brandHeader;
   final bool showLogo;
+  final double titleSize;
 
   const _FlowPage({
     required this.title,
@@ -251,6 +302,7 @@ class _FlowPage extends StatelessWidget {
     this.subtitle,
     this.bottom,
     this.showLogo = true,
+    this.titleSize = 16,
   }) : brandHeader = false;
 
   @override
@@ -268,6 +320,7 @@ class _FlowPage extends StatelessWidget {
                 title: title,
                 subtitle: subtitle,
                 showLogo: showLogo,
+                titleSize: titleSize,
               ),
             Expanded(
               child: ListView(
@@ -492,10 +545,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   void _openChat() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => CourierChatScreen(order: o)),
-    );
+    openCourierWhatsApp(context, o);
   }
 
   Future<void> _confirmReceived() async {
@@ -543,7 +593,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
     if (ok != true || !mounted) return;
 
-    // Konfirmasi harus lebih dulu sampai ke server; kas penjual hanya cair dari sana.
     try {
       await orderStore.terimaPesanan(o.id);
     } on ApiException catch (e) {
@@ -554,7 +603,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Gagal mengonfirmasi penerimaan. Periksa koneksi lalu coba lagi.'),
+        content: Text(
+            'Gagal mengonfirmasi penerimaan. Periksa koneksi lalu coba lagi.'),
       ));
       return;
     }
@@ -761,8 +811,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final st = orderMeta.statusOf(o);
 
     return _FlowPage(
-      title: 'Detail Pesanan',
-      subtitle: o.id,
+      title: 'Detail Pemesanan',
+      titleSize: 22,
       showLogo: false,
       bottom: _buildBottom(st),
       children: [
@@ -780,32 +830,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Widget _buildStatusCard(OrderStatus st) {
     late final String chip;
     late final String title;
-    late final String subtitle;
 
     switch (st) {
       case OrderStatus.diproses:
         chip = 'Dikemas';
         title = 'Pesanan sedang dikemas';
-        subtitle = 'Petani menyiapkan dan mengemas hasil bumi pesanan Anda.';
         break;
       case OrderStatus.dikirim:
-        chip = o.isPickup ? 'Siap Diambil' : 'Dikirim';
-        title = o.isPickup
-            ? 'Pesanan siap diambil di pos'
-            : 'Pesanan dalam perjalanan';
-        subtitle = (o.courierInfo != null && o.courierInfo!.isNotEmpty)
-            ? o.courierInfo!
-            : o.isPickup
-                ? 'Ambil pesanan di pos BUMDes, lalu tekan "Pesanan Diterima".'
-                : 'Kurir BUMDes mengantar langsung ke rumah Anda.';
+        chip = 'Dikirim';
+        title = 'Pesanan dalam perjalanan';
         break;
       default:
-        final m = orderMeta.metaOf(o.id);
         chip = 'Selesai';
         title = 'Pesanan telah diterima';
-        subtitle = m.receivedAt != null
-            ? 'Diterima pada ${_dateLabel(m.receivedAt!)}'
-            : 'Terima kasih sudah berbelanja di PasarDesa.';
     }
 
     return ClipRRect(
@@ -855,14 +892,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     ],
                   ),
                 ),
-                const Spacer(),
-                Text(
-                  o.id,
-                  style: const TextStyle(
-                    color: Color.fromRGBO(255, 255, 255, 0.8),
-                    fontSize: 9.5,
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -877,10 +906,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              subtitle,
+              o.id,
               style: const TextStyle(
                 color: Color.fromRGBO(255, 255, 255, 0.9),
-                fontSize: 11.5,
+                fontSize: 12,
                 height: 1.4,
               ),
             ),
@@ -916,8 +945,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             '$_kCourierName ($_kCourierArea)',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -938,14 +967,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Alamat Penerima di Desa', icon: Icons.home_outlined),
+          _sectionTitle('Alamat Penerima'),
           Row(
             children: [
               Expanded(
                 child: Text(
                   o.receiverName.isNotEmpty ? o.receiverName : 'Penerima',
                   style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w900),
+                      fontSize: 13.5, fontWeight: FontWeight.w500),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -1051,7 +1080,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         children: [
           _sectionTitle(
             'Rincian Pembayaran',
-            icon: Icons.receipt_long_outlined,
             trailing: _pill(
               _isCod(o) ? 'Bayar di Tempat' : 'Lunas',
               AppColors.green,
@@ -1064,14 +1092,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               valueColor: AppColors.green),
           _kv('Biaya Layanan Koperasi', 'Gratis (Rp 0)',
               valueColor: AppColors.green),
-          const Divider(height: 18, color: Color(0xFFEEF2EF)),
+          const Divider(height: 10, color: Color(0xFFEEF2EF)),
           Row(
             children: [
               const Expanded(
                 child: Text(
-                  'TOTAL BELANJA',
+                  'TOTAL PEMBAYARAN',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 11,
                     color: AppColors.muted,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.3,
@@ -1113,16 +1141,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 color: _kRed,
               ),
             ),
-            if (!o.isPickup) ...[
-              const SizedBox(width: 10),
-              Expanded(
-                child: _bigButton(
-                  'Hubungi Kurir',
-                  onTap: _openChat,
-                  icon: Icons.chat_bubble_outline_rounded,
-                ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _bigButton(
+                'Hubungi Kurir',
+                onTap: _openChat,
+                icon: Icons.chat_bubble_outline_rounded,
               ),
-            ],
+            ),
           ],
         );
 
@@ -2562,138 +2588,6 @@ class CancelledOrderScreen extends StatelessWidget {
   }
 }
 
-class CourierTurn {
-  final String text;
-  final bool fromBuyer;
-
-  const CourierTurn(this.text, this.fromBuyer);
-}
-
-class CourierChatContext {
-  final OrderEntry order;
-  final OrderStatus status;
-  final String courierName;
-  final String courierArea;
-  final List<CourierTurn> history;
-
-  const CourierChatContext({
-    required this.order,
-    required this.status,
-    required this.courierName,
-    required this.courierArea,
-    required this.history,
-  });
-}
-
-abstract class CourierReplyService {
-  Future<String> reply(CourierChatContext ctx, String message);
-}
-
-class RuleBasedCourierReply implements CourierReplyService {
-  const RuleBasedCourierReply();
-
-  @override
-  Future<String> reply(CourierChatContext ctx, String message) async {
-    await Future.delayed(const Duration(milliseconds: 900));
-
-    final m = message.toLowerCase();
-    final o = ctx.order;
-    final st = ctx.status;
-    final call = _callName(o.receiverName);
-    final address = o.deliveryAddress.trim().isNotEmpty
-        ? o.deliveryAddress.trim()
-        : 'alamat Anda';
-
-    bool has(List<String> keys) => keys.any(m.contains);
-
-    final preparing = st == OrderStatus.diproses;
-    final delivered = st == OrderStatus.selesai;
-
-    if (has(['terima kasih', 'makasih', 'thanks'])) {
-      return 'Sama-sama $call, selamat menikmati hasil panen desa kita.';
-    }
-
-    if (has(['posisi', 'dimana', 'di mana', 'dmn', 'sampai mana', 'lokasi'])) {
-      if (delivered) {
-        return 'Pesanan sudah selesai diantar, $call.';
-      }
-      if (preparing) {
-        return 'Saya masih standby di Pos BUMDes, $call. Pesanan masih '
-            'disiapkan lapak dan belum saya jemput. Begitu berangkat, saya '
-            'kabari lewat chat ini.';
-      }
-      return 'Saya sudah dalam perjalanan, $call. Tinggal sekitar 10 menit '
-          'lagi menuju $address.';
-    }
-
-    if (has(['menit', 'kapan', 'lama', 'berapa lama', 'sampai'])) {
-      if (delivered) {
-        return 'Pesanan sudah sampai ya, $call.';
-      }
-      if (preparing) {
-        return 'Pesanan masih disiapkan lapak, $call. Perkiraan siap '
-            'berangkat sekitar 20–30 menit lagi, nanti saya kabari.';
-      }
-      return 'Sekitar 10 menit lagi sampai, $call.';
-    }
-
-    if (has(['titip', 'tetangga', 'teras', 'depan pintu', 'warung'])) {
-      if (delivered) {
-        return 'Pesanan sudah diantar ya, $call.';
-      }
-      return 'Nggih $call, siap. Pesanan akan saya titipkan sesuai '
-          'permintaan dan saya kabari lewat chat setelah sampai.';
-    }
-
-    if (has(['tunggu'])) {
-      return 'Siap $call, saya tunggu kabar dari Anda.';
-    }
-
-    if (has(['di rumah', 'silakan', 'silahkan', 'boleh diantar'])) {
-      if (preparing) {
-        return 'Baik $call, pesanan masih disiapkan lapak. Nanti saya '
-            'antar ke $address begitu siap.';
-      }
-      return 'Baik $call, saya antar ke $address ya.';
-    }
-
-    if (has(['ganti alamat', 'ubah alamat', 'batal'])) {
-      return 'Untuk ubah alamat atau pembatalan, mohon lewat halaman pesanan '
-          'ya $call, karena saya hanya bisa mengantar sesuai data pesanan.';
-    }
-
-    if (preparing) {
-      return 'Nggih $call, pesan diterima. Pesanan masih disiapkan lapak, '
-          'nanti saya kabari kalau sudah saya jemput.';
-    }
-    if (delivered) {
-      return 'Nggih $call, pesan diterima.';
-    }
-    return 'Nggih $call, pesan diterima. Saya segera antar ke $address.';
-  }
-
-  static String _callName(String fullName) {
-    final parts = fullName.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return 'Kak';
-    const honorifics = ['bapak', 'ibu', 'mas', 'mbak', 'kak', 'dik'];
-    final first = parts.first;
-    if (honorifics.contains(first.toLowerCase())) {
-      return parts.length > 1 ? '$first ${parts[1]}' : first;
-    }
-    return 'Kak $first';
-  }
-}
-
-CourierReplyService courierReplyService = const RuleBasedCourierReply();
-
-class _ChatMsg {
-  final String text;
-  final bool mine;
-  final String time;
-
-  const _ChatMsg(this.text, this.mine, this.time);
-}
-
 class CourierChatScreen extends StatefulWidget {
   final OrderEntry order;
 
@@ -2704,423 +2598,22 @@ class CourierChatScreen extends StatefulWidget {
 }
 
 class _CourierChatScreenState extends State<CourierChatScreen> {
-  static const List<String> _quick = [
-    'Posisi sekarang di mana?',
-    'Berapa menit lagi sampai?',
-    'Saya di rumah, silakan diantar',
-    'Titip ke tetangga ya, Pak',
-    'Taruh di depan pintu saja',
-  ];
-
-  final TextEditingController _input = TextEditingController();
-  final ScrollController _scroll = ScrollController();
-  final List<_ChatMsg> _messages = [];
-  int _pending = 0;
-
-  OrderEntry get o => widget.order;
-
-  String _hm() {
-    final d = DateTime.now();
-    return '${_two(d.hour)}.${_two(d.minute)}';
-  }
-
   @override
   void initState() {
     super.initState();
-    final who = o.receiverName.isNotEmpty ? o.receiverName : 'Kak';
-    final preparing = orderMeta.statusOf(o) == OrderStatus.diproses;
-    _messages.add(
-      _ChatMsg(
-        preparing
-            ? 'Halo $who, saya $_kCourierName kurir desa. Pesanan ${o.id} '
-                'masih disiapkan lapak. Begitu siap, saya jemput dan antar '
-                'ke alamat Anda. Kalau ada pesan, tulis di sini ya 🙏'
-            : 'Halo $who, saya $_kCourierName kurir desa. Pesanan ${o.id} '
-                'sedang dalam perjalanan menuju alamat Anda. '
-                '${o.deliveryAddress.isNotEmpty ? 'Alamat: ${o.deliveryAddress}. ' : ''}'
-                'Mohon siap ya 🙏',
-        false,
-        _hm(),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _input.dispose();
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  void _scrollDown() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scroll.hasClients) return;
-      _scroll.animateTo(
-        _scroll.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-      );
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await openCourierWhatsApp(context, widget.order);
+      if (mounted) Navigator.maybePop(context);
     });
-  }
-
-  Future<void> _send(String text) async {
-    final value = text.trim();
-    if (value.isEmpty) return;
-
-    final ctx = CourierChatContext(
-      order: o,
-      status: orderMeta.statusOf(o),
-      courierName: _kCourierName,
-      courierArea: _kCourierArea,
-      history: [
-        for (final m in _messages) CourierTurn(m.text, m.mine),
-      ],
-    );
-
-    setState(() {
-      _messages.add(_ChatMsg(value, true, _hm()));
-      _input.clear();
-      _pending++;
-    });
-    _scrollDown();
-
-    String answer;
-    try {
-      answer = await courierReplyService.reply(ctx, value);
-    } catch (_) {
-      answer = 'Maaf, pesan belum bisa dibalas. Coba kirim lagi ya.';
-    }
-    if (!mounted) return;
-
-    setState(() {
-      _messages.add(_ChatMsg(answer, false, _hm()));
-      _pending--;
-    });
-    _scrollDown();
-  }
-
-  void _snack(String text) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAF8),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const _FlowHeader(title: 'Hubungi Kurir', showLogo: false),
-            Expanded(
-              child: ListView(
-                controller: _scroll,
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-                children: [
-                  _buildCourierCard(),
-                  const SizedBox(height: 12),
-                  _buildPackage(),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Pesan Cepat ke Kurir',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 7,
-                    runSpacing: 7,
-                    children: [
-                      for (final q in _quick)
-                        InkWell(
-                          onTap: () => _send(q),
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 11,
-                              vertical: 7,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1FBF4),
-                              borderRadius: BorderRadius.circular(20),
-                              border:
-                                  Border.all(color: const Color(0xFFD3EFDD)),
-                            ),
-                            child: Text(
-                              q,
-                              style: const TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.green,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  for (final m in _messages) _bubble(m),
-                  if (_pending > 0) _typingBubble(),
-                ],
-              ),
-            ),
-            _buildInput(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCourierCard() {
-    return _box(
-      child: Column(
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: AppColors.green,
-                child: Text(
-                  _initials(_kCourierName),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Text(
-                          _kCourierName,
-                          style: TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w900),
-                        ),
-                        SizedBox(width: 4),
-                        Icon(Icons.verified, size: 15, color: AppColors.green),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'Kurir Desa BUMDes Sukorejo • $_kCourierArea',
-                      style: TextStyle(fontSize: 10.5, color: AppColors.muted),
-                    ),
-                    const SizedBox(height: 5),
-                    Wrap(
-                      spacing: 5,
-                      children: [
-                        _pill('Warga Desa Sukorejo', AppColors.green,
-                            const Color(0xFFE1F5E9)),
-                        _pill('Aktif', AppColors.green, const Color(0xFFE1F5E9),
-                            icon: Icons.circle),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1FBF4),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.two_wheeler_rounded,
-                    size: 18, color: AppColors.green),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    (o.courierInfo != null && o.courierInfo!.isNotEmpty)
-                        ? o.courierInfo!
-                        : 'Sedang mengantar pesanan ${o.id}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.green,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton.icon(
-              onPressed: () => _snack(
-                'Panggilan telepon akan aktif setelah fitur telepon dipasang',
-              ),
-              icon: const Icon(Icons.call_rounded, size: 18),
-              label: const Text(
-                'Telepon Langsung Kurir',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.green,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPackage() {
-    return _box(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('Paket yang Dibawa', icon: Icons.inventory_2_outlined),
-          for (final l in o.lines) _lineTile(l),
-        ],
-      ),
-    );
-  }
-
-  Widget _bubble(_ChatMsg m) {
-    return Align(
-      alignment: m.mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.fromLTRB(12, 9, 12, 7),
-        decoration: BoxDecoration(
-          color: m.mine ? AppColors.green : Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(14),
-            topRight: const Radius.circular(14),
-            bottomLeft: Radius.circular(m.mine ? 14 : 3),
-            bottomRight: Radius.circular(m.mine ? 3 : 14),
-          ),
-          border: Border.all(
-            color: m.mine ? AppColors.green : AppColors.border,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                m.text,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.4,
-                  color: m.mine ? Colors.white : AppColors.text,
-                ),
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              m.time,
-              style: TextStyle(
-                fontSize: 9,
-                color: m.mine
-                    ? const Color.fromRGBO(255, 255, 255, 0.8)
-                    : AppColors.muted,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _typingBubble() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(14),
-            topRight: Radius.circular(14),
-            bottomLeft: Radius.circular(3),
-            bottomRight: Radius.circular(14),
-          ),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: const Text(
-          '$_kCourierName sedang mengetik...',
-          style: TextStyle(
-            fontSize: 11,
-            fontStyle: FontStyle.italic,
-            color: AppColors.muted,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInput() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE6EAE7))),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4F7F5),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: TextField(
-                controller: _input,
-                textInputAction: TextInputAction.send,
-                onSubmitted: _send,
-                style: const TextStyle(fontSize: 13),
-                decoration: const InputDecoration(
-                  hintText: 'Tulis pesan untuk $_kCourierName...',
-                  hintStyle: TextStyle(fontSize: 12, color: AppColors.muted),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          InkWell(
-            onTap: () => _send(_input.text),
-            borderRadius: BorderRadius.circular(24),
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
-                color: AppColors.green,
-                shape: BoxShape.circle,
-              ),
-              child:
-                  const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-            ),
-          ),
-        ],
+    return const Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: CircularProgressIndicator(color: AppColors.green),
       ),
     );
   }

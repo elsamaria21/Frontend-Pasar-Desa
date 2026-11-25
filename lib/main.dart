@@ -48,7 +48,6 @@ class PasarDesaApp extends StatelessWidget {
         title: 'PasarDesa UMKM Desa Sukorejo',
         theme: appTheme,
         builder: (context, child) {
-          // Di layar lebar (Chrome/desktop), tampilkan app selebar HP di tengah.
           const double phoneWidth = 430;
           final mq = MediaQuery.of(context);
           if (mq.size.width <= phoneWidth) return child!;
@@ -133,7 +132,6 @@ class SplashScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // ANIMASI GIF TAS BELANJA
               Image.asset(
                 'assets/images/splash_screen.gif',
                 width: 280,
@@ -141,9 +139,7 @@ class SplashScreen extends StatelessWidget {
                 fit: BoxFit.contain,
                 gaplessPlayback: true,
               ),
-
               const SizedBox(height: 12),
-
               const Text(
                 'PASAR DESA',
                 style: TextStyle(
@@ -153,9 +149,7 @@ class SplashScreen extends StatelessWidget {
                   color: primaryGreen,
                 ),
               ),
-
               const SizedBox(height: 8),
-
               const Text(
                 'Belanja Mudah, Produk Desa Berkualitas',
                 textAlign: TextAlign.center,

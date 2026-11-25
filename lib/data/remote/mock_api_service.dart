@@ -85,7 +85,7 @@ class MockApiService {
           'dusun': 'Krajan',
           'desa': 'Desa Sukorejo',
         },
-        'expires_in': 604800, // 7 hari
+        'expires_in': 604800,
       };
     }
 

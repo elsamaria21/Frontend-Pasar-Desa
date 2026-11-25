@@ -1,6 +1,6 @@
-﻿import 'dart:math' as math;
+﻿import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
 import '../data/address_book.dart';
@@ -9,12 +9,10 @@ import '../data/repositories/order_repository.dart'
 import '../providers/order_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/checkout_failed_dialog.dart';
-import '../widgets/common.dart';
 import 'dashboard_screen.dart';
 import 'order_models.dart';
-import 'map_picker_screen.dart';
 import 'order_success_screen.dart';
-import 'midtrans_payment_screen.dart';
+import 'payment_screen.dart' show PaymentScreen, paymentChangeMethodResult;
 import 'topup_screen.dart';
 import '../widgets/app_image.dart';
 
@@ -50,18 +48,47 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   static const int _maxAddresses = 4;
 
-  late List<AddressData> _addresses;
+  List<AddressData> _addresses = [];
   int _selectedAddress = 0;
+  bool _addressesReady = false;
+  bool _addressListenerAttached = false;
 
   @override
   void initState() {
     super.initState();
-    _loadSharedAddresses();
-    AddressBook.addresses.addListener(_onSharedAddressesChanged);
+    _initializeAddressBook();
+  }
+
+  Future<void> _initializeAddressBook() async {
+    try {
+      await AddressBook.init();
+      if (!mounted) return;
+
+      AddressBook.addresses.addListener(_onSharedAddressesChanged);
+      _addressListenerAttached = true;
+
+      setState(() {
+        _loadSharedAddresses();
+        _addressesReady = true;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _addresses = [];
+        _selectedAddress = 0;
+        _addressesReady = true;
+      });
+      _toast('Alamat belum dapat dimuat. Silakan coba lagi.');
+    }
   }
 
   void _loadSharedAddresses({String? preserveId}) {
     _addresses = AddressBook.snapshot().map(_toCheckoutAddress).toList();
+
+    if (_addresses.isEmpty) {
+      _selectedAddress = 0;
+      return;
+    }
 
     final preservedIndex = preserveId == null
         ? -1
@@ -78,33 +105,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   AddressData _toCheckoutAddress(AddressItem address) {
-    final wilayah = address.wilayah;
+    final savedDusun = address.dusun.trim();
+    final hasRtRwInDusun =
+        RegExp(r'\bRT\b|\bRW\b', caseSensitive: false).hasMatch(savedDusun);
+    final legacyRegion = [
+      if (savedDusun.isNotEmpty) savedDusun,
+      if (!hasRtRwInDusun && address.rt.trim().isNotEmpty)
+        'RT ${address.rt.trim()}',
+      if (!hasRtRwInDusun && address.rw.trim().isNotEmpty)
+        'RW ${address.rw.trim()}',
+    ].join(', ');
+    final detail = address.detail.trim();
+    final fullAddress = [
+      if (legacyRegion.isNotEmpty) legacyRegion,
+      if (detail.isNotEmpty) detail,
+    ].join(', ');
+
     return AddressData(
       address.recipient,
       address.phone,
-      '$wilayah (${address.detail})',
+      fullAddress,
       id: address.id,
       label: address.label,
       isMain: address.isPrimary,
-      dusun: wilayah,
-      detail: address.detail,
-      courierNote: address.note,
+      dusun: '',
+      detail: fullAddress,
+      courierNote: '',
       pickupPoint: address.pickupPoint,
-      latitude: address.latitude,
-      longitude: address.longitude,
     );
   }
 
   List<AddressItem> _toSharedAddresses(List<AddressData> list) {
     return List.generate(list.length, (index) {
       final address = list[index];
-      final wilayah = address.dusun.isNotEmpty
-          ? address.dusun
-          : address.address.split(' (').first;
-      final match = RegExp(
-        r'^(.*?),?\s*RT\s*(\d+)\s*/\s*RW\s*(\d+)',
-        caseSensitive: false,
-      ).firstMatch(wilayah);
+      final fullAddress = address.detail.trim().isNotEmpty
+          ? address.detail.trim()
+          : address.address.trim();
 
       return AddressItem(
         id: address.id.isNotEmpty
@@ -112,16 +148,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             : 'shared-address-${DateTime.now().microsecondsSinceEpoch}-$index',
         recipient: address.name,
         phone: address.phone,
-        dusun: match?.group(1)?.trim() ?? 'Dusun Krajan Kulon',
-        rt: match?.group(2) ?? '02',
-        rw: match?.group(3) ?? '03',
-        detail: address.detail.isNotEmpty ? address.detail : address.address,
-        note: address.courierNote,
+        dusun: '',
+        rt: '',
+        rw: '',
+        detail: fullAddress,
+        note: '',
         label: address.label,
         pickupPoint: address.pickupPoint,
         isPrimary: address.isMain,
-        latitude: address.latitude,
-        longitude: address.longitude,
       );
     });
   }
@@ -136,21 +170,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _loadSharedAddresses(preserveId: preserveId));
   }
 
-  static const AddressData _noAddress = AddressData(
-    'Belum ada alamat',
-    '-',
-    'Ketuk "Ubah Titik" untuk menambah alamat pengiriman.',
-  );
-
-  AddressData get _currentAddress =>
-      _addresses.isEmpty ? _noAddress : _addresses[_selectedAddress];
+  AddressData get _currentAddress => _addresses[_selectedAddress];
   String get _name => _currentAddress.name;
   String get _phone => _currentAddress.phone;
   String get _address => _currentAddress.address;
 
   @override
   void dispose() {
-    AddressBook.addresses.removeListener(_onSharedAddressesChanged);
+    if (_addressListenerAttached) {
+      AddressBook.addresses.removeListener(_onSharedAddressesChanged);
+    }
     _noteC.dispose();
     _voucherC.dispose();
     super.dispose();
@@ -166,7 +195,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String get _payLabel {
     switch (_pay) {
       case PayMethod.qris:
-        return 'QRIS, Virtual Account & E-Wallet';
+        return 'QRIS Desa / Transfer BUMDes';
       case PayMethod.cod:
         return 'Bayar di Tempat (COD)';
       case PayMethod.saldo:
@@ -180,6 +209,160 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  /// Notifikasi singkat bergaya "produk masuk keranjang":
+  /// kartu hijau gelap, judul tebal putih, teks kedua dengan bagian
+  /// yang disorot hijau muda. Tanpa tombol dan tidak pindah halaman
+  /// saat disentuh.
+  ///
+  /// Notifikasi ini tampil di BAGIAN ATAS layar (di bawah status bar).
+  void _showNotice(
+    String title,
+    String message, {
+    String? highlight,
+    int milliseconds = 2600,
+  }) {
+    final messenger = ScaffoldMessenger.of(context);
+    final media = MediaQuery.of(context);
+
+    // Floating SnackBar secara bawaan menempel di bawah. Dengan margin
+    // bawah yang besar, kartunya terdorong ke atas layar.
+    // 120 = perkiraan tinggi kartu + jarak dari status bar.
+    final bottomMargin = math.max(
+      16.0,
+      media.size.height - media.padding.top - 120,
+    );
+
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          dismissDirection: DismissDirection.up,
+          duration: Duration(milliseconds: milliseconds),
+          margin: EdgeInsets.fromLTRB(14, 0, 14, bottomMargin),
+          content: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF073D27),
+              borderRadius: BorderRadius.circular(17),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x30000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 7),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text.rich(
+                  TextSpan(
+                    style: const TextStyle(
+                      color: Color(0xFFD4E9DC),
+                      fontSize: 12,
+                      height: 1.3,
+                    ),
+                    children: [
+                      if (highlight != null)
+                        TextSpan(
+                          text: highlight,
+                          style: const TextStyle(
+                            color: Color(0xFF8DE0AE),
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      TextSpan(
+                        text: highlight != null ? ' $message' : message,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+  }
+
+  /// Notifikasi "Pembayaran dibatalkan": tampil di ATAS layar, tanpa ikon.
+  void _showPaymentCancelledNotice() {
+    final messenger = ScaffoldMessenger.of(context);
+    final media = MediaQuery.of(context);
+
+    // Margin bawah besar mendorong SnackBar floating ke atas layar.
+    final bottomMargin = math.max(
+      16.0,
+      media.size.height - media.padding.top - 120,
+    );
+
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          dismissDirection: DismissDirection.up,
+          duration: const Duration(milliseconds: 2800),
+          margin: EdgeInsets.fromLTRB(14, 0, 14, bottomMargin),
+          content: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF073D27),
+              borderRadius: BorderRadius.circular(17),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x30000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 7),
+                ),
+              ],
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Pembayaran dibatalkan',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Pesanan tidak jadi dibuat.',
+                  style: TextStyle(
+                    color: Color(0xFFD4E9DC),
+                    fontSize: 12,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
   }
 
   void _applyVoucher() {
@@ -223,37 +406,50 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           if (!mounted) return;
           setState(() {
             _addresses = List<AddressData>.of(list);
-            _selectedAddress = selected;
+            _selectedAddress =
+                list.isEmpty ? 0 : selected.clamp(0, list.length - 1).toInt();
           });
-          AddressBook.replace(_toSharedAddresses(list));
+          unawaited(
+            AddressBook.replace(_toSharedAddresses(list)).catchError((error) {
+              if (mounted) {
+                _toast('Alamat belum berhasil disimpan. Coba lagi.');
+              }
+            }),
+          );
         },
       ),
     );
   }
 
-  /// Membuka halaman bayar Midtrans (QRIS / Virtual Account / e-wallet).
-  /// `true` hanya bila server sudah mengonfirmasi lunas.
-  Future<bool> _openMidtransPayment(ServerOrder order, int total) async {
-    final paid = await Navigator.push<bool>(
+  Future<String?> _openQrisPayment(int total) async {
+    final now = DateTime.now();
+    final ref =
+        'PSD-${now.year}-${now.millisecondsSinceEpoch.toString().substring(7)}';
+
+    return Navigator.push<String>(
       context,
       MaterialPageRoute(
-        builder: (_) => MidtransPaymentScreen(orderCode: order.kode, total: total),
+        builder: (_) => PaymentScreen(
+          total: total,
+          orderRef: ref,
+          cartCount: context.read<CartProvider>().items.length,
+        ),
       ),
     );
-    return paid == true;
   }
 
   Future<void> _submit(_OrderData o) async {
-    if (_addresses.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tambahkan alamat pengiriman dulu')),
-      );
+    if (!_addressesReady || _addresses.isEmpty) {
+      _toast('Tambahkan alamat pengiriman terlebih dahulu.');
+      if (_addressesReady) await _openAddressSheet();
       return;
     }
 
     if (_pay == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih metode pembayaran dulu')),
+      _showNotice(
+        'Metode pembayaran belum dipilih',
+        'metode pembayaran dulu.',
+        highlight: 'Silakan pilih',
       );
       return;
     }
@@ -273,8 +469,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     var orderTuntas = false;
 
     try {
-      // Pesanan dibuat di server lebih dulu: stok dikunci dan harga dihitung
-      // server. Bila pembayaran batal/gagal, pesanan dibatalkan lagi.
+      if (_pay == PayMethod.saldo && o.total > _saldo) {
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _pay = null;
+        });
+        _toast(
+          'Saldo PasarDesa tidak cukup. Saldo Anda Rp ${formatRupiah(_saldo)}, '
+          'sedangkan total pembayaran Rp ${formatRupiah(o.total)}. '
+          'Silakan pilih metode pembayaran lain.',
+        );
+        return;
+      }
+
       final catatanAlamat = _currentAddress.courierNote.trim();
       final catatanUser = _noteSaved ? _noteC.text.trim() : '';
 
@@ -291,41 +499,70 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         delivery:
             _delivery == DeliveryOption.kurir ? 'kurir-desa' : 'ambil-mandiri',
         paymentMethod: _pay == PayMethod.qris
-            ? 'Midtrans'
+            ? 'QRIS'
             : _pay == PayMethod.saldo
                 ? 'Saldo PasarDesa'
                 : 'COD BUMDes',
         landmark: catatanAlamat,
         note: catatanUser,
+        voucherCode: _voucherApplied ? _voucherCode : '',
       );
+
+      if (serverOrder.total != o.total) {
+        final serverTotal = serverOrder.total;
+        await orderStore.batalkanDiServer(serverOrder.id);
+        serverOrder = null;
+        throw StateError(
+          'Total pesanan dari server (Rp ${formatRupiah(serverTotal)}) '
+          'tidak sama dengan total checkout (Rp ${formatRupiah(o.total)}). '
+          'Silakan muat ulang keranjang.',
+        );
+      }
 
       String paymentLabel;
 
       if (_pay == PayMethod.qris) {
-        final paid = await _openMidtransPayment(serverOrder, o.total);
-        if (!mounted) return;
-
-        if (!paid) {
-          await orderStore.batalkanDiServer(serverOrder.id);
-          if (!mounted) return;
-          setState(() => _loading = false);
+        final paidLabel = await _openQrisPayment(o.total);
+        if (!mounted) {
+          try {
+            await orderStore.batalkanDiServer(serverOrder.id);
+          } catch (cleanupError) {
+            debugPrint(
+                'Gagal membatalkan pesanan setelah layar checkout ditutup: $cleanupError');
+          }
           return;
         }
 
-        paymentLabel = 'Midtrans Lunas';
-      } else if (_pay == PayMethod.saldo) {
-        if (o.total > _saldo) {
+        if (paidLabel == paymentChangeMethodResult) {
           await orderStore.batalkanDiServer(serverOrder.id);
+          serverOrder = null;
           if (!mounted) return;
-          setState(() => _loading = false);
-          await _handleFailure(
-            o,
-            'Saldo PasarDesa tidak cukup. Saldo Anda Rp ${formatRupiah(_saldo)}, '
-            'sedangkan total pembayaran Rp ${formatRupiah(o.total)}.',
+          setState(() {
+            _loading = false;
+            _pay = null;
+          });
+          _showNotice(
+            'Pilih metode pembayaran',
+            'metode pembayaran lain.',
+            highlight: 'Silakan pilih',
           );
           return;
         }
 
+        if (paidLabel == null) {
+          await orderStore.batalkanDiServer(serverOrder.id);
+          serverOrder = null;
+          if (!mounted) return;
+          setState(() {
+            _loading = false;
+            _pay = null;
+          });
+          _showPaymentCancelledNotice();
+          return;
+        }
+
+        paymentLabel = paidLabel;
+      } else if (_pay == PayMethod.saldo) {
         paymentLabel = 'Saldo Lunas';
       } else {
         paymentLabel = 'COD BUMDes';
@@ -334,10 +571,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
 
       final id = serverOrder.kode;
-
-      if (_pay == PayMethod.saldo) {
-        WalletBalance.balance.value = _saldo - o.total;
-      }
 
       final userNote = _noteSaved ? _noteC.text.trim() : '';
       final addressNote = _currentAddress.courierNote.trim();
@@ -358,8 +591,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }).toList();
 
       final courierTitle = _delivery == DeliveryOption.kurir
-          ? kJudulKurirDesa
-          : kJudulAmbilMandiri;
+          ? 'Kurir Desa Sukorejo'
+          : 'Ambil Mandiri di Pos BUMDes';
 
       final courierInfo = _delivery == DeliveryOption.kurir
           ? 'Estimasi diantar sore ini (15:00 - 17:00 WIB)'
@@ -379,8 +612,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         deliveryNote: note,
       );
 
-      orderStore.addOrder(entry);
+      await orderStore.addOrder(entry);
+      if (_pay == PayMethod.saldo) {
+        WalletBalance.balance.value = _saldo - o.total;
+      }
       orderTuntas = true;
+
+      if (!mounted) return;
+
       context.read<CartProvider>().removeSelected();
 
       NotificationCenter.add(
@@ -414,7 +653,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } catch (e) {
       final dibuat = serverOrder;
       if (dibuat != null && !orderTuntas) {
-        await orderStore.batalkanDiServer(dibuat.id);
+        try {
+          await orderStore.batalkanDiServer(dibuat.id);
+        } catch (cleanupError) {
+          debugPrint(
+              'Gagal membatalkan pesanan saat checkout gagal: $cleanupError');
+        }
       }
       if (!mounted) return;
       setState(() => _loading = false);
@@ -432,8 +676,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       await _submit(o);
     } else {
       setState(() => _pay = null);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Silakan pilih metode pembayaran lain')),
+      _showNotice(
+        'Pilih metode pembayaran',
+        'metode pembayaran lain.',
+        highlight: 'Silakan pilih',
       );
     }
   }
@@ -455,7 +701,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final order = _OrderData(items, subtotal, fee, discount, total);
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF8FAF8),
+          backgroundColor: const Color(0xFFF3F7F4),
           body: SafeArea(
             child: Column(
               children: [
@@ -465,28 +711,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     physics: const BouncingScrollPhysics(),
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _addressSection(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 24),
                         _deliverySection(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 24),
                         _sellerSection(items, subtotal, itemCount),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 16),
                         _voucherRow(discount),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 24),
                         _paymentSection(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 24),
                         _noteSection(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 24),
                         _summarySection(subtotal, fee, discount, total),
                       ],
                     ),
                   ),
                 ),
-                _bottomBar(items.isEmpty, itemCount, total, order),
+                _bottomBar(
+                    items.isEmpty || !_addressesReady || _addresses.isEmpty,
+                    total,
+                    order),
               ],
             ),
           ),
@@ -497,19 +746,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _topBar() {
     return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      height: 68,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E9E6))),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE7EEE8)),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x080D2818),
+            blurRadius: 16,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
+            splashRadius: 22,
             icon: const Icon(
-              Icons.arrow_back_ios_new,
-              size: 18,
+              Icons.arrow_back_ios_new_rounded,
+              size: 20,
               color: AppColors.text,
             ),
           ),
@@ -517,8 +776,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             child: Text(
               'Checkout Pemesanan',
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 22,
                 fontWeight: FontWeight.w900,
+                letterSpacing: -0.45,
                 color: AppColors.text,
               ),
             ),
@@ -529,6 +789,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _addressSection() {
+    final hasAddress = _addresses.isNotEmpty &&
+        _selectedAddress >= 0 &&
+        _selectedAddress < _addresses.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -536,14 +800,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           children: [
             const Expanded(child: _SectionTitle('Alamat Pengiriman')),
             InkWell(
-              onTap: _openAddressSheet,
-              borderRadius: BorderRadius.circular(6),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              onTap: _addressesReady ? _openAddressSheet : null,
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 child: Text(
-                  'Ubah Titik',
-                  style: TextStyle(
-                    fontSize: 11,
+                  hasAddress ? 'Ubah Alamat' : 'Tambah Alamat',
+                  style: const TextStyle(
+                    fontSize: 13,
                     color: AppColors.green,
                     fontWeight: FontWeight.w800,
                   ),
@@ -552,65 +816,175 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        _card(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: const BoxDecoration(
-                  color: AppColors.greenLight,
-                  shape: BoxShape.circle,
+        const SizedBox(height: 11),
+        if (!_addressesReady)
+          _card(
+            child: const Row(
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.green,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.location_on_outlined,
-                  color: AppColors.green,
-                  size: 19,
+                SizedBox(width: 12),
+                Text(
+                  'Memuat alamat tersimpan...',
+                  style: TextStyle(fontSize: 13, color: AppColors.muted),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: '$_name ',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
+              ],
+            ),
+          )
+        else if (!hasAddress)
+          _emptyAddressCard()
+        else
+          _card(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.greenLight,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.location_on_outlined,
+                    color: AppColors.green,
+                    size: 23,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '${_currentAddress.name} ',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.text,
+                              ),
+                            ),
+                            TextSpan(
+                              text: '(${_currentAddress.phone})',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        _currentAddress.address,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.5,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                      if (_currentAddress.isMain) ...[
+                        const SizedBox(height: 9),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F6ED),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'Alamat utama',
+                            style: TextStyle(
+                              color: AppColors.green,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                          TextSpan(
-                            text: '($_phone)',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _address,
-                      style: const TextStyle(
-                        fontSize: 10.5,
-                        height: 1.4,
-                        color: AppColors.muted,
-                      ),
-                    ),
-                  ],
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
       ],
+    );
+  }
+
+  Widget _emptyAddressCard() {
+    return _card(
+      padding: const EdgeInsets.fromLTRB(18, 22, 18, 18),
+      child: Column(
+        children: [
+          Container(
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              color: AppColors.greenLight,
+              borderRadius: BorderRadius.circular(19),
+            ),
+            child: const Icon(
+              Icons.location_on_outlined,
+              size: 32,
+              color: AppColors.green,
+            ),
+          ),
+          const SizedBox(height: 13),
+          const Text(
+            'Belum Ada Alamat Pengiriman',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: AppColors.text,
+            ),
+          ),
+          const SizedBox(height: 7),
+          const Text(
+            'Tambahkan alamat Anda agar kurir dapat mengantar pesanan Anda.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.5,
+              color: AppColors.muted,
+            ),
+          ),
+          const SizedBox(height: 15),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _openAddressSheet,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.green,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
+              ),
+              child: const Text(
+                'Tambah Alamat Pertama',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -619,7 +993,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _SectionTitle('Opsi Pengantaran Lokal'),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         _optionCard(
           selected: _delivery == DeliveryOption.kurir,
           onTap: () => setState(() => _delivery = DeliveryOption.kurir),
@@ -629,7 +1003,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           subtitle: 'Estimasi diantar sore ini (15:00 - 17:00 WIB)',
           trailing: 'Rp ${formatRupiah(_kurirFee)}',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         _optionCard(
           selected: _delivery == DeliveryOption.ambil,
           onTap: () => setState(() => _delivery = DeliveryOption.ambil),
@@ -655,63 +1029,81 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF1FBF4) : Colors.white,
+          color: selected ? const Color(0xFFF3FBF5) : Colors.white,
           border: Border.all(
-            color: selected ? AppColors.green : AppColors.border,
-            width: selected ? 1.4 : 1,
+            color: selected ? AppColors.green : const Color(0xFFE5EBE6),
+            width: selected ? 1.5 : 1,
           ),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color:
+                  selected ? const Color(0x160B7A3E) : const Color(0x060D2818),
+              blurRadius: selected ? 18 : 12,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: AppColors.green),
-            const SizedBox(width: 10),
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: AppColors.greenLight,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(icon, size: 24, color: AppColors.green),
+            ),
+            const SizedBox(width: 13),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 7,
+                    runSpacing: 3,
                     children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                          ),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.text,
                         ),
                       ),
-                      if (badge != null) ...[
-                        const SizedBox(width: 6),
+                      if (badge != null)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                            horizontal: 7,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.orange.shade100,
-                            borderRadius: BorderRadius.circular(4),
+                            color: AppColors.greenLight,
+                            borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
                             badge,
-                            style: TextStyle(
-                              fontSize: 8.5,
+                            style: const TextStyle(
+                              fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              color: Colors.orange.shade800,
+                              color: AppColors.green,
                             ),
                           ),
                         ),
-                      ],
                     ],
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
                     style: const TextStyle(
-                      fontSize: 9.5,
+                      fontSize: 12,
+                      height: 1.35,
                       color: AppColors.muted,
                     ),
                   ),
@@ -719,13 +1111,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              trailing,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                color: trailingGreen ? AppColors.green : AppColors.text,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  trailing,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: trailingGreen ? AppColors.green : AppColors.text,
+                  ),
+                ),
+                if (selected) ...[
+                  const SizedBox(height: 5),
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    size: 18,
+                    color: AppColors.green,
+                  ),
+                ],
+              ],
             ),
           ],
         ),
@@ -739,47 +1145,54 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       child: Column(
         children: [
           const Padding(
-            padding: EdgeInsets.fromLTRB(10, 10, 10, 6),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 14),
             child: Row(
               children: [
-                Icon(Icons.agriculture_outlined,
-                    size: 18, color: AppColors.green),
-                SizedBox(width: 6),
+                Icon(
+                  Icons.agriculture_outlined,
+                  size: 22,
+                  color: AppColors.green,
+                ),
+                SizedBox(width: 8),
                 Text(
                   'Poktan Krajan Makmur',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.text,
+                  ),
                 ),
-                SizedBox(width: 4),
-                Icon(Icons.verified, size: 14, color: AppColors.green),
+                SizedBox(width: 5),
+                Icon(Icons.verified_rounded, size: 15, color: AppColors.green),
                 Spacer(),
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFE5E9E6)),
+          const Divider(height: 1, color: Color(0xFFEDF1ED)),
           if (items.isEmpty)
             const Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(18),
               child: Text(
                 'Belum ada produk.',
-                style: TextStyle(fontSize: 11, color: AppColors.muted),
+                style: TextStyle(fontSize: 13, color: AppColors.muted),
               ),
             ),
           ...items.map((line) {
             final product = line.product;
             return Padding(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                     child: smartImage(
                       product.image,
-                      width: 56,
-                      height: 56,
+                      width: 70,
+                      height: 70,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
-                        width: 56,
-                        height: 56,
+                        width: 70,
+                        height: 70,
                         color: AppColors.greenLight,
                         child: const Icon(
                           Icons.image_outlined,
@@ -788,51 +1201,68 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           product.shortName,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
+                            fontSize: 14.5,
+                            height: 1.3,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.text,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Text(
                           'Rp ${formatRupiah(product.price)}',
                           style: const TextStyle(
-                            fontSize: 11,
+                            fontSize: 13,
                             color: AppColors.green,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Text(
-                    'x${line.quantity}',
-                    style:
-                        const TextStyle(fontSize: 11, color: AppColors.muted),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F7F5),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE9EEE9)),
+                    ),
+                    child: Text(
+                      'x${line.quantity}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.text,
+                      ),
+                    ),
                   ),
                 ],
               ),
             );
           }),
-          const Divider(height: 1, color: Color(0xFFE5E9E6)),
+          const Divider(height: 1, color: Color(0xFFEDF1ED)),
           Padding(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     'Subtotal Kualitas ($itemCount item)',
                     style: const TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 12.5,
                       color: AppColors.muted,
                     ),
                   ),
@@ -840,8 +1270,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Text(
                   'Rp ${formatRupiah(subtotal)}',
                   style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.text,
                   ),
                 ),
               ],
@@ -854,16 +1285,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _voucherIcon() {
     return Container(
-      width: 32,
-      height: 32,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(6),
+        color: AppColors.greenLight,
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Icon(
+      child: const Icon(
         Icons.local_activity_outlined,
-        size: 18,
-        color: Colors.red.shade400,
+        size: 22,
+        color: AppColors.green,
       ),
     );
   }
@@ -877,37 +1308,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           : 'Gratis ongkir -Rp ${formatRupiah(discount)}';
 
       return _card(
+        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             _voucherIcon(),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Text(
-                        _voucherCode,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w900,
+                      const Flexible(
+                        child: Text(
+                          _voucherCode,
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.text,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 7),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
+                          horizontal: 8,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.greenLight,
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(20),
                         ),
                         child: const Text(
                           'Terpasang',
                           style: TextStyle(
-                            fontSize: 8.5,
+                            fontSize: 10.5,
                             color: AppColors.green,
                             fontWeight: FontWeight.w800,
                           ),
@@ -915,11 +1350,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     description,
                     style: TextStyle(
-                      fontSize: 9.5,
+                      fontSize: 12,
+                      height: 1.35,
                       color:
                           isPickup ? Colors.orange.shade800 : AppColors.muted,
                     ),
@@ -932,12 +1368,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.red,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: const Size(40, 32),
+                minimumSize: const Size(40, 34),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: const Text(
                 'Lepas',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
               ),
             ),
           ],
@@ -946,13 +1382,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     return _card(
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               _voucherIcon(),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -960,15 +1397,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     const Text(
                       'Kode Voucher',
                       style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w900,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.text,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 4),
                     Text(
                       'Gratis ongkir Rp ${formatRupiah(_voucherValue)} untuk Kurir Desa',
                       style: const TextStyle(
-                        fontSize: 9.5,
+                        fontSize: 12,
                         color: AppColors.muted,
                       ),
                     ),
@@ -977,65 +1415,70 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 13),
           Row(
             children: [
               Expanded(
                 child: SizedBox(
-                  height: 40,
+                  height: 48,
                   child: TextField(
                     controller: _voucherC,
                     textCapitalization: TextCapitalization.characters,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _applyVoucher(),
                     style: const TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                     decoration: InputDecoration(
                       hintText: 'Masukkan kode, mis. $_voucherCode',
                       hintStyle: const TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 12,
                         color: AppColors.muted,
                       ),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: const Color(0xFFFBFCFB),
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                        horizontal: 13,
+                        vertical: 12,
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: AppColors.border),
+                        borderRadius: BorderRadius.circular(13),
+                        borderSide: const BorderSide(
+                          color: Color(0xFFE5EBE6),
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: AppColors.green),
+                        borderRadius: BorderRadius.circular(13),
+                        borderSide: const BorderSide(
+                          color: AppColors.green,
+                          width: 1.3,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 9),
               SizedBox(
-                height: 40,
+                height: 48,
                 child: ElevatedButton(
                   onPressed: _applyVoucher,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.green,
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(13),
                     ),
                   ),
                   child: const Text(
                     'Pasang',
                     style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
@@ -1052,21 +1495,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _SectionTitle('Metode Pembayaran'),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         _payTile(
           value: PayMethod.qris,
           icon: Icons.qr_code_2,
-          title: 'QRIS, Virtual Account & E-Wallet',
-          subtitle: 'Dibayar aman lewat Midtrans',
+          title: 'QRIS Desa / Transfer BUMDes',
+          subtitle: 'QRIS, BCA, BRI, Mandiri, e-wallet',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         _payTile(
           value: PayMethod.cod,
           icon: Icons.payments_outlined,
           title: 'Bayar di Tempat (COD) Pos BUMDes',
           subtitle: 'Bayar tunai saat pesanan diterima',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         _payTile(
           value: PayMethod.saldo,
           icon: Icons.account_balance_wallet_outlined,
@@ -1087,20 +1530,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     return GestureDetector(
       onTap: () => setState(() => _pay = value),
-      child: Container(
-        padding: const EdgeInsets.all(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF1FBF4) : Colors.white,
+          color: selected ? const Color(0xFFF3FBF5) : Colors.white,
           border: Border.all(
-            color: selected ? AppColors.green : AppColors.border,
-            width: selected ? 1.4 : 1,
+            color: selected ? AppColors.green : const Color(0xFFE5EBE6),
+            width: selected ? 1.5 : 1,
           ),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color:
+                  selected ? const Color(0x160B7A3E) : const Color(0x060D2818),
+              blurRadius: selected ? 18 : 12,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            Icon(icon, size: 24, color: AppColors.text),
-            const SizedBox(width: 10),
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: AppColors.greenLight,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(icon, size: 24, color: AppColors.green),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1108,25 +1568,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.text,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
                     style: const TextStyle(
-                      fontSize: 9.5,
+                      fontSize: 12,
                       color: AppColors.muted,
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
             Icon(
-              selected ? Icons.check_circle : Icons.circle_outlined,
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
               size: 20,
-              color: selected ? AppColors.green : AppColors.muted,
+              color: selected ? AppColors.green : const Color(0xFFB7C1BA),
             ),
           ],
         ),
@@ -1135,6 +1599,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _noteSection() {
+    // Garis tepi kotak catatan berwarna hijau supaya jelas terlihat
+    // walaupun kotak masih kosong (tanpa teks contoh).
+    const noteBorder = AppColors.green;
+    const noteBorderSaved = Color(0xFF9CCFAE);
+
+    OutlineInputBorder noteOutline(Color color, [double width = 1.3]) {
+      return OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: color, width: width),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1143,7 +1619,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             const Expanded(child: _SectionTitle('Catatan Pengiriman')),
             if (_noteSaved)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
                   color: AppColors.greenLight,
                   borderRadius: BorderRadius.circular(20),
@@ -1152,11 +1628,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.check_circle, size: 12, color: AppColors.green),
-                    SizedBox(width: 4),
+                    SizedBox(width: 5),
                     Text(
                       'Tersimpan',
                       style: TextStyle(
-                        fontSize: 9.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: AppColors.green,
                       ),
@@ -1166,46 +1642,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 9),
         TextField(
           controller: _noteC,
           maxLines: 3,
           readOnly: _noteSaved,
-          style: const TextStyle(fontSize: 11),
+          style: const TextStyle(
+            fontSize: 14,
+            height: 1.4,
+            color: AppColors.text,
+          ),
           decoration: InputDecoration(
-            hintText: 'Tulis pesan untuk penjual atau kurir desa...',
-            hintStyle: const TextStyle(fontSize: 10.5, color: AppColors.muted),
             filled: true,
-            fillColor: _noteSaved ? const Color(0xFFF1FBF4) : Colors.white,
-            contentPadding: const EdgeInsets.all(10),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
-                color: _noteSaved ? AppColors.green : AppColors.border,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.green),
-            ),
+            fillColor: _noteSaved ? const Color(0xFFF6FBF7) : Colors.white,
+            contentPadding: const EdgeInsets.all(16),
+            border: noteOutline(_noteSaved ? noteBorderSaved : noteBorder),
+            enabledBorder:
+                noteOutline(_noteSaved ? noteBorderSaved : noteBorder),
+            focusedBorder: noteOutline(AppColors.green, 1.6),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         SizedBox(
           width: double.infinity,
-          height: 40,
+          height: 48,
           child: _noteSaved
               ? OutlinedButton.icon(
                   onPressed: () => setState(() => _noteSaved = false),
                   icon: const Icon(
                     Icons.edit_outlined,
-                    size: 15,
+                    size: 16,
                     color: AppColors.green,
                   ),
                   label: const Text(
                     'Ubah Catatan',
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: AppColors.green,
                     ),
@@ -1213,11 +1685,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.green),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 )
-              : ElevatedButton.icon(
+              : ElevatedButton(
                   onPressed: () {
                     if (_noteC.text.trim().isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -1228,24 +1700,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     FocusScope.of(context).unfocus();
                     setState(() => _noteSaved = true);
                   },
-                  icon: const Icon(
-                    Icons.save_outlined,
-                    size: 15,
-                    color: Colors.white,
-                  ),
-                  label: const Text(
-                    'Simpan Catatan',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.green,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Simpan Catatan',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -1259,26 +1726,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _SectionTitle('Ringkasan Belanja'),
-        const SizedBox(height: 8),
+        const SizedBox(height: 9),
         _card(
+          padding: const EdgeInsets.all(16),
           child: Column(
             children: [
               _summaryRow('Total harga produk', 'Rp ${formatRupiah(subtotal)}'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 13),
               _summaryRow('Ongkos kirim', 'Rp ${formatRupiah(fee)}'),
               if (discount > 0) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 13),
                 _summaryRow(
                   'Voucher Gratis Ongkir',
                   '- Rp ${formatRupiah(discount)}',
                   green: true,
                 ),
               ],
-              const SizedBox(height: 8),
+              const SizedBox(height: 13),
               _summaryRow('Biaya layanan', 'Gratis Warga', green: true),
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 10),
-                child: Divider(height: 1),
+                padding: EdgeInsets.symmetric(vertical: 6),
+                child: Divider(height: 1, color: Color(0xFFE9EEE9)),
               ),
               _summaryRow(
                 'Total Pembayaran',
@@ -1305,16 +1773,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           child: Text(
             title,
             style: TextStyle(
-              fontSize: bold ? 12 : 10.5,
+              fontSize: bold ? 12.5 : 11,
               color: bold ? AppColors.text : AppColors.muted,
-              fontWeight: bold ? FontWeight.w900 : FontWeight.w500,
+              fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
             ),
           ),
         ),
         Text(
           value,
           style: TextStyle(
-            fontSize: bold ? 14 : 10.5,
+            fontSize: bold ? 14.5 : 11.5,
             color: green ? AppColors.green : AppColors.text,
             fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
           ),
@@ -1325,15 +1793,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _bottomBar(
     bool empty,
-    int itemCount,
     int total,
     _OrderData order,
   ) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 13),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE5E9E6))),
+        border: Border(top: BorderSide(color: Color(0xFFE9EEE9))),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x080D2818),
+            blurRadius: 18,
+            offset: Offset(0, -5),
+          ),
+        ],
       ),
       child: SafeArea(
         top: false,
@@ -1341,29 +1815,73 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Total Tagihan ($itemCount item)',
-                  style: const TextStyle(
-                    fontSize: 9.5,
+                const Text(
+                  'Total Pembayaran',
+                  style: TextStyle(
+                    fontSize: 13,
                     color: AppColors.muted,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
+                const SizedBox(height: 3),
                 Text(
                   'Rp ${formatRupiah(total)}',
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 20,
                     color: AppColors.green,
                     fontWeight: FontWeight.w900,
+                    letterSpacing: -0.2,
                   ),
                 ),
               ],
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: GreenButton(
-                text: _loading ? 'Memproses...' : 'Checkout →',
-                onTap: (empty || _loading) ? null : () => _submit(order),
+              child: Container(
+                height: 56,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x220B7A3E),
+                      blurRadius: 13,
+                      offset: Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: (empty || _loading) ? null : () => _submit(order),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.green,
+                    disabledBackgroundColor: const Color(0xFFB8C8BE),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: _loading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : const Text(
+                          'Checkout',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.15,
+                          ),
+                        ),
+                ),
               ),
             ),
           ],
@@ -1374,15 +1892,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _card({
     required Widget child,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(10),
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
   }) {
     return Container(
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5EEE7)),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x090D2818),
+            blurRadius: 22,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: child,
     );
@@ -1414,8 +1939,9 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) => Text(
         text,
         style: const TextStyle(
-          fontSize: 13,
+          fontSize: 16,
           fontWeight: FontWeight.w900,
+          letterSpacing: -0.2,
           color: AppColors.text,
         ),
       );
@@ -1435,10 +1961,6 @@ class AddressData {
   final String courierNote;
   final String? pickupPoint;
 
-  /// Titik antar di peta (null = belum dipilih).
-  final double? latitude;
-  final double? longitude;
-
   const AddressData(
     this.name,
     this.phone,
@@ -1450,11 +1972,7 @@ class AddressData {
     this.detail = '',
     this.courierNote = '',
     this.pickupPoint,
-    this.latitude,
-    this.longitude,
   });
-
-  bool get hasPin => latitude != null && longitude != null;
 
   AddressData copyWith({
     String? id,
@@ -1467,8 +1985,6 @@ class AddressData {
     String? detail,
     String? courierNote,
     String? pickupPoint,
-    double? latitude,
-    double? longitude,
   }) {
     return AddressData(
       name ?? this.name,
@@ -1481,8 +1997,6 @@ class AddressData {
       detail: detail ?? this.detail,
       courierNote: courierNote ?? this.courierNote,
       pickupPoint: pickupPoint ?? this.pickupPoint,
-      latitude: latitude ?? this.latitude,
-      longitude: longitude ?? this.longitude,
     );
   }
 }
@@ -1516,8 +2030,9 @@ class _AddressListSheetState extends State<AddressListSheet> {
   void initState() {
     super.initState();
     _list = List.of(widget.addresses);
-    _selected =
-        _list.isEmpty ? 0 : widget.selectedIndex.clamp(0, _list.length - 1);
+    _selected = _list.isEmpty
+        ? -1
+        : widget.selectedIndex.clamp(0, _list.length - 1).toInt();
   }
 
   bool get _isFull => _list.length >= widget.maxAddresses;
@@ -1572,6 +2087,7 @@ class _AddressListSheetState extends State<AddressListSheet> {
   }
 
   void _select(int index) {
+    if (index < 0 || index >= _list.length) return;
     setState(() => _selected = index);
     _emit();
     Navigator.pop(context);
@@ -1596,7 +2112,7 @@ class _AddressListSheetState extends State<AddressListSheet> {
                     child: Text(
                       'Alamat Pengiriman',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 20.5,
                         fontWeight: FontWeight.w900,
                         color: AppColors.text,
                       ),
@@ -1612,34 +2128,13 @@ class _AddressListSheetState extends State<AddressListSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 2),
-              const Text(
-                'Pilih atau kelola alamat tujuan pengantaran kurir desa',
-                style: TextStyle(fontSize: 11.5, color: AppColors.muted),
-              ),
               const SizedBox(height: 14),
-              ValueListenableBuilder<String?>(
-                valueListenable: AddressBook.syncError,
-                builder: (context, error, _) {
-                  if (error == null) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Text(
-                      error,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        height: 1.35,
-                        color: AppColors.red,
-                      ),
-                    ),
-                  );
-                },
-              ),
               Flexible(
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (_list.isEmpty) _emptyListState(),
                       for (int i = 0; i < _list.length; i++) _addressCard(i),
                       _addButton(),
                       if (_isFull) ...[
@@ -1649,7 +2144,7 @@ class _AddressListSheetState extends State<AddressListSheet> {
                           'Alamat yang sudah ada masih bisa diubah.',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                            fontSize: 10.5,
+                            fontSize: 12,
                             height: 1.4,
                             color: AppColors.muted,
                           ),
@@ -1662,6 +2157,46 @@ class _AddressListSheetState extends State<AddressListSheet> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _emptyListState() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(18, 22, 18, 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FAF8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE4ECE6)),
+      ),
+      child: const Column(
+        children: [
+          Icon(
+            Icons.location_off_outlined,
+            size: 36,
+            color: AppColors.green,
+          ),
+          SizedBox(height: 10),
+          Text(
+            'Belum ada alamat tersimpan',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              color: AppColors.text,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Isi data Anda dengan benar dan sesuai titik lokasi.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.5,
+              color: AppColors.muted,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1703,7 +2238,7 @@ class _AddressListSheetState extends State<AddressListSheet> {
                       child: const Text(
                         'ALAMAT UTAMA',
                         style: TextStyle(
-                          fontSize: 9.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.w900,
                           color: Colors.white,
                         ),
@@ -1726,7 +2261,7 @@ class _AddressListSheetState extends State<AddressListSheet> {
                     child: Text(
                       a.label,
                       style: const TextStyle(
-                        fontSize: 10,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w800,
                         color: AppColors.text,
                       ),
@@ -1749,7 +2284,7 @@ class _AddressListSheetState extends State<AddressListSheet> {
                     TextSpan(
                       text: '${a.name} ',
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 16,
                         fontWeight: FontWeight.w900,
                         color: AppColors.text,
                       ),
@@ -1758,7 +2293,7 @@ class _AddressListSheetState extends State<AddressListSheet> {
                       TextSpan(
                         text: '(${a.phone})',
                         style: const TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 13,
                           color: AppColors.muted,
                         ),
                       ),
@@ -1769,7 +2304,7 @@ class _AddressListSheetState extends State<AddressListSheet> {
               Text(
                 a.address,
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   height: 1.45,
                   color: AppColors.text,
                 ),
@@ -1789,7 +2324,7 @@ class _AddressListSheetState extends State<AddressListSheet> {
                           Text(
                             'Ubah Alamat',
                             style: TextStyle(
-                              fontSize: 11.5,
+                              fontSize: 13,
                               fontWeight: FontWeight.w800,
                               color: AppColors.green,
                             ),
@@ -1811,35 +2346,27 @@ class _AddressListSheetState extends State<AddressListSheet> {
     final full = _isFull;
 
     return Material(
-      color: full ? const Color(0xFFEEF1EF) : const Color(0xFFD8F0E0),
+      color: full ? const Color(0xFFEEF1EF) : AppColors.green,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: full ? null : _add,
         borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                full
-                    ? Icons.lock_outline_rounded
-                    : Icons.add_location_alt_outlined,
-                size: 20,
-                color: full ? AppColors.muted : AppColors.green,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          child: Center(
+            child: Text(
+              full
+                  ? 'Batas ${widget.maxAddresses} Alamat Tercapai'
+                  : _list.isEmpty
+                      ? 'Tambah Alamat Pertama'
+                      : 'Tambah Alamat Baru (${_list.length}/${widget.maxAddresses})',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: full ? AppColors.muted : Colors.white,
               ),
-              const SizedBox(width: 8),
-              Text(
-                full
-                    ? 'Batas ${widget.maxAddresses} Alamat Tercapai'
-                    : 'Tambah Alamat Baru (${_list.length}/${widget.maxAddresses})',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  color: full ? AppColors.muted : AppColors.green,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1848,16 +2375,6 @@ class _AddressListSheetState extends State<AddressListSheet> {
 }
 
 const Color _kFormText = Color(0xFF10231B);
-
-const List<String> _kDusunOptions = [
-  'Dusun Krajan, RT 01 / RW 01',
-  'Dusun Krajan, RT 02 / RW 01',
-  'Dusun Krajan Kulon, RT 02 / RW 03',
-  'Dusun Krajan Kulon, RT 03 / RW 02',
-  'Dusun Sawahan, RT 01 / RW 02',
-  'Dusun Sawahan, RT 02 / RW 02',
-  'Dusun Timur, RT 01 / RW 03',
-];
 
 class _LabelOpt {
   final String name;
@@ -1870,6 +2387,19 @@ const List<_LabelOpt> _kLabelOpts = [
   _LabelOpt('Rumah', Icons.home_outlined),
   _LabelOpt('Toko / Lapak', Icons.storefront_outlined),
   _LabelOpt('Kantor Desa', Icons.account_balance_outlined),
+];
+
+class _PinSpot {
+  final Alignment align;
+  final String coord;
+
+  const _PinSpot(this.align, this.coord);
+}
+
+const List<_PinSpot> _kPinSpots = [
+  _PinSpot(Alignment(0, -0.1), '-7.5381, 110.8294'),
+  _PinSpot(Alignment(-0.35, 0.1), '-7.5384, 110.8290'),
+  _PinSpot(Alignment(0.35, -0.25), '-7.5379, 110.8298'),
 ];
 
 class CheckoutAddressFormScreen extends StatefulWidget {
@@ -1886,55 +2416,50 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
   late final TextEditingController _nameC;
   late final TextEditingController _phoneC;
   late final TextEditingController _detailC;
-  late final TextEditingController _noteC;
-  final FocusNode _detailFocus = FocusNode();
 
-  late String _dusun;
   late String _label;
   late bool _isMain;
-  double? _lat;
-  double? _lng;
+  int _pin = 0;
+  bool _pinPreviewSelected = false;
 
   bool get _editing => widget.initial != null;
   bool get _lockMain => widget.initial?.isMain ?? false;
 
   static String _phoneToField(String phone) {
-    var d = phone.replaceAll(RegExp(r'[^0-9\-]'), '');
-    if (d.startsWith('0')) {
-      d = d.substring(1);
-    } else if (d.startsWith('62')) {
-      d = d.substring(2);
+    var digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.startsWith('62')) {
+      digits = '0${digits.substring(2)}';
     }
-    return d;
+    return digits;
   }
 
   @override
   void initState() {
     super.initState();
-    final a = widget.initial;
+    final address = widget.initial;
 
-    _nameC = TextEditingController(text: a?.name ?? '');
-    _phoneC = TextEditingController(text: _phoneToField(a?.phone ?? ''));
-
-    final hasParts =
-        (a?.dusun.isNotEmpty ?? false) || (a?.detail.isNotEmpty ?? false);
-    _detailC = TextEditingController(
-      text: hasParts ? (a?.detail ?? '') : (a?.address ?? ''),
+    _nameC = TextEditingController(text: address?.name ?? '');
+    _phoneC = TextEditingController(
+      text: _phoneToField(address?.phone ?? ''),
     );
-    _noteC = TextEditingController(text: a?.courierNote ?? '');
 
-    _dusun = (a?.dusun.isNotEmpty ?? false) ? a!.dusun : _kDusunOptions[2];
+    final initialDetail = address?.detail.trim().isNotEmpty == true
+        ? address!.detail
+        : address?.address ?? '';
+    _detailC = TextEditingController(text: initialDetail);
 
-    _label = _kLabelOpts.any((o) => o.name == a?.label)
-        ? a!.label
+    _label = _kLabelOpts.any((option) => option.name == address?.label)
+        ? address!.label
         : _kLabelOpts.first.name;
-    _isMain = a?.isMain ?? false;
-    _lat = a?.latitude;
-    _lng = a?.longitude;
+    _isMain = address?.isMain ?? false;
 
-    _detailFocus.addListener(() {
-      if (mounted) setState(() {});
-    });
+    final savedPin = address?.pickupPoint;
+    final savedPinIndex =
+        _kPinSpots.indexWhere((spot) => spot.coord == savedPin);
+    if (savedPinIndex >= 0) {
+      _pin = savedPinIndex;
+      _pinPreviewSelected = true;
+    }
   }
 
   @override
@@ -1942,14 +2467,8 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
     _nameC.dispose();
     _phoneC.dispose();
     _detailC.dispose();
-    _noteC.dispose();
-    _detailFocus.dispose();
     super.dispose();
   }
-
-  List<String> get _dusunItems => _kDusunOptions.contains(_dusun)
-      ? _kDusunOptions
-      : [_dusun, ..._kDusunOptions];
 
   void _save() {
     final name = _nameC.text.trim();
@@ -1963,7 +2482,7 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
     } else if (phoneDigits.length < 9) {
       error = 'Nomor telepon / WhatsApp belum benar';
     } else if (detail.isEmpty) {
-      error = 'Alamat lengkap & patokan rumah wajib diisi';
+      error = 'Alamat lengkap wajib diisi';
     }
 
     if (error != null) {
@@ -1973,35 +2492,34 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
       return;
     }
 
-    var phone = phoneRaw.replaceAll(RegExp(r'[^0-9\-]'), '');
-    if (phone.startsWith('0')) phone = phone.substring(1);
-    if (phone.startsWith('62')) phone = phone.substring(2);
+    var phone = phoneDigits;
+    if (phone.startsWith('62')) {
+      phone = '0${phone.substring(2)}';
+    } else if (!phone.startsWith('0')) {
+      phone = '0$phone';
+    }
 
     Navigator.pop(
       context,
       AddressData(
         name,
-        '0$phone',
-        '$_dusun ($detail)',
+        phone,
+        detail,
         id: widget.initial?.id ??
             'address-${DateTime.now().microsecondsSinceEpoch}',
         label: _label,
         isMain: _isMain,
-        dusun: _dusun,
+        dusun: '',
         detail: detail,
-        courierNote: _noteC.text.trim(),
-        pickupPoint: widget.initial?.pickupPoint,
-        latitude: _lat,
-        longitude: _lng,
+        courierNote: '',
+        pickupPoint: _pinPreviewSelected
+            ? _kPinSpots[_pin].coord
+            : widget.initial?.pickupPoint,
       ),
     );
   }
 
-  InputDecoration _decoration({
-    String? hint,
-    Widget? prefixIcon,
-    Widget? suffixIcon,
-  }) {
+  InputDecoration _decoration() {
     OutlineInputBorder border(Color color, [double width = 1]) {
       return OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -2010,16 +2528,10 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
     }
 
     return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(fontSize: 12, color: AppColors.muted),
       filled: true,
       fillColor: Colors.white,
       isDense: true,
-      prefixIcon: prefixIcon,
-      prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-      suffixIcon: suffixIcon,
-      suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: border(AppColors.border),
       enabledBorder: border(AppColors.border),
       disabledBorder: border(AppColors.border),
@@ -2040,7 +2552,7 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
               TextSpan(
                 text: text,
                 style: const TextStyle(
-                  fontSize: 11.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w800,
                   color: _kFormText,
                 ),
@@ -2062,8 +2574,6 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final editingDetail = _detailFocus.hasFocus;
-
     return Theme(
       data: Theme.of(context).copyWith(
         inputDecorationTheme: const InputDecorationTheme(),
@@ -2077,36 +2587,26 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                 padding: const EdgeInsets.fromLTRB(12, 12, 16, 8),
                 child: Row(
                   children: [
-                    InkWell(
-                      onTap: () => Navigator.maybePop(context),
-                      borderRadius: BorderRadius.circular(20),
-                      child: const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.arrow_back_rounded,
-                          size: 22,
-                          color: _kFormText,
-                        ),
+                    IconButton(
+                      onPressed: () => Navigator.maybePop(context),
+                      splashRadius: 22,
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                        color: AppColors.text,
                       ),
                     ),
                     const SizedBox(width: 4),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _editing
-                                ? 'Ubah / Isi Alamat Pengiriman'
-                                : 'Tambah Alamat Baru',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                              color: _kFormText,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        _editing ? 'Ubah Alamat' : 'Tambah Alamat Baru',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: _kFormText,
+                        ),
                       ),
                     ),
                   ],
@@ -2125,163 +2625,40 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                       TextField(
                         controller: _nameC,
                         textCapitalization: TextCapitalization.words,
-                        style: const TextStyle(fontSize: 13),
-                        decoration: _decoration(
-                          hint: '',
-                          suffixIcon: const Padding(
-                            padding: EdgeInsets.only(left: 8, right: 12),
-                            child: Icon(
-                              Icons.person_outline_rounded,
-                              size: 18,
-                              color: AppColors.green,
-                            ),
-                          ),
-                        ),
+                        style: const TextStyle(fontSize: 15),
+                        decoration: _decoration(),
                       ),
                       _fieldLabel('Nomor Telepon', required: true),
                       TextField(
                         controller: _phoneC,
                         keyboardType: TextInputType.phone,
-                        style: const TextStyle(fontSize: 13),
-                        decoration: _decoration(
-                          hint: '',
-                          prefixIcon: const Padding(
-                            padding: EdgeInsets.only(left: 12, right: 10),
-                            child: Text(
-                              '+62',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                                color: _kFormText,
-                              ),
-                            ),
-                          ),
-                        ),
+                        autofillHints: const [AutofillHints.telephoneNumber],
+                        style: const TextStyle(fontSize: 15),
+                        decoration: _decoration(),
                       ),
-                      const Padding(
-                        padding: EdgeInsets.only(top: 6),
-                        child: Text(
-                          'Digunakan kurir desa untuk konfirmasi pengantaran via WhatsApp',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: AppColors.muted,
-                            height: 1.3,
-                          ),
-                        ),
-                      ),
-                      _fieldLabel('Dusun / RT / RW', required: true),
-                      DropdownButtonFormField<String>(
-                        initialValue: _dusun,
-                        isExpanded: true,
-                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                        dropdownColor: Colors.white,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: _kFormText,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        decoration: _decoration().copyWith(
-                          fillColor: _kAddrSoft,
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide:
-                                const BorderSide(color: _kAddrSoftBorder),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 15,
-                          ),
-                        ),
-                        items: [
-                          for (final d in _dusunItems)
-                            DropdownMenuItem(value: d, child: Text(d)),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) setState(() => _dusun = v);
-                        },
-                      ),
-                      _fieldLabel(
-                        'Alamat Lengkap',
-                        required: true,
-                        trailing: editingDetail
-                            ? const Text(
-                                'Sedang Diedit',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
-                                  color: AppColors.green,
-                                ),
-                              )
-                            : null,
-                      ),
-                      Stack(
-                        children: [
-                          TextField(
-                            controller: _detailC,
-                            focusNode: _detailFocus,
-                            minLines: 3,
-                            maxLines: 3,
-                            maxLength: 150,
-                            onChanged: (_) => setState(() {}),
-                            style: const TextStyle(fontSize: 13, height: 1.35),
-                            decoration: _decoration(
-                              hint:
-                                  'Nama jalan, nomor rumah, warna pagar, patokan...',
-                            ).copyWith(
-                              contentPadding:
-                                  const EdgeInsets.fromLTRB(12, 13, 12, 36),
-                            ),
-                          ),
-                          Positioned(
-                            right: 10,
-                            bottom: 10,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _kAddrSoft,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '${_detailC.text.length} /150',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.green,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      _fieldLabel('Catatan untuk Kurir'),
+                      _fieldLabel('Alamat Lengkap', required: true),
                       TextField(
-                        controller: _noteC,
-                        style: const TextStyle(fontSize: 13),
-                        decoration: _decoration(
-                          hint: 'Titipkan ke Pak RT bila rumah kosong',
-                          suffixIcon: const Padding(
-                            padding: EdgeInsets.only(left: 8, right: 12),
-                            child: Icon(
-                              Icons.chat_bubble_outline_rounded,
-                              size: 18,
-                              color: AppColors.green,
-                            ),
-                          ),
+                        controller: _detailC,
+                        minLines: 3,
+                        maxLines: 3,
+                        maxLength: 150,
+                        style: const TextStyle(fontSize: 15, height: 1.35),
+                        decoration: _decoration().copyWith(
+                          contentPadding:
+                              const EdgeInsets.fromLTRB(12, 13, 12, 13),
                         ),
                       ),
-                      _fieldLabel('Titik Antar di Peta'),
-                      _mapCard(),
                       _fieldLabel('Pilihan Label Alamat'),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                      Row(
                         children: [
-                          for (final o in _kLabelOpts) _labelChip(o),
+                          for (var i = 0; i < _kLabelOpts.length; i++) ...[
+                            if (i > 0) const SizedBox(width: 6),
+                            Expanded(child: _labelChip(_kLabelOpts[i])),
+                          ],
                         ],
                       ),
+                      _fieldLabel('Titik Lokasi Pengiriman'),
+                      _mapCard(),
                       const SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
@@ -2293,28 +2670,13 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                         child: Row(
                           children: [
                             const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Jadikan sebagai Alamat Utama',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w900,
-                                      color: _kFormText,
-                                    ),
-                                  ),
-                                  SizedBox(height: 3),
-                                  Text(
-                                    'Alamat otomatis dipilih saat checkout '
-                                    'berikutnya',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: AppColors.muted,
-                                      height: 1.3,
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                'Jadikan sebagai Alamat Utama',
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: _kFormText,
+                                ),
                               ),
                             ),
                             Switch(
@@ -2323,7 +2685,7 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                               activeTrackColor: AppColors.green,
                               onChanged: _lockMain
                                   ? null
-                                  : (v) => setState(() => _isMain = v),
+                                  : (value) => setState(() => _isMain = value),
                             ),
                           ],
                         ),
@@ -2341,16 +2703,8 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                 child: SizedBox(
                   width: double.infinity,
                   height: 48,
-                  child: ElevatedButton.icon(
+                  child: ElevatedButton(
                     onPressed: _save,
-                    icon: const Icon(Icons.check_rounded, size: 20),
-                    label: const Text(
-                      'Simpan Alamat',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.green,
                       foregroundColor: Colors.white,
@@ -2359,12 +2713,120 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
+                    child: const Text(
+                      'Simpan Alamat',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _mapCard() {
+    final spot = _kPinSpots[_pin];
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: _kAddrSoft,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kAddrSoftBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 128,
+              width: double.infinity,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(painter: _AddrMapPainter()),
+                  ),
+                  Align(
+                    alignment: spot.align,
+                    child: const Icon(
+                      Icons.location_on_rounded,
+                      color: AppColors.green,
+                      size: 36,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(
+                Icons.location_on_rounded,
+                size: 18,
+                color: AppColors.green,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Titik Lokasi Pengiriman',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: _kFormText,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Koordinat pratinjau: ${spot.coord}',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: () => setState(() {
+                  _pin = (_pin + 1) % _kPinSpots.length;
+                  _pinPreviewSelected = true;
+                }),
+                borderRadius: BorderRadius.circular(9),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Text(
+                    'Ubah Pin',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.green,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -2376,7 +2838,8 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
       onTap: () => setState(() => _label = option.name),
       borderRadius: BorderRadius.circular(30),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 11),
         decoration: BoxDecoration(
           color: selected ? AppColors.green : _kAddrSoft,
           borderRadius: BorderRadius.circular(30),
@@ -2386,182 +2849,29 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               option.icon,
-              size: 16,
+              size: 14,
               color: selected ? Colors.white : AppColors.muted,
             ),
-            const SizedBox(width: 6),
-            Text(
-              option.name,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: selected ? Colors.white : AppColors.muted,
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                option.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: selected ? Colors.white : AppColors.muted,
+                ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Future<void> _pickPin() async {
-    FocusScope.of(context).unfocus();
-
-    final result = await Navigator.push<LatLng>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MapPickerScreen(
-          initial: (_lat != null && _lng != null) ? LatLng(_lat!, _lng!) : null,
-        ),
-      ),
-    );
-
-    if (result == null || !mounted) return;
-    setState(() {
-      _lat = result.latitude;
-      _lng = result.longitude;
-    });
-  }
-
-  Widget _mapCard() {
-    final hasPin = _lat != null && _lng != null;
-
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: _kAddrSoft,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _kAddrSoftBorder),
-      ),
-      child: Column(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: GestureDetector(
-              onTap: _pickPin,
-              behavior: HitTestBehavior.opaque,
-              child: SizedBox(
-                height: 112,
-                width: double.infinity,
-                child: hasPin
-                    ? IgnorePointer(
-                        child: MapPinPreview(
-                          point: LatLng(_lat!, _lng!),
-                          height: 112,
-                        ),
-                      )
-                    : Stack(
-                        children: [
-                          Positioned.fill(
-                            child: CustomPaint(painter: _AddrMapPainter()),
-                          ),
-                          const Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.add_location_alt_outlined,
-                                  size: 30,
-                                  color: AppColors.green,
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Ketuk untuk menaruh titik antar',
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: _kFormText,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(
-                hasPin
-                    ? Icons.location_on_rounded
-                    : Icons.location_off_outlined,
-                size: 18,
-                color: hasPin ? AppColors.green : AppColors.muted,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      hasPin
-                          ? 'Titik Antar Sudah Dipilih'
-                          : 'Titik Antar Belum Dipilih',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w900,
-                        color: _kFormText,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      hasPin
-                          ? 'Koordinat: ${formatCoord(_lat!, _lng!)}'
-                          : 'Bantu kurir menemukan rumah Anda dengan tepat',
-                      style: const TextStyle(
-                        fontSize: 9.5,
-                        color: AppColors.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              InkWell(
-                onTap: _pickPin,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFD5DBD7)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.map_outlined,
-                        size: 14,
-                        color: AppColors.green,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        hasPin ? 'Ubah Titik' : 'Pilih di Peta',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.green,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -2570,14 +2880,14 @@ class _CheckoutAddressFormScreenState extends State<CheckoutAddressFormScreen> {
 class _AddrMapPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final bg = Paint()..color = const Color(0xFFE1EAE4);
-    canvas.drawRect(Offset.zero & size, bg);
+    final background = Paint()..color = const Color(0xFFE1EAE4);
+    canvas.drawRect(Offset.zero & size, background);
 
     final road = Paint()
       ..color = Colors.white
       ..strokeWidth = 7
       ..strokeCap = StrokeCap.round;
-    final thin = Paint()
+    final thinRoad = Paint()
       ..color = Colors.white.withValues(alpha: 0.8)
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
@@ -2595,12 +2905,12 @@ class _AddrMapPainter extends CustomPainter {
     canvas.drawLine(
       Offset(size.width * 0.72, 0),
       Offset(size.width * 0.8, size.height),
-      thin,
+      thinRoad,
     );
     canvas.drawLine(
       Offset(0, size.height * 0.2),
       Offset(size.width * 0.5, size.height * 0.28),
-      thin,
+      thinRoad,
     );
   }
 
@@ -2627,7 +2937,7 @@ class PaymentChoiceScreen extends StatelessWidget {
         elevation: 0,
         title: const Text(
           'Pembayaran',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          style: TextStyle(fontSize: 18.5, fontWeight: FontWeight.w900),
         ),
       ),
       body: ListView(
@@ -2637,7 +2947,7 @@ class PaymentChoiceScreen extends StatelessWidget {
           const SizedBox(height: 16),
           const Text(
             'Pilih cara pembayaran',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 10),
           _methodCard(
@@ -2696,13 +3006,13 @@ class PaymentChoiceScreen extends StatelessWidget {
             Expanded(
               child: Text(
                 a,
-                style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
               ),
             ),
             Text(
               b,
               style: const TextStyle(
-                fontSize: 16,
+                fontSize: 18.5,
                 fontWeight: FontWeight.w900,
                 color: AppColors.green,
               ),
@@ -2747,7 +3057,7 @@ class PaymentChoiceScreen extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 15,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -2755,7 +3065,7 @@ class PaymentChoiceScreen extends StatelessWidget {
                   Text(
                     subtitle,
                     style: const TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 12,
                       height: 1.35,
                       color: AppColors.muted,
                     ),
@@ -2784,7 +3094,7 @@ class PaymentChoiceScreen extends StatelessWidget {
               child: Text(
                 text,
                 style: const TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 12,
                   color: AppColors.green,
                   height: 1.35,
                 ),
@@ -2814,7 +3124,7 @@ class QrisPaymentScreen extends StatelessWidget {
         elevation: 0,
         title: const Text(
           'Bayar dengan QRIS',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          style: TextStyle(fontSize: 18.5, fontWeight: FontWeight.w900),
         ),
       ),
       body: ListView(
@@ -2833,7 +3143,7 @@ class QrisPaymentScreen extends StatelessWidget {
               children: [
                 const Text(
                   'Scan QRIS BUMDes Sukorejo',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 12),
                 Container(
@@ -2847,7 +3157,7 @@ class QrisPaymentScreen extends StatelessWidget {
                 const Text(
                   'Gunakan aplikasi pembayaran yang mendukung QRIS.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10.5, color: AppColors.muted),
+                  style: TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
               ],
             ),
@@ -2876,7 +3186,7 @@ class QrisPaymentScreen extends StatelessWidget {
             'Untuk prototype ini, tombol konfirmasi mensimulasikan pembayaran berhasil. Produksi harus memakai status pembayaran dari backend/webhook.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 9.5,
+              fontSize: 11,
               color: AppColors.muted,
               height: 1.35,
             ),
@@ -2897,13 +3207,13 @@ class QrisPaymentScreen extends StatelessWidget {
             const Expanded(
               child: Text(
                 'Total pembayaran',
-                style: TextStyle(fontSize: 11, color: AppColors.muted),
+                style: TextStyle(fontSize: 12.5, color: AppColors.muted),
               ),
             ),
             Text(
               'Rp ${_rp(total)}',
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 20.5,
                 fontWeight: FontWeight.w900,
                 color: AppColors.green,
               ),
@@ -2965,7 +3275,7 @@ class BankTransferPaymentScreen extends StatelessWidget {
         elevation: 0,
         title: const Text(
           'Transfer Bank BUMDes',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          style: TextStyle(fontSize: 18.5, fontWeight: FontWeight.w900),
         ),
       ),
       body: ListView(
@@ -2983,7 +3293,7 @@ class BankTransferPaymentScreen extends StatelessWidget {
               children: [
                 const Text(
                   'Transfer ke rekening BUMDes',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 12),
                 _bankRow('Bank', 'BRI'),
@@ -3029,14 +3339,14 @@ class BankTransferPaymentScreen extends StatelessWidget {
             Expanded(
               child: Text(
                 a,
-                style: const TextStyle(fontSize: 10.5, color: AppColors.muted),
+                style: const TextStyle(fontSize: 12, color: AppColors.muted),
               ),
             ),
             Text(
               b,
               textAlign: TextAlign.right,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w900,
                 color: green ? AppColors.green : AppColors.text,
               ),
@@ -3056,7 +3366,7 @@ class BankTransferPaymentScreen extends StatelessWidget {
               child: Text(
                 '$n',
                 style: const TextStyle(
-                  fontSize: 10,
+                  fontSize: 11.5,
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
                 ),
@@ -3067,7 +3377,7 @@ class BankTransferPaymentScreen extends StatelessWidget {
               child: Text(
                 text,
                 style: const TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 12,
                   color: AppColors.muted,
                   height: 1.35,
                 ),

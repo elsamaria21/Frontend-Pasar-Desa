@@ -233,7 +233,6 @@ class _DetailScreenState extends State<DetailScreen> {
   bool get isOutOfStock => p.stock <= 0;
   _ProductInfo get info => _infoFor(p);
 
-  /// images: [p.image, 'assets/beras_2.png', 'assets/beras_3.png']
   List<String> get _images => [p.image];
 
   @override
@@ -1330,7 +1329,6 @@ class _DetailScreenState extends State<DetailScreen> {
         top: false,
         child: Row(
           children: [
-            // FAVORIT
             InkWell(
               borderRadius: BorderRadius.circular(10),
               onTap: () {
@@ -1366,7 +1364,6 @@ class _DetailScreenState extends State<DetailScreen> {
               ),
             ),
             const SizedBox(width: 6),
-
             if (isOutOfStock)
               Expanded(
                 child: SizedBox(
@@ -1830,7 +1827,6 @@ class FarmerStoreScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
         children: [
-          // PROFIL LAPAK
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -1950,15 +1946,12 @@ class FarmerStoreScreen extends StatelessWidget {
               ],
             ),
           ),
-
           const SizedBox(height: 18),
-
           Text(
             'Produk dari Lapak Ini (${list.length})',
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 10),
-
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),

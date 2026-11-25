@@ -101,7 +101,6 @@ class AddressBook {
       list.add(address);
     }
 
-    // Hanya satu alamat utama
     if (address.isPrimary) {
       list = [
         for (final e in list)
@@ -260,7 +259,6 @@ class AddressListScreen extends StatelessWidget {
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                     children: [
-                      // Alamat aktif
                       Row(
                         children: [
                           const Icon(Icons.location_on_outlined,
@@ -301,7 +299,6 @@ class AddressListScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 14),
-
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
@@ -851,7 +848,6 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Nama
                     _label0('Nama Penerima', required: true),
                     TextField(
                       controller: _nameC,
@@ -859,7 +855,6 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
                       style: const TextStyle(fontSize: 13),
                       decoration: _decoration(hint: 'Contoh: Pak Bambang'),
                     ),
-
                     _label0('Nomor Telepon / WhatsApp', required: true),
                     TextField(
                       controller: _phoneC,
@@ -881,7 +876,6 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
                       ),
                     ),
                     _hint('Dapat dihubungi kurir via WhatsApp'),
-
                     _label0('Dusun / RT / RW', required: true),
                     DropdownButtonFormField<String>(
                       initialValue: _dusun,
@@ -901,7 +895,6 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
                         if (v != null) setState(() => _dusun = v);
                       },
                     ),
-
                     _label0('Alamat Lengkap & Patokan Rumah', required: true),
                     TextField(
                       controller: _detailC,
@@ -938,7 +931,6 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
                         ],
                       ),
                     ),
-
                     _label0('Catatan untuk Kurir BUMDes (Opsional)'),
                     TextField(
                       controller: _noteC,
@@ -952,10 +944,8 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
                         ),
                       ),
                     ),
-
                     _label0('Titik Peta Lokasi Rumah'),
                     _buildMapCard(),
-
                     _label0('Pilihan Label Alamat'),
                     Row(
                       children: [
@@ -965,7 +955,6 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
                         ],
                       ],
                     ),
-
                     const SizedBox(height: 14),
                     Container(
                       padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),

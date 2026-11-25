@@ -10,6 +10,7 @@ import '../widgets/app_image.dart';
 
 const Color _kTextDark = Color(0xFF10231B);
 const Color _kPageBackground = Color(0xFFF8FAF8);
+const Color _kHairline = Color(0xFFE8EEE9);
 
 class CartScreen extends StatefulWidget {
   final bool embedded;
@@ -49,12 +50,7 @@ class _CartScreenState extends State<CartScreen> {
 
         final content = Column(
           children: [
-            _CartHeader(
-              editing: editing,
-              canEdit: cart.items.isNotEmpty,
-              onBack: _goBack,
-              onToggleEdit: () => setState(() => _editing = !editing),
-            ),
+            _CartHeader(onBack: _goBack),
             Expanded(
               child: cart.items.isEmpty
                   ? _EmptyCart(
@@ -64,6 +60,7 @@ class _CartScreenState extends State<CartScreen> {
                   : _CartItems(
                       cart: cart,
                       editing: editing,
+                      onToggleEdit: () => setState(() => _editing = !editing),
                       onStartShopping:
                           widget.onStartShopping ?? widget.onGoHome,
                     ),
@@ -83,74 +80,39 @@ class _CartScreenState extends State<CartScreen> {
 }
 
 class _CartHeader extends StatelessWidget {
-  final bool editing;
-  final bool canEdit;
   final VoidCallback onBack;
-  final VoidCallback onToggleEdit;
 
-  const _CartHeader({
-    required this.editing,
-    required this.canEdit,
-    required this.onBack,
-    required this.onToggleEdit,
-  });
+  const _CartHeader({required this.onBack});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(4, 8, 8, 8),
+      padding: const EdgeInsets.fromLTRB(4, 8, 16, 6),
       color: _kPageBackground,
       child: Row(
         children: [
-          SizedBox(
-            width: 72,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: IconButton(
-                tooltip: 'Kembali',
-                onPressed: onBack,
-                icon: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  size: 20,
-                  color: _kTextDark,
-                ),
-              ),
+          IconButton(
+            tooltip: 'Kembali',
+            onPressed: onBack,
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 19,
+              color: _kTextDark,
             ),
           ),
           const Expanded(
             child: Text(
               'Keranjang Saya',
-              textAlign: TextAlign.center,
+              textAlign: TextAlign.left,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 22,
                 fontWeight: FontWeight.w900,
+                letterSpacing: -0.3,
                 color: _kTextDark,
               ),
-            ),
-          ),
-          SizedBox(
-            width: 72,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: canEdit
-                  ? TextButton(
-                      onPressed: onToggleEdit,
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.green,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        minimumSize: const Size(48, 40),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        textStyle: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      child: Text(editing ? 'Selesai' : 'Ubah'),
-                    )
-                  : const SizedBox.shrink(),
             ),
           ),
         ],
@@ -162,11 +124,13 @@ class _CartHeader extends StatelessWidget {
 class _CartItems extends StatelessWidget {
   final CartProvider cart;
   final bool editing;
+  final VoidCallback onToggleEdit;
   final VoidCallback? onStartShopping;
 
   const _CartItems({
     required this.cart,
     required this.editing,
+    required this.onToggleEdit,
     required this.onStartShopping,
   });
 
@@ -180,30 +144,48 @@ class _CartItems extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          padding: const EdgeInsets.fromLTRB(20, 6, 16, 8),
           child: Row(
             children: [
               _SelectionCircle(
                 selected: cart.isAllSelected,
                 onTap: cart.toggleSelectAll,
               ),
-              const SizedBox(width: 9),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Pilih Semua (${cart.items.length} produk)',
                   style: const TextStyle(
-                    fontSize: 12.5,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w800,
                     color: _kTextDark,
                   ),
                 ),
+              ),
+              TextButton(
+                onPressed: onToggleEdit,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.green,
+                  backgroundColor: AppColors.greenLight,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  minimumSize: const Size(60, 34),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                child: Text(editing ? 'Selesai' : 'Ubah'),
               ),
             ],
           ),
         ),
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
             children: [
               for (final entry in groups.entries)
                 _SellerGroup(
@@ -218,12 +200,17 @@ class _CartItems extends StatelessWidget {
         SafeArea(
           top: false,
           child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            padding: const EdgeInsets.fromLTRB(22, 16, 22, 14),
             decoration: const BoxDecoration(
               color: Colors.white,
-              border: Border(
-                top: BorderSide(color: Color(0xFFE3E7E4)),
-              ),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x1410231B),
+                  blurRadius: 24,
+                  offset: Offset(0, -6),
+                ),
+              ],
             ),
             child:
                 editing ? _buildEditBar(context) : _buildCheckoutBar(context),
@@ -234,9 +221,12 @@ class _CartItems extends StatelessWidget {
   }
 
   Widget _buildCheckoutBar(BuildContext context) {
+    final enabled = cart.selectedCount > 0;
+
     return Row(
       children: [
         Expanded(
+          flex: 5,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,59 +234,79 @@ class _CartItems extends StatelessWidget {
               const Text(
                 'Total Tagihan',
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: _kTextDark,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.muted,
                 ),
               ),
-              const SizedBox(height: 3),
-              Text(
-                'Rp ${_formatRupiah(_selectedTotal(cart))}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.green,
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Rp ${_formatRupiah(_selectedTotal(cart))}',
+                  maxLines: 1,
+                  style: const TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
+                    color: _kTextDark,
+                  ),
                 ),
               ),
+              const SizedBox(height: 2),
               Text(
                 '${cart.selectedCount} item dipilih',
                 style: const TextStyle(
-                  fontSize: 9,
+                  fontSize: 11.5,
                   color: AppColors.muted,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
-          flex: 2,
-          child: SizedBox(
-            height: 46,
-            child: ElevatedButton(
-              onPressed: cart.selectedCount > 0
-                  ? () => _openCheckout(context, cart)
+          flex: 5,
+          child: Container(
+            height: 54,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: enabled
+                  ? [
+                      BoxShadow(
+                        color: AppColors.green.withValues(alpha: 0.28),
+                        blurRadius: 16,
+                        offset: const Offset(0, 7),
+                      ),
+                    ]
                   : null,
+            ),
+            child: ElevatedButton(
+              onPressed: enabled ? () => _openCheckout(context, cart) : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.green,
                 foregroundColor: Colors.white,
                 disabledBackgroundColor: const Color(0xFFBFD8C8),
                 disabledForegroundColor: Colors.white,
                 elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(18),
                 ),
               ),
-              child: Text(
-                cart.selectedCount > 0
-                    ? 'Checkout (${cart.selectedCount})  →'
-                    : 'Pilih produk',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  enabled ? 'Checkout (${cart.selectedCount})' : 'Pilih produk',
+                  maxLines: 1,
+                  softWrap: false,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ),
             ),
@@ -312,47 +322,41 @@ class _CartItems extends StatelessWidget {
     return Row(
       children: [
         Expanded(
+          flex: 5,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Mode Ubah',
+                'Produk terpilih',
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: _kTextDark,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.muted,
                 ),
               ),
               const SizedBox(height: 3),
               Text(
-                '$count produk dipilih',
+                count > 0 ? '$count produk' : 'Belum ada',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 20,
                   fontWeight: FontWeight.w900,
+                  letterSpacing: -0.3,
                   color: _kTextDark,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
-          flex: 2,
+          flex: 4,
           child: SizedBox(
-            height: 46,
-            child: ElevatedButton.icon(
+            height: 54,
+            child: ElevatedButton(
               onPressed: count > 0 ? () => _confirmDelete(context) : null,
-              icon: const Icon(Icons.delete_outline_rounded, size: 18),
-              label: Text(
-                count > 0 ? 'Hapus ($count)' : 'Pilih produk',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.red,
                 foregroundColor: Colors.white,
@@ -360,7 +364,15 @@ class _CartItems extends StatelessWidget {
                 disabledForegroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: Text(
+                count > 0 ? 'Hapus ($count)' : 'Hapus',
+                style: const TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
                 ),
               ),
             ),
@@ -377,15 +389,16 @@ class _CartItems extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: const Text(
           'Hapus produk?',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
         ),
         content: Text(
           '$count produk terpilih akan dihapus dari keranjang Anda.',
           style: const TextStyle(
-            fontSize: 12.5,
+            fontSize: 13,
             height: 1.45,
             color: AppColors.muted,
           ),
@@ -424,6 +437,10 @@ class _CartItems extends StatelessWidget {
       showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
           title: const Text('Periksa stok produk'),
           content: const Text(
             'Ada produk yang stoknya tidak mencukupi. '
@@ -478,53 +495,56 @@ class _SellerGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE3E7E4)),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _kHairline),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D10231B),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Row(
             children: [
-              const CircleAvatar(
-                radius: 16,
-                backgroundColor: AppColors.greenLight,
-                child: Icon(
+              Container(
+                width: 34,
+                height: 34,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.greenLight,
+                ),
+                child: const Icon(
                   Icons.eco_outlined,
-                  size: 18,
+                  size: 20,
                   color: AppColors.green,
                 ),
               ),
-              const SizedBox(width: 9),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   seller,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
                     color: _kTextDark,
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
-              const Text(
-                'Petani Lokal',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.green,
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: _kHairline),
           for (int i = 0; i < lines.length; i++) ...[
-            if (i > 0) const Divider(height: 1, color: Color(0xFFEEF2EF)),
+            if (i > 0) const Divider(height: 1, color: _kHairline),
             _CartItem(
               key: ValueKey(lines[i].product.id),
               line: lines[i],
@@ -558,41 +578,44 @@ class _CartItem extends StatelessWidget {
     return Opacity(
       opacity: soldOut ? 0.58 : 1,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(0, 11, 0, 13),
+        padding: EdgeInsets.fromLTRB(0, 16, 0, editing ? 12 : 16),
         child: Column(
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 18),
-                  child: _SelectionCircle(
-                    selected: line.selected,
-                    enabled: !soldOut,
-                    onTap: () => cart.toggleSelected(product.id),
-                  ),
+                _SelectionCircle(
+                  selected: line.selected,
+                  enabled: !soldOut,
+                  onTap: () => cart.toggleSelected(product.id),
                 ),
-                const SizedBox(width: 9),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: smartImage(
-                    product.image,
-                    width: 68,
-                    height: 68,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 68,
-                      height: 68,
-                      color: AppColors.greenLight,
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.image_outlined,
-                        color: AppColors.green,
+                const SizedBox(width: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: _kHairline),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(17),
+                    child: smartImage(
+                      product.image,
+                      width: 82,
+                      height: 82,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 82,
+                        height: 82,
+                        color: AppColors.greenLight,
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.image_outlined,
+                          color: AppColors.green,
+                        ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -602,119 +625,95 @@ class _CartItem extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
+                          fontSize: 14.5,
+                          height: 1.25,
+                          fontWeight: FontWeight.w800,
                           color: _kTextDark,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      if (soldOut)
+                      if (soldOut) ...[
+                        const SizedBox(height: 4),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
+                            horizontal: 8,
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFE8E8),
-                            borderRadius: BorderRadius.circular(5),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
                             'Stok habis',
                             style: TextStyle(
                               color: AppColors.red,
-                              fontSize: 10,
+                              fontSize: 10.5,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                        )
-                      else
-                        Text(
-                          'Dipanen langsung • ${product.unit}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: AppColors.muted,
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Rp ${_formatRupiah(product.price)}',
+                                maxLines: 1,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.2,
+                                  color: soldOut
+                                      ? AppColors.muted
+                                      : AppColors.green,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      const SizedBox(height: 5),
-                      Text(
-                        'Rp ${_formatRupiah(product.price)}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          color: soldOut ? AppColors.muted : AppColors.green,
-                        ),
-                      ),
-                      Text(
-                        'per ${product.unit}',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: AppColors.muted,
-                        ),
+                          const SizedBox(width: 8),
+                          _QuantityControl(
+                            quantity: line.quantity,
+                            canDecrease: true,
+                            canIncrease: true,
+                            onDecrease: () => _decreaseQuantity(cart, line),
+                            onIncrease: () =>
+                                _tryIncreaseQuantity(context, cart, line),
+                            enabled: true,
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 4),
               ],
             ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.only(left: 31),
-              child: Row(
+            if (editing) ...[
+              const SizedBox(height: 14),
+              Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      'Jumlah: ${line.quantity}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.muted,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: _EditActionCard(
+                      icon: Icons.delete_outline_rounded,
+                      label: 'Hapus',
+                      color: AppColors.red,
+                      onTap: () => cart.remove(product.id),
                     ),
                   ),
-                  _QuantityControl(
-                    quantity: line.quantity,
-                    canDecrease: true,
-                    canIncrease: true,
-                    onDecrease: () => _decreaseQuantity(context, cart, line),
-                    onIncrease: () => _tryIncreaseQuantity(context, cart, line),
-                    enabled: true,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _EditActionCard(
+                      icon: Icons.manage_search_rounded,
+                      label: 'Serupa',
+                      color: AppColors.green,
+                      onTap: () => _findSimilar(context, cart, product),
+                    ),
                   ),
                 ],
               ),
-            ),
-            if (editing)
-              Padding(
-                padding: const EdgeInsets.only(
-                  left: 31,
-                  right: 4,
-                  top: 12,
-                  bottom: 2,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _EditActionCard(
-                        icon: Icons.delete_outline_rounded,
-                        label: 'Hapus',
-                        color: AppColors.red,
-                        onTap: () => cart.remove(product.id),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _EditActionCard(
-                        icon: Icons.manage_search_rounded,
-                        label: 'Serupa',
-                        color: AppColors.green,
-                        onTap: () => _findSimilar(context, cart, product),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            ],
           ],
         ),
       ),
@@ -737,41 +736,46 @@ class _EditActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: color.withValues(alpha: 0.07),
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 42,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: color.withValues(alpha: 0.55),
-              width: 1,
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.28),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 17, color: color),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: color,
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: SizedBox(
+            height: 46,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 19, color: Colors.white),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.2,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -849,7 +853,6 @@ List<Product> _similarTo(Product base, List<Product> all) {
   for (final p in all) {
     if (p.id == base.id) continue;
 
-    // Lewati duplikat / produk yang sebenarnya sama (nama persis sama).
     if (!seen.add(_normName(p))) continue;
 
     if (_headOf(p) == head) result.add(p);
@@ -882,7 +885,7 @@ void _findSimilar(BuildContext context, CartProvider cart, Product product) {
     isScrollControlled: true,
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
     builder: (sheetContext) => _SimilarProductsSheet(
       base: product,
@@ -1020,13 +1023,13 @@ class _SimilarProductRow extends StatelessWidget {
           ),
         );
       },
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE3E7E4)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _kHairline),
         ),
         child: Row(
           children: [
@@ -1162,22 +1165,8 @@ class _SimilarProductRow extends StatelessWidget {
   }
 }
 
-void _decreaseQuantity(BuildContext context, CartProvider cart, CartLine line) {
-  final willRemove = line.quantity <= 1;
-  final name = line.product.shortName;
-
+void _decreaseQuantity(CartProvider cart, CartLine line) {
   cart.decrease(line.product.id);
-
-  if (willRemove) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('$name dihapus dari keranjang'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-  }
 }
 
 class _SelectionCircle extends StatelessWidget {
@@ -1198,7 +1187,8 @@ class _SelectionCircle extends StatelessWidget {
     return GestureDetector(
       onTap: enabled ? onTap : null,
       behavior: HitTestBehavior.opaque,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
         width: 22,
         height: 22,
         decoration: BoxDecoration(
@@ -1225,11 +1215,6 @@ void _tryIncreaseQuantity(
       barrierDismissible: true,
       builder: (dialogContext) => _InsufficientStockDialog(
         line: line,
-        requestedQuantity: requested,
-        onRemove: () {
-          cart.remove(product.id);
-          Navigator.pop(dialogContext);
-        },
         onAdjust: () {
           cart.adjustToStock();
           Navigator.pop(dialogContext);
@@ -1244,195 +1229,175 @@ void _tryIncreaseQuantity(
 
 class _InsufficientStockDialog extends StatelessWidget {
   final CartLine line;
-  final int requestedQuantity;
-  final VoidCallback onRemove;
   final VoidCallback onAdjust;
 
   const _InsufficientStockDialog({
     required this.line,
-    required this.requestedQuantity,
-    required this.onRemove,
     required this.onAdjust,
   });
+
+  static const Color _iconBackground = Color(0xFFF0F7F1);
+  static const Color _bodyText = Color(0xFF78827C);
 
   @override
   Widget build(BuildContext context) {
     final product = line.product;
     final stock = product.stock < 0 ? 0 : product.stock;
-    final isSoldOut = stock == 0;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final compact = screenWidth < 360;
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 24),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Align(
-              alignment: Alignment.topCenter,
-              child: Container(
-                width: 52,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBFCBBF),
-                  borderRadius: BorderRadius.circular(8),
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.fromLTRB(
+            compact ? 22 : 26,
+            compact ? 24 : 28,
+            compact ? 22 : 26,
+            compact ? 22 : 26,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: const Color(0xFFF0F2F0)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x1A10231B),
+                blurRadius: 40,
+                spreadRadius: 1,
+                offset: Offset(0, 18),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: compact ? 68 : 76,
+                  height: compact ? 68 : 76,
+                  decoration: const BoxDecoration(
+                    color: _iconBackground,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
+                    children: [
+                      const Icon(
+                        Icons.shopping_cart_outlined,
+                        size: 37,
+                        color: AppColors.green,
+                      ),
+                      Positioned(
+                        top: 5,
+                        right: 5,
+                        child: Container(
+                          width: 25,
+                          height: 25,
+                          decoration: const BoxDecoration(
+                            color: AppColors.green,
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.priority_high_rounded,
+                            size: 17,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 28),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFE0D5),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.shopping_cart_checkout_rounded,
-                    color: Color(0xFFB84400),
-                    size: 28,
-                  ),
+              SizedBox(height: compact ? 18 : 22),
+              Text(
+                'Stok Tidak Mencukupi',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: compact ? 19 : 21,
+                  height: 1.2,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.45,
+                  color: _kTextDark,
                 ),
-                const SizedBox(width: 13),
-                const Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 2),
-                    child: Text(
-                      'Stok Produk Tidak Mencukupi',
-                      style: TextStyle(
-                        fontSize: 19,
-                        height: 1.2,
+              ),
+              SizedBox(height: compact ? 10 : 14),
+              Text.rich(
+                TextSpan(
+                  style: TextStyle(
+                    fontSize: compact ? 13 : 14,
+                    height: 1.65,
+                    color: _bodyText,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  children: [
+                    const TextSpan(text: 'Mohon maaf, stok '),
+                    TextSpan(
+                      text: product.shortName,
+                      style: const TextStyle(
+                        color: _kTextDark,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const TextSpan(text: ' saat ini tersisa '),
+                    TextSpan(
+                      text: '$stock',
+                      style: const TextStyle(
+                        color: Color.fromARGB(255, 255, 5, 5),
                         fontWeight: FontWeight.w900,
-                        color: Colors.black,
+                      ),
+                    ),
+                    const TextSpan(text: '.'),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: compact ? 22 : 30),
+              SizedBox(
+                height: compact ? 52 : 56,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.green.withValues(alpha: 0.24),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: onAdjust,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.green,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: const Text(
+                      'Sesuaikan Keranjang',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.15,
                       ),
                     ),
                   ),
                 ),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close, color: Colors.black),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text.rich(
-              TextSpan(
-                style: const TextStyle(
-                  fontSize: 15,
-                  height: 1.5,
-                  color: Color(0xFF7D887E),
-                ),
-                children: [
-                  const TextSpan(text: 'Mohon maaf, stok '),
-                  TextSpan(
-                    text: product.shortName,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const TextSpan(text: ' saat ini tersisa '),
-                  TextSpan(
-                    text: '$stock ${product.unit}',
-                    style: const TextStyle(
-                      color: Color(0xFFC2183A),
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  TextSpan(
-                    text:
-                        ' ${isSoldOut ? 'karena stok sudah habis.' : 'sedangkan jumlah yang diminta $requestedQuantity ${product.unit}.'} ',
-                  ),
-                  const TextSpan(text: 'Silakan perbarui keranjang Anda.'),
-                ],
               ),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF9AA3AD)),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.inventory_2_outlined,
-                      size: 28, color: Color(0xFFB84400)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(product.shortName,
-                            style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.black)),
-                        const SizedBox(height: 3),
-                        Text(
-                          'Tersisa: $stock ${product.unit} (Diminta: $requestedQuantity ${product.unit})',
-                          style: const TextStyle(
-                              fontSize: 11, color: Color(0xFFC2183A)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: onRemove,
-                    style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFFC2183A),
-                        padding: const EdgeInsets.symmetric(horizontal: 4)),
-                    child: const Text('Hapus Item',
-                        style: TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w800)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton.icon(
-                onPressed: onAdjust,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Sesuaikan Keranjang',
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: .4)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.green,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(11)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Kembali ke Belanja',
-                    style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700)),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1465,13 +1430,13 @@ class _QuantityControl extends StatelessWidget {
     ) {
       return InkWell(
         onTap: active ? action : null,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(20),
         child: SizedBox(
           width: 30,
-          height: 28,
+          height: 30,
           child: Icon(
             icon,
-            size: 16,
+            size: 17,
             color: active ? _kTextDark : AppColors.border,
           ),
         ),
@@ -1479,21 +1444,23 @@ class _QuantityControl extends StatelessWidget {
     }
 
     return Container(
+      padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: AppColors.border),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFDDE6DF)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           controlButton(Icons.remove_rounded, canDecrease, onDecrease),
           SizedBox(
-            width: 24,
+            width: 26,
             child: Text(
               '$quantity',
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w900,
                 color: _kTextDark,
               ),
@@ -1514,64 +1481,57 @@ class _EmptyCart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(28, 0, 28, 40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(
               Icons.shopping_bag_outlined,
-              size: 42,
+              size: 84,
               color: AppColors.green,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 26),
             const Text(
               'Keranjang Masih Kosong',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.w900,
+                letterSpacing: -0.2,
                 color: _kTextDark,
               ),
             ),
-            const SizedBox(height: 7),
+            const SizedBox(height: 8),
             const Text(
-              'Belum ada barang di keranjang. Yuk, mulai\nbelanja produk lokal!',
+              'Mulai belanja dan dukung petani lokal',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
-                height: 1.45,
+                height: 1.4,
                 color: AppColors.muted,
               ),
             ),
             if (onStartShopping != null) ...[
-              const SizedBox(height: 18),
+              const SizedBox(height: 26),
               SizedBox(
-                width: 136,
-                height: 40,
+                height: 46,
                 child: ElevatedButton(
                   onPressed: onStartShopping,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.green,
                     foregroundColor: Colors.white,
-                    elevation: 1,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 34),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(999),
                     ),
                     textStyle: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Mulai Belanja'),
-                      SizedBox(width: 7),
-                      Icon(Icons.arrow_forward_rounded, size: 14),
-                    ],
-                  ),
+                  child: const Text('Mulai Belanja'),
                 ),
               ),
             ],

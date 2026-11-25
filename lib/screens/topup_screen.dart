@@ -2,15 +2,98 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../data/wallet_history.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
-import 'dashboard_screen.dart' show NotificationCenter, DashboardNav;
+import 'dashboard_screen.dart'
+    show NotificationCenter, NotificationTarget, DashboardNav, TopCartToast;
+import 'profile_features.dart' show SaldoScreen;
+
+WalletTx _autoTx(int delta) {
+  return delta < 0
+      ? WalletTx(
+          title: 'Pembayaran Berhasil',
+          subtitle: 'Dibayar dengan Saldo Dompet',
+          amount: delta,
+          channel: 'Saldo Dompet',
+        )
+      : WalletTx(
+          title: 'Saldo Masuk',
+          subtitle: 'Penambahan / pengembalian saldo',
+          amount: delta,
+          channel: 'Saldo Dompet',
+        );
+}
+
+class _WalletNotifier extends ValueNotifier<int> {
+  _WalletNotifier(super.value);
+
+  WalletTx? _pending;
+
+  void applyWithTx(int newValue, WalletTx tx) {
+    _pending = tx;
+    value = newValue;
+  }
+
+  @override
+  set value(int newValue) {
+    final delta = newValue - super.value;
+    final tx = _pending;
+    _pending = null;
+    if (delta == 0) return;
+    super.value = newValue;
+    WalletHistory.add(tx ?? _autoTx(delta));
+  }
+}
 
 class WalletBalance {
-  static final ValueNotifier<int> balance = ValueNotifier<int>(340500);
+  static final _WalletNotifier _notifier = _WalletNotifier(340500);
 
-  static void add(int amount) {
-    balance.value = balance.value + amount;
+  static ValueNotifier<int> get balance => _notifier;
+
+  static void add(
+    int amount, {
+    String? title,
+    String? subtitle,
+    String? channel,
+  }) {
+    if (amount == 0) return;
+    final auto = _autoTx(amount);
+    _notifier.applyWithTx(
+      _notifier.value + amount,
+      WalletTx(
+        title: title ?? auto.title,
+        subtitle: subtitle ?? auto.subtitle,
+        amount: amount,
+        channel: channel ?? auto.channel,
+      ),
+    );
+  }
+
+  static void failed(
+    int amount, {
+    String title = 'Pembayaran Pesanan Gagal',
+    String subtitle = 'Pembayaran dengan Saldo Dompet tidak berhasil',
+    String channel = 'Saldo Dompet',
+  }) {
+    WalletHistory.add(
+      WalletTx(
+        title: title,
+        subtitle: subtitle,
+        amount: -amount.abs(),
+        channel: channel,
+        success: false,
+      ),
+    );
+  }
+
+  static void spend(
+    int amount, {
+    String? title,
+    String? subtitle,
+    String? channel,
+  }) {
+    add(-amount.abs(), title: title, subtitle: subtitle, channel: channel);
   }
 }
 
@@ -34,6 +117,289 @@ String formatRupiahId(int value) => 'Rp ${_group(value)}';
 
 enum TopUpMethod { qris, transfer }
 
+const Color _ink = Color(0xFF10231B);
+const Color _forest = AppColors.green;
+const Color _bg = Color(0xFFF6F9F7);
+const Color _mint = Color(0xFFE1F5E9);
+const Color _line = Color(0xFFE2EDE6);
+
+const LinearGradient _brandGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF1FA05C), Color(0xFF0F6E3C)],
+);
+
+final List<BoxShadow> _softShadow = [
+  BoxShadow(
+    color: _ink.withValues(alpha: 0.045),
+    blurRadius: 28,
+    offset: const Offset(0, 12),
+  ),
+];
+
+List<BoxShadow> _brandShadow([double alpha = 0.22]) => [
+      BoxShadow(
+        color: _forest.withValues(alpha: alpha),
+        blurRadius: 26,
+        offset: const Offset(0, 12),
+      ),
+    ];
+
+BoxDecoration _surface({
+  double radius = 24,
+  Color color = Colors.white,
+  Color? border,
+  double borderWidth = 1,
+  bool shadow = true,
+}) {
+  return BoxDecoration(
+    color: color,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: border ?? _line, width: borderWidth),
+    boxShadow: shadow ? _softShadow : null,
+  );
+}
+
+class WalletBalanceCard extends StatelessWidget {
+  final VoidCallback? onTopUp;
+
+  const WalletBalanceCard({super.key, this.onTopUp});
+
+  static const String rekening = 'BUMD-SKR-9921';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: _brandGradient,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: _brandShadow(0.25),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -90,
+            top: -100,
+            child: IgnorePointer(
+              child: Container(
+                width: 270,
+                height: 270,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.13),
+                    width: 1.2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: -50,
+            top: -60,
+            child: IgnorePointer(
+              child: Container(
+                width: 190,
+                height: 190,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.13),
+                    width: 1.2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 36,
+            bottom: -46,
+            child: IgnorePointer(
+              child: Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.09),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 26, 22, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Saldo Saya',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    ValueListenableBuilder<int>(
+                      valueListenable: WalletBalance.balance,
+                      builder: (context, balance, _) {
+                        return Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'Rp ',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white.withValues(alpha: 0.75),
+                                ),
+                              ),
+                              TextSpan(
+                                text: _group(balance),
+                                style: const TextStyle(
+                                  fontSize: 38,
+                                  letterSpacing: -1,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 22),
+                child: Column(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0B5F35),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'NOMOR REKENING',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    letterSpacing: 0.9,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  rekening,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    letterSpacing: 0.6,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Material(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(20),
+                              onTap: () {
+                                Clipboard.setData(
+                                    const ClipboardData(text: rekening));
+                                ScaffoldMessenger.of(context)
+                                  ..hideCurrentSnackBar()
+                                  ..showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Nomor rekening disalin'),
+                                    ),
+                                  );
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.copy_rounded,
+                                        size: 13, color: _forest),
+                                    SizedBox(width: 5),
+                                    Text(
+                                      'Salin',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: _forest,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (onTopUp != null) ...[
+                      const SizedBox(height: 12),
+                      Material(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: onTopUp,
+                          child: const SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add_circle_rounded,
+                                    size: 18, color: _forest),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Isi Saldo',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: _forest,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TopUpHeader extends StatelessWidget {
   const _TopUpHeader();
 
@@ -42,29 +408,150 @@ class _TopUpHeader extends StatelessWidget {
     return Row(
       children: [
         InkWell(
+          customBorder: const CircleBorder(),
           onTap: () => Navigator.maybePop(context),
-          borderRadius: BorderRadius.circular(20),
-          child: const Padding(
-            padding: EdgeInsets.all(6),
+          child: const SizedBox(
+            width: 40,
+            height: 40,
             child: Icon(
-              Icons.arrow_back_rounded,
-              size: 22,
-              color: AppColors.text,
+              Icons.chevron_left_rounded,
+              size: 34,
+              color: _ink,
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
         const Expanded(
           child: Text(
             'Saldo Dompet',
             style: TextStyle(
-              color: Colors.black87,
-              fontSize: 19,
-              fontWeight: FontWeight.w900,
+              color: _ink,
+              fontSize: 21,
+              letterSpacing: -0.4,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PrimaryButton extends StatelessWidget {
+  final String label;
+
+  final VoidCallback? onPressed;
+
+  final bool loading;
+
+  const _PrimaryButton({
+    required this.label,
+    required this.onPressed,
+    this.loading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = onPressed != null || loading;
+    final tappable = onPressed != null && !loading;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      width: double.infinity,
+      height: 58,
+      decoration: BoxDecoration(
+        gradient: active ? _brandGradient : null,
+        color: active ? null : const Color(0xFFE3E8E5),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: active ? _brandShadow() : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: tappable ? onPressed : null,
+          child: Center(
+            child: loading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: Colors.white,
+                    ),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 15,
+                              letterSpacing: 0,
+                              fontWeight: FontWeight.w700,
+                              color: active
+                                  ? Colors.white
+                                  : const Color(0xFF98A19C),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedLine extends StatelessWidget {
+  const _DashedLine();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final count = (constraints.maxWidth / 9).floor();
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(
+            count,
+            (_) => Container(width: 4, height: 1.5, color: _line),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RadioDot extends StatelessWidget {
+  final bool selected;
+
+  const _RadioDot({required this.selected});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: selected ? _forest : Colors.transparent,
+        border: Border.all(
+          color: selected ? _forest : const Color(0xFFC9D0CC),
+          width: 1.6,
+        ),
+      ),
+      child: selected
+          ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
+          : null,
     );
   }
 }
@@ -173,26 +660,31 @@ class _TopUpScreenState extends State<TopUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAF8),
+      backgroundColor: _bg,
       body: SafeArea(
         child: GestureDetector(
           onTap: () => FocusScope.of(context).unfocus(),
           behavior: HitTestBehavior.translucent,
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const _TopUpHeader(),
-                const SizedBox(height: 14),
-                _buildBalanceCard(),
-                const SizedBox(height: 20),
-                _buildNominalSection(),
-                const SizedBox(height: 22),
-                _buildMethodSection(),
                 const SizedBox(height: 18),
+                _buildBalanceCard(),
+                const SizedBox(height: 28),
+                _buildNominalSection(),
+                const SizedBox(height: 28),
+                _buildMethodSection(),
+                const SizedBox(height: 20),
                 _buildSummary(),
+                const SizedBox(height: 18),
+                _PrimaryButton(
+                  label: 'Isi Saldo',
+                  onPressed: _valid ? _continue : null,
+                ),
               ],
             ),
           ),
@@ -205,173 +697,159 @@ class _TopUpScreenState extends State<TopUpScreen> {
     );
   }
 
-  Widget _buildBalanceCard() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.green, Color(0xFF0B6E3A)],
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Saldo Saya',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ValueListenableBuilder<int>(
-              valueListenable: WalletBalance.balance,
-              builder: (context, balance, _) {
-                return Text(
-                  formatRupiahId(balance),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _buildBalanceCard() => const WalletBalanceCard();
 
   Widget _buildNominalSection() {
     final tooLow = _amount > 0 && _amount < minAmount;
 
     final tooHigh = _amount > maxAmount;
 
+    final hasError = tooLow || tooHigh;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Expanded(
+            const Expanded(
               child: Text(
-                'Nominal Top Up Saldo',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                'Nominal Pengisian',
+                style: TextStyle(
+                  fontSize: 16.5,
+                  letterSpacing: -0.3,
+                  fontWeight: FontWeight.w700,
+                  color: _ink,
+                ),
               ),
             ),
-            Text(
-              'Bebas Biaya Admin',
-              style: TextStyle(
-                color: AppColors.green,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: _mint,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Bebas Biaya Admin',
+                style: TextStyle(
+                  color: _forest,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(14, 10, 10, 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: (tooLow || tooHigh) ? Colors.redAccent : AppColors.border,
+        const SizedBox(height: 14),
+        ListenableBuilder(
+          listenable: _focus,
+          builder: (context, _) => AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(24, 18, 16, 18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.white, Color(0xFFF0F9F3)],
+              ),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: hasError
+                    ? Colors.redAccent
+                    : (_focus.hasFocus ? _forest : _line),
+                width: (hasError || _focus.hasFocus) ? 1.6 : 1,
+              ),
+              boxShadow: _focus.hasFocus ? _brandShadow(0.12) : _softShadow,
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Ketik jumlah atau pilih di bawah (min. Rp 10.000)',
-                      style: TextStyle(fontSize: 10, color: AppColors.muted),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focus,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [_ThousandsFormatter()],
+                    cursorColor: _forest,
+                    onChanged: (value) {
+                      final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+
+                      setState(() {
+                        _amount = digits.isEmpty ? 0 : int.parse(digits);
+                      });
+                    },
+                    style: const TextStyle(
+                      fontSize: 40,
+                      letterSpacing: -0.8,
+                      fontWeight: FontWeight.w800,
+                      color: _ink,
+                    ),
+                    decoration: const InputDecoration(
+                      prefixText: 'Rp ',
+                      prefixStyle: TextStyle(
+                        fontSize: 40,
+                        letterSpacing: -0.8,
+                        fontWeight: FontWeight.w800,
+                        color: _ink,
+                      ),
+                      hintText: '0',
+                      hintStyle: TextStyle(color: Color(0xFFC9D0CC)),
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(vertical: 6),
                     ),
                   ),
-                  if (_amount > 0)
-                    InkWell(
-                      onTap: _clear,
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        width: 22,
-                        height: 22,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFEDEFEE),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          size: 14,
-                          color: AppColors.muted,
-                        ),
+                ),
+                if (_amount > 0)
+                  InkWell(
+                    onTap: _clear,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEEF1EF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 15,
+                        color: AppColors.muted,
                       ),
                     ),
-                ],
-              ),
-              TextField(
-                controller: _controller,
-                focusNode: _focus,
-                keyboardType: TextInputType.number,
-                inputFormatters: [_ThousandsFormatter()],
-                onChanged: (value) {
-                  final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
-
-                  setState(() {
-                    _amount = digits.isEmpty ? 0 : int.parse(digits);
-                  });
-                },
-                style: const TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF10231B),
-                ),
-                decoration: const InputDecoration(
-                  prefixText: 'Rp ',
-                  prefixStyle: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF10231B),
                   ),
-                  hintText: '0',
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 6),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-        if (tooLow || tooHigh)
+        if (hasError)
           Padding(
-            padding: const EdgeInsets.only(top: 6, left: 4),
+            padding: const EdgeInsets.only(top: 8, left: 4),
             child: Text(
               tooLow
                   ? 'Minimal top up ${formatRupiahId(minAmount)}'
                   : 'Maksimal top up ${formatRupiahId(maxAmount)}',
               style: const TextStyle(
                 color: Colors.redAccent,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         LayoutBuilder(
           builder: (context, constraints) {
-            final width = (constraints.maxWidth - 16) / 3;
+            final width = (constraints.maxWidth - 20) / 3;
 
             return Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: 10,
+              runSpacing: 10,
               children: [
                 for (final value in quickAmounts)
                   _AmountChip(
@@ -390,36 +868,6 @@ class _TopUpScreenState extends State<TopUpScreen> {
             );
           },
         ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: ElevatedButton(
-            onPressed: _valid ? _continue : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.green,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: const Color(0xFFE2E6E3),
-              disabledForegroundColor: const Color(0xFF98A19C),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                _valid
-                    ? 'Lanjutkan Isi Saldo ${formatRupiahId(_amount)}'
-                    : 'Masukkan nominal top up',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -429,30 +877,29 @@ class _TopUpScreenState extends State<TopUpScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Pilih Metode Pengisian Resmi',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+          'Metode Pengisian',
+          style: TextStyle(
+            fontSize: 16.5,
+            letterSpacing: -0.3,
+            fontWeight: FontWeight.w700,
+            color: _ink,
+          ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
         _MethodCard(
           icon: Icons.qr_code_2_rounded,
-          title: 'QRIS Desa (BUMDes Sukorejo)',
+          title: 'QRIS Desa',
           tag: 'Instan',
           tagColor: AppColors.green,
-          description:
-              'Verifikasi instan otomatis, dukung BCA, BRI, Mandiri, GoPay, '
-              'OVO, ShopeePay, dan e-wallet lainnya.',
           selected: _method == TopUpMethod.qris,
           onTap: () => setState(() => _method = TopUpMethod.qris),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _MethodCard(
           icon: Icons.account_balance_outlined,
-          title: 'Transfer Bank Kas BUMDes',
+          title: 'Transfer Bank',
           tag: '1-5 Menit',
           tagColor: AppColors.muted,
-          description:
-              'Rekening Kas Desa via BRI, Bank Jatim & BNI. Konfirmasi '
-              'otomatis setelah dana diterima.',
           selected: _method == TopUpMethod.transfer,
           onTap: () => setState(() => _method = TopUpMethod.transfer),
         ),
@@ -463,12 +910,8 @@ class _TopUpScreenState extends State<TopUpScreen> {
   Widget _buildSummary() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: _surface(radius: 24),
       child: ValueListenableBuilder<int>(
         valueListenable: WalletBalance.balance,
         builder: (context, balance, _) {
@@ -477,12 +920,11 @@ class _TopUpScreenState extends State<TopUpScreen> {
           return Column(
             children: [
               _summaryRow('Nominal Pengisian', formatRupiahId(nominal)),
-              const SizedBox(height: 9),
+              const SizedBox(height: 12),
               _summaryRow('Saldo Saat Ini', formatRupiahId(balance)),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Divider(height: 1, color: Color(0xFFEEF2EF)),
-              ),
+              const SizedBox(height: 16),
+              const _DashedLine(),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
@@ -490,24 +932,45 @@ class _TopUpScreenState extends State<TopUpScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'ESTIMASI SALDO BARU',
+                          'Estimasi saldo baru',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 12,
                             color: AppColors.muted,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.3,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          formatRupiahId(balance + nominal),
-                          style: const TextStyle(
-                            fontSize: 22,
-                            color: AppColors.green,
-                            fontWeight: FontWeight.w900,
+                        const SizedBox(height: 4),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          transitionBuilder: (child, anim) => FadeTransition(
+                            opacity: anim,
+                            child: child,
+                          ),
+                          child: Text(
+                            formatRupiahId(balance + nominal),
+                            key: ValueKey(balance + nominal),
+                            style: const TextStyle(
+                              fontSize: 26,
+                              letterSpacing: -0.6,
+                              color: _forest,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _mint,
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: const Icon(
+                      Icons.trending_up_rounded,
+                      color: _forest,
+                      size: 24,
                     ),
                   ),
                 ],
@@ -525,15 +988,15 @@ class _TopUpScreenState extends State<TopUpScreen> {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+            style: const TextStyle(fontSize: 13, color: AppColors.muted),
           ),
         ),
         Text(
           value,
           style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w800,
-            color: valueColor ?? AppColors.text,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: valueColor ?? _ink,
           ),
         ),
       ],
@@ -561,35 +1024,34 @@ class _AmountChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,
-      height: 44,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          decoration: BoxDecoration(
-            color: selected ? AppColors.green : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? AppColors.green : AppColors.border,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (selected) ...[
-                const Icon(Icons.check_circle_rounded,
-                    size: 15, color: Colors.white),
-                const SizedBox(width: 5),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  color: selected ? Colors.white : AppColors.text,
+      height: 50,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          gradient: selected ? _brandGradient : null,
+          color: selected ? null : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: selected ? Colors.transparent : _line),
+          boxShadow: selected ? _brandShadow(0.22) : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? Colors.white : _ink,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -606,8 +1068,6 @@ class _MethodCard extends StatelessWidget {
 
   final Color tagColor;
 
-  final String description;
-
   final bool selected;
 
   final VoidCallback onTap;
@@ -617,101 +1077,90 @@ class _MethodCard extends StatelessWidget {
     required this.title,
     required this.tag,
     required this.tagColor,
-    required this.description,
     required this.selected,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF1FBF5) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? AppColors.green : AppColors.border,
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE1F5E9),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(icon, color: AppColors.green, size: 24),
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+    final highlight = tagColor == AppColors.green;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      decoration: _surface(
+        radius: 24,
+        color: selected ? const Color(0xFFF3FAF5) : Colors.white,
+        border: selected ? _forest : _line,
+        borderWidth: selected ? 1.6 : 1,
+        shadow: !selected,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: selected ? _forest : _mint,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: selected ? Colors.white : _forest,
+                    size: 25,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w900,
-                          ),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                          color: _ink,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(height: 5),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 2,
+                          horizontal: 8,
+                          vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: tagColor == AppColors.green
-                              ? AppColors.green
-                              : const Color(0xFFEDEFEE),
+                          color: highlight ? _mint : const Color(0xFFEEF1EF),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           tag,
                           style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                            color: tagColor == AppColors.green
-                                ? Colors.white
-                                : AppColors.muted,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: highlight ? _forest : AppColors.muted,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      height: 1.4,
-                      color: AppColors.muted,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 10),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: _RadioDot(selected: selected),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Icon(
-              selected
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked_rounded,
-              color: selected ? AppColors.green : const Color(0xFFC9D0CC),
-              size: 22,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -804,6 +1253,18 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
         timer.cancel();
 
         setState(() => _left = 0);
+
+        if (!_checking) {
+          WalletHistory.add(
+            WalletTx(
+              title: 'Isi Saldo Gagal',
+              subtitle: '$_orderId • Waktu pembayaran habis',
+              amount: widget.amount,
+              channel: _isQris ? 'QRIS Desa' : 'Transfer Bank',
+              success: false,
+            ),
+          );
+        }
       } else {
         setState(() => _left--);
       }
@@ -831,6 +1292,11 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
       ..showSnackBar(
         SnackBar(
           content: Text(text),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: _ink,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           duration: const Duration(milliseconds: 1200),
         ),
       );
@@ -855,11 +1321,18 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
 
     _timer?.cancel();
 
-    WalletBalance.add(widget.amount);
+    WalletBalance.add(
+      widget.amount,
+      title: 'Isi saldo berhasil',
+      subtitle:
+          '$_orderId • ${_isQris ? 'QRIS Desa' : 'Transfer ${_banks[_bank].logo}'}',
+      channel: _isQris ? 'QRIS Desa' : 'Transfer Bank',
+    );
 
     NotificationCenter.add(
-      'Top Up Berhasil',
+      'Isi saldo berhasil',
       'Saldo Dompet bertambah ${formatRupiahId(widget.amount)}.',
+      target: NotificationTarget.wallet,
     );
 
     setState(() => _checking = false);
@@ -870,90 +1343,92 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
       builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.white,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 30),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 28),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(32),
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 26, 22, 20),
+            padding: const EdgeInsets.fromLTRB(22, 30, 22, 22),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 64,
-                  height: 64,
+                  width: 92,
+                  height: 92,
                   decoration: const BoxDecoration(
-                    color: Color(0xFFE1F5E9),
+                    color: _mint,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.check_rounded,
-                    color: AppColors.green,
-                    size: 38,
+                  child: Center(
+                    child: Container(
+                      width: 66,
+                      height: 66,
+                      decoration: BoxDecoration(
+                        gradient: _brandGradient,
+                        shape: BoxShape.circle,
+                        boxShadow: _brandShadow(0.35),
+                      ),
+                      child: const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 38,
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 18),
                 const Text(
-                  'Top Up Berhasil',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  'Isi Saldo Berhasil',
+                  style: TextStyle(
+                    fontSize: 22,
+                    letterSpacing: -0.4,
+                    fontWeight: FontWeight.w800,
+                    color: _ink,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   'Saldo bertambah ${formatRupiahId(widget.amount)}',
                   textAlign: TextAlign.center,
-                  style:
-                      const TextStyle(fontSize: 12.5, color: AppColors.muted),
+                  style: const TextStyle(fontSize: 13, color: AppColors.muted),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 18),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF4F9F6),
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFFF4F7F5),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: _line),
                   ),
                   child: Column(
                     children: [
                       const Text(
                         'SALDO DOMPET',
                         style: TextStyle(
-                          fontSize: 9.5,
+                          fontSize: 10.5,
                           color: AppColors.muted,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.3,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       Text(
                         formatRupiahId(WalletBalance.balance.value),
                         style: const TextStyle(
-                          fontSize: 22,
-                          color: AppColors.green,
-                          fontWeight: FontWeight.w900,
+                          fontSize: 27,
+                          letterSpacing: -0.6,
+                          color: _ink,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 46,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(dialogContext),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.green,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Selesai',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                  ),
+                const SizedBox(height: 18),
+                _PrimaryButton(
+                  label: 'Selesai',
+                  onPressed: () => Navigator.pop(dialogContext),
                 ),
               ],
             ),
@@ -964,6 +1439,19 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
 
     if (!mounted) return;
 
+    final nav = Navigator.of(context, rootNavigator: true);
+    TopCartToast.show(
+      context,
+      formatRupiahId(widget.amount),
+      title: 'Isi saldo berhasil',
+      suffix: ' masuk ke Saldo Dompet',
+      actionLabel: 'Lihat',
+      actionIcon: Icons.account_balance_wallet_rounded,
+      onTap: () => nav.push(
+        MaterialPageRoute(builder: (_) => const SaldoScreen()),
+      ),
+    );
+
     int popped = 0;
 
     Navigator.of(context).popUntil((_) => popped++ >= 2);
@@ -972,22 +1460,20 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAF8),
+      backgroundColor: _bg,
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const _TopUpHeader(),
-              const SizedBox(height: 14),
+              const SizedBox(height: 18),
               _buildTimerCard(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               _buildTotalCard(),
-              const SizedBox(height: 12),
-              _buildMethodLabel(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               if (_isQris) _buildQrisCard() else _buildTransferSection(),
               const SizedBox(height: 14),
               _ExpandableSteps(
@@ -996,7 +1482,7 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
                     : 'Petunjuk Transfer BUMDes',
                 steps: _isQris ? _qrisSteps : _transferSteps,
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 22),
               _buildActions(),
             ],
           ),
@@ -1010,44 +1496,61 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
   }
 
   Widget _buildTimerCard() {
-    final color = _expired ? Colors.redAccent : AppColors.green;
+    final color = _expired ? Colors.redAccent : _forest;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
-        color: _expired ? const Color(0xFFFFF1F2) : const Color(0xFFE6F6EC),
-        borderRadius: BorderRadius.circular(12),
+        color: _expired ? const Color(0xFFFFF1F2) : _mint,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: _expired ? const Color(0xFFFFD0D4) : const Color(0xFFD2EBDB),
+        ),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Icon(Icons.timer_outlined, size: 20, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _expired
-                  ? 'Waktu pembayaran habis'
-                  : 'Selesaikan Pembayaran Dalam:',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: color,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _expired
+                      ? 'Waktu pembayaran habis'
+                      : 'Selesaikan Pembayaran Dalam:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
               ),
-            ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  _timeText,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    letterSpacing: 0.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _timeText,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-              ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: _left / totalSeconds,
+              minHeight: 5,
+              backgroundColor: Colors.white,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
             ),
           ),
         ],
@@ -1058,12 +1561,8 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
   Widget _buildTotalCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
+      padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
+      decoration: _surface(radius: 24),
       child: Row(
         children: [
           Expanded(
@@ -1071,40 +1570,54 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Total Top Up:',
-                  style: TextStyle(fontSize: 11, color: AppColors.muted),
+                  'Total Isi Saldo',
+                  style: TextStyle(fontSize: 12.5, color: AppColors.muted),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   formatRupiahId(widget.amount),
                   style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF10231B),
+                    fontSize: 30,
+                    letterSpacing: -0.8,
+                    fontWeight: FontWeight.w800,
+                    color: _ink,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   'ID: $_orderId',
-                  style:
-                      const TextStyle(fontSize: 10.5, color: AppColors.muted),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.muted,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
           ),
-          OutlinedButton.icon(
-            onPressed: () => _copy(_orderId, 'ID transaksi'),
-            icon: const Icon(Icons.copy_rounded, size: 15),
-            label: const Text(
-              'Salin',
-              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900),
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.green,
-              side: const BorderSide(color: Color(0xFFBDE8CE)),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+          Material(
+            color: _mint,
+            borderRadius: BorderRadius.circular(30),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(30),
+              onTap: () => _copy(_orderId, 'ID transaksi'),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.copy_rounded, size: 15, color: _forest),
+                    SizedBox(width: 6),
+                    Text(
+                      'Salin',
+                      style: TextStyle(
+                        color: _forest,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1113,51 +1626,28 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
     );
   }
 
-  Widget _buildMethodLabel() {
-    return Container(
-      width: double.infinity,
-      height: 46,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppColors.green,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        _isQris ? 'QRIS Desa' : 'Transfer BUMDes',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-
   Widget _buildQrisCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
+      padding: const EdgeInsets.all(18),
+      decoration: _surface(radius: 28),
       child: Column(
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE5484D),
-                  borderRadius: BorderRadius.circular(5),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
                   'QRIS',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
                   ),
                 ),
               ),
@@ -1169,96 +1659,81 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
                     Text(
                       'BUMDes Sukorejo Makmur',
                       style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: _ink,
                       ),
                     ),
+                    SizedBox(height: 1),
                     Text(
                       'NMID: ID1234567234',
-                      style: TextStyle(fontSize: 10, color: AppColors.muted),
+                      style: TextStyle(fontSize: 10.5, color: AppColors.muted),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.check_circle_rounded,
-                  color: AppColors.green, size: 22),
+              const Icon(Icons.verified_rounded, color: _forest, size: 24),
             ],
           ),
-          const SizedBox(height: 14),
-          Container(
-            width: 210,
-            height: 210,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Opacity(
-              opacity: _expired ? 0.25 : 1,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: _QrPainter(seed: widget.amount),
-                    ),
-                  ),
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Container(
-                      margin: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: AppColors.green,
-                        borderRadius: BorderRadius.circular(8),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: 236,
+            height: 236,
+            child: CustomPaint(
+              foregroundPainter: const _CornerPainter(),
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Opacity(
+                  opacity: _expired ? 0.2 : 1,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: _QrPainter(seed: widget.amount),
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.home_rounded,
-                        color: Colors.white,
-                        size: 22,
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        child: Container(
+                          margin: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            gradient: _brandGradient,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.home_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           const Text(
             'BUMDes Sukorejo Makmur',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+            style: TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w800,
+              color: _ink,
+            ),
           ),
           const SizedBox(height: 2),
           const Text(
             'Desa Sukorejo, Kec. Pasir Sari',
-            style: TextStyle(fontSize: 10.5, color: AppColors.muted),
+            style: TextStyle(fontSize: 11.5, color: AppColors.muted),
           ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1FBF5),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFD3EFDD)),
-            ),
-            child: const Text(
-              'Mendukung semua pembayaran e-Wallet: GoPay, OVO, Dana, '
-              "ShopeePay dan e-Banking (BCA, BRImo, Livin', BNI).",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 10.5,
-                height: 1.4,
-                color: AppColors.muted,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 18),
           Row(
             children: [
               Expanded(
@@ -1266,10 +1741,11 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
                   onPressed: () => _snack(
                     'Unduh QR akan aktif setelah terhubung ke server pembayaran',
                   ),
-                  icon: const Icon(Icons.download_rounded, size: 17),
+                  icon: const Icon(Icons.download_rounded, size: 18),
                   label: const Text(
                     'Unduh QR',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                    style:
+                        TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
                   ),
                   style: _outlineStyle,
                 ),
@@ -1282,10 +1758,11 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
                         '${formatRupiahId(widget.amount)} (QRIS BUMDes Sukorejo Makmur)',
                     'Detail pembayaran',
                   ),
-                  icon: const Icon(Icons.share_outlined, size: 17),
+                  icon: const Icon(Icons.share_outlined, size: 18),
                   label: const Text(
                     'Bagikan',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                    style:
+                        TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
                   ),
                   style: _outlineStyle,
                 ),
@@ -1298,11 +1775,11 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
   }
 
   ButtonStyle get _outlineStyle => OutlinedButton.styleFrom(
-        foregroundColor: AppColors.text,
-        minimumSize: const Size.fromHeight(42),
-        side: const BorderSide(color: Color(0xFFD9DEDB)),
+        foregroundColor: _ink,
+        minimumSize: const Size.fromHeight(48),
+        side: const BorderSide(color: _line),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(16),
         ),
       );
 
@@ -1310,28 +1787,18 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Pilih Rekening Tujuan',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
-              ),
-            ),
-            Text(
-              '${_banks.length} Rekening Aktif',
-              style: const TextStyle(
-                fontSize: 10,
-                color: AppColors.green,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
+        const Text(
+          'Pilih Rekening Tujuan',
+          style: TextStyle(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w700,
+            color: _ink,
+          ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         for (int i = 0; i < _banks.length; i++) ...[
           _buildBankCard(i),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
         ],
       ],
     );
@@ -1342,155 +1809,170 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
 
     final selected = _bank == index;
 
-    return InkWell(
-      onTap: () => setState(() => _bank = index),
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? AppColors.green : AppColors.border,
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      decoration: _surface(
+        radius: 24,
+        border: selected ? _forest : _line,
+        borderWidth: selected ? 1.6 : 1,
+        shadow: !selected,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _bank = index),
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 46,
-                  height: 36,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF4F6F5),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    bank.logo,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      color: bank.color,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        bank.name,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      Text(
-                        'Kode Bank: ${bank.code}',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: AppColors.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  selected
-                      ? Icons.check_circle_rounded
-                      : Icons.radio_button_unchecked_rounded,
-                  color: selected ? AppColors.green : const Color(0xFFC9D0CC),
-                  size: 22,
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Nama Pemilik Rekening:',
-              style: TextStyle(fontSize: 10, color: AppColors.muted),
-            ),
-            const SizedBox(height: 2),
-            const Text(
-              'BUMDes Sukorejo Makmur — Rekening Kas',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(12, 9, 9, 9),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4F9F6),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'NOMOR REKENING KAS',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: AppColors.muted,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          bank.number,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () => _copy(
-                      bank.number.replaceAll('-', ''),
-                      'Nomor rekening',
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
+                Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 40,
+                      alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: AppColors.green,
-                        borderRadius: BorderRadius.circular(8),
+                        color: bank.color.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
+                      child: Text(
+                        bank.logo,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w900,
+                          color: bank.color,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.copy_rounded,
-                              size: 13, color: Colors.white),
-                          SizedBox(width: 5),
                           Text(
-                            'Salin',
-                            style: TextStyle(
-                              color: Colors.white,
+                            bank.name,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                              color: _ink,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            'Kode Bank: ${bank.code}',
+                            style: const TextStyle(
                               fontSize: 11,
-                              fontWeight: FontWeight.w900,
+                              color: AppColors.muted,
                             ),
                           ),
                         ],
                       ),
                     ),
+                    _RadioDot(selected: selected),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Padding(
+                  padding: EdgeInsets.only(left: 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Nama Pemilik Rekening',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'BUMDes Sukorejo',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: _ink,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(14, 11, 11, 11),
+                  decoration: BoxDecoration(
+                    color: selected ? _mint : const Color(0xFFF5F7F6),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'NOMOR REKENING KAS',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              bank.number,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4,
+                                color: _ink,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Material(
+                        color: _forest,
+                        borderRadius: BorderRadius.circular(30),
+                        child: InkWell(
+                          onTap: () => _copy(
+                            bank.number.replaceAll('-', ''),
+                            'Nomor rekening',
+                          ),
+                          borderRadius: BorderRadius.circular(30),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 13,
+                              vertical: 9,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.copy_rounded,
+                                    size: 13, color: Colors.white),
+                                SizedBox(width: 5),
+                                Text(
+                                  'Salin',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1519,40 +2001,10 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
   Widget _buildActions() {
     return Column(
       children: [
-        SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: ElevatedButton(
-            onPressed: _expired
-                ? () => Navigator.pop(context)
-                : (_checking ? null : _checkStatus),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.green,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: const Color(0xFF7FC9A0),
-              disabledForegroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            child: _checking
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
-                      color: Colors.white,
-                    ),
-                  )
-                : Text(
-                    _expired ? 'Buat Top Up Baru' : 'Cek Status Pembayaran',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-          ),
+        _PrimaryButton(
+          label: _expired ? 'Buat Top Up Baru' : 'Cek Status Pembayaran',
+          loading: _checking,
+          onPressed: _expired ? () => Navigator.pop(context) : _checkStatus,
         ),
         const SizedBox(height: 6),
         TextButton(
@@ -1561,8 +2013,8 @@ class _TopUpPaymentScreenState extends State<TopUpPaymentScreen> {
             'Ubah Nominal / Metode',
             style: TextStyle(
               color: AppColors.muted,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
             ),
           ),
         ),
@@ -1589,94 +2041,155 @@ class _ExpandableStepsState extends State<_ExpandableSteps> {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
+      decoration: _surface(radius: 24),
       child: Column(
         children: [
           InkWell(
             onTap: () => setState(() => _open = !_open),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(24),
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Icon(Icons.help_outline_rounded,
-                      size: 19, color: AppColors.green),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       widget.title,
                       style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: _ink,
                       ),
                     ),
                   ),
-                  Icon(
-                    _open
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
-                    color: AppColors.muted,
+                  AnimatedRotation(
+                    turns: _open ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 220),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.muted,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-          if (_open)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-              child: Column(
-                children: [
-                  for (int i = 0; i < widget.steps.length; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 22,
-                            height: 22,
-                            alignment: Alignment.center,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFE1F5E9),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Text(
-                              '${i + 1}',
-                              style: const TextStyle(
-                                color: AppColors.green,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Text(
-                                widget.steps[i],
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  height: 1.45,
-                                  color: AppColors.muted,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: _open
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 2, 18, 18),
+                    child: Column(
+                      children: [
+                        for (int i = 0; i < widget.steps.length; i++)
+                          _buildStep(i),
+                      ],
                     ),
-                ],
-              ),
-            ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
         ],
       ),
     );
   }
+
+  Widget _buildStep(int i) {
+    final last = i == widget.steps.length - 1;
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 26,
+            child: Column(
+              children: [
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: _mint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '${i + 1}',
+                    style: const TextStyle(
+                      color: _forest,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                if (!last)
+                  Expanded(
+                    child: Center(
+                      child: Container(width: 1.5, color: _line),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(top: 4, bottom: last ? 0 : 16),
+              child: Text(
+                widget.steps[i],
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.55,
+                  color: AppColors.muted,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CornerPainter extends CustomPainter {
+  const _CornerPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = _forest
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round;
+
+    const len = 26.0;
+    const r = 14.0;
+    final w = size.width;
+    final h = size.height;
+
+    final path = Path()
+      ..moveTo(0, len)
+      ..lineTo(0, r)
+      ..quadraticBezierTo(0, 0, r, 0)
+      ..lineTo(len, 0)
+      ..moveTo(w - len, 0)
+      ..lineTo(w - r, 0)
+      ..quadraticBezierTo(w, 0, w, r)
+      ..lineTo(w, len)
+      ..moveTo(w, h - len)
+      ..lineTo(w, h - r)
+      ..quadraticBezierTo(w, h, w - r, h)
+      ..lineTo(w - len, h)
+      ..moveTo(len, h)
+      ..lineTo(r, h)
+      ..quadraticBezierTo(0, h, 0, h - r)
+      ..lineTo(0, h - len);
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _QrPainter extends CustomPainter {

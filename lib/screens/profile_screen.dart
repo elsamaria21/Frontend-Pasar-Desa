@@ -361,7 +361,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    // Isi nama, email, dan HP dari akun yang sedang login.
     final user = context.read<AuthProvider>().currentUser;
     final name = (user['name'] ?? '').trim();
     _data = ProfileData.initial()
@@ -397,7 +396,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _openAddress() async {
-    // Gunakan model dan bottom sheet yang sama persis dengan Checkout.
     final profileAddresses = AddressBook.snapshot();
     final checkoutAddresses = profileAddresses.map((a) {
       final wilayah = '${a.dusun}, RT ${a.rt} / RW ${a.rw}';
@@ -412,10 +410,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         detail: a.detail,
         courierNote: a.note,
         pickupPoint: a.pickupPoint,
-        latitude: a.latitude,
-        longitude: a.longitude,
       );
     }).toList();
+
+    if (checkoutAddresses.isEmpty) {
+      checkoutAddresses.add(
+        AddressData(
+          _data.name,
+          _data.phone,
+          '${_data.dusun}, RT ${_data.rt} / RW ${_data.rw} (${_data.landmark})',
+          id: 'profile-fallback-address',
+          label: 'Rumah',
+          isMain: true,
+          dusun: '${_data.dusun}, RT ${_data.rt} / RW ${_data.rw}',
+          detail: _data.landmark,
+        ),
+      );
+    }
 
     final selectedIndex = checkoutAddresses.indexWhere((a) => a.isMain);
     await showModalBottomSheet<void>(
@@ -461,14 +472,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 label: a.label,
                 pickupPoint: a.pickupPoint,
                 isPrimary: i == selected,
-                latitude: a.latitude,
-                longitude: a.longitude,
               ),
             );
           }
 
-          // Simpan ke sumber data bersama agar perubahan dari Profil
-          // langsung tersedia juga di halaman Checkout.
           AddressBook.replace(converted);
         },
       ),
@@ -1994,7 +2001,6 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
               const SizedBox(width: 6),
               InkWell(
                 onTap: () {
-                  // Catatan: buka halaman peta untuk memindahkan pin.
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Fitur peta segera hadir.')),
                   );
